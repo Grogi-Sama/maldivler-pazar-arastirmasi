@@ -34,6 +34,10 @@ MAIL_LOG = [line.split("\t") for line in (HERE / "mail_takip.tsv").read_text(enc
 EXTRA_ANCHORS = {
     "Aydeniz Grubu (Ayada Maldives sahibi)": [("Resortlar", "Ayada Maldives")],
     "Kandima / Pulse Hotels & Resorts": [("Resortlar", "Kandima Maldives")],
+    "Taj Exotica & Taj Coral Reef (IHCL)": [("Resortlar", "Taj Coral Reef")],
+    "Four Seasons Landaa Giraavaru & Kuda Huraa": [("Resortlar", "Four Seasons Kuda Huraa")],
+    "Emerald Maldives & Emerald Faarufushi": [("Resortlar", "Faarufushi Maldives"), ("İşletmeci Gruplar", "Emerald Collection")],
+    "Anantara Dhigu / Veli / Naladhu (Minor Hotels)": [("İşletmeci Gruplar", "Minor Hotels (Anantara, NH Collection)")],
 }
 STATUS_FILL = {
     "Mail gönderildi": PatternFill("solid", fgColor="DDEBF7"),   # açık mavi
