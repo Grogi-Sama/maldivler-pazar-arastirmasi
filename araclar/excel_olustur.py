@@ -10,7 +10,27 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.table import Table, TableStyleInfo
 
-OUT = Path(__file__).resolve().parent.parent / "Maldivler_Potansiyel_Musteri_Listesi.xlsx"
+HERE = Path(__file__).resolve().parent
+OUT = HERE.parent / "Maldivler_Potansiyel_Musteri_Listesi.xlsx"
+
+
+def load_tsv(name):
+    """Kurumsal iletişim verisini okur: ilk sütun anahtar, kalanlar değer."""
+    data = {}
+    for line in (HERE / name).read_text(encoding="utf-8").splitlines():
+        if line.strip():
+            f = line.split("\t")
+            data[f[0]] = f[1:]
+    return data
+
+
+RESORT_CONTACTS = load_tsv("iletisim_resort.tsv")  # e-posta, telefon, güven/not, kaynak
+GROUP_CONTACTS = load_tsv("iletisim_grup.tsv")  # e-posta, telefon, adres, kaynak
+
+# Puan formülünün dışında kalan özel durumlar: (ek puan, gerekçe)
+BONUS = {
+    "Ayada Maldives": (3, "Türk sahipli (Aydeniz Grubu, Ankara) – doğrudan sahiple Türkçe görüşme, ilk referans için ideal"),
+}
 
 HEADER_FILL = PatternFill("solid", fgColor="1F4E78")
 HEADER_FONT = Font(bold=True, color="FFFFFF")
@@ -42,15 +62,15 @@ ENERGY_POINTS = {"D": 2, "P": 3, "F": 0, "N": 3}
 
 # (resort, atoll, işletmeci/grup, yaklaşık oda, web, enerji kodu, enerji notu, çok-resortlu grup mu)
 RESORTS = [
-    # --- Universal Resorts (Maldivli, 8 resort) ---
-    ("Kuramathi Maldives", "Alif Alif (Rasdhoo)", "Universal Resorts", 360, "kuramathi.com", "P", "Swimsol çatı GES (servis binaları)", True),
-    ("Kurumba Maldives", "Kaafu (Kuzey Malé)", "Universal Resorts", 180, "kurumba.com", "D", "", True),
-    ("Velassaru Maldives", "Kaafu (Güney Malé)", "Universal Resorts", 129, "velassaru.com", "D", "", True),
-    ("Baros Maldives", "Kaafu (Kuzey Malé)", "Universal Resorts", 75, "baros.com", "D", "", True),
-    ("Dhigali Maldives", "Raa", "Universal Resorts", 180, "dhigali.com", "D", "", True),
-    ("Faarufushi Maldives", "Raa", "Universal Resorts", 80, "faarufushimaldives.com", "D", "", True),
-    ("Milaidhoo Maldives", "Baa", "Universal Resorts", 50, "milaidhoo.com", "D", "", True),
-    ("Kandolhu Maldives", "Alif Alif (Kuzey Ari)", "Universal Resorts", 30, "kandolhu.com", "D", "", True),
+    # --- VERSA Hospitality (eski Universal Resorts; Niva markası, Maldivli) ---
+    ("Kuramathi Maldives", "Alif Alif (Rasdhoo)", "VERSA Hospitality (Niva)", 360, "nivakuramathi.com", "P", "Swimsol çatı GES (servis binaları)", True),
+    ("Kurumba Maldives", "Kaafu (Kuzey Malé)", "VERSA Hospitality (Niva)", 180, "kurumba.com", "D", "", True),
+    ("Velassaru Maldives", "Kaafu (Güney Malé)", "VERSA Hospitality (Niva)", 129, "nivavelassaru.com", "D", "", True),
+    ("Baros Maldives", "Kaafu (Kuzey Malé)", "VERSA Hospitality", 75, "baros.com", "D", "", True),
+    ("Dhigali Maldives", "Raa", "VERSA Hospitality (Niva)", 180, "nivadhigali.com", "D", "", True),
+    ("Faarufushi Maldives", "Raa", "Emerald Collection", 80, "emerald-faarufushi.com", "D", "Yeni adı Emerald Faarufushi", True),
+    ("Milaidhoo Maldives", "Baa", "VERSA Hospitality", 50, "milaidhoo.com", "D", "", True),
+    ("Kandolhu Maldives", "Alif Alif (Kuzey Ari)", "VERSA Hospitality", 30, "kandolhu.com", "D", "", True),
     # --- Sun Siyam (Maldivli, grup hedefi %50 yenilenebilir @2030) ---
     ("Siyam World Maldives", "Noonu", "Sun Siyam Resorts", 500, "siyamworld.com", "F", "2025: GES (2,7 MW hedef) + 1.720 kWh ESS – Hayleys Fentons", True),
     ("Sun Siyam Olhuveli", "Kaafu (Güney Malé)", "Sun Siyam Resorts", 200, "sunsiyam.com", "F", "2025: GES + 537,5 kWh ESS – Hayleys Fentons", True),
@@ -63,8 +83,8 @@ RESORTS = [
     ("Kudadoo Maldives Private Island", "Lhaviyani", "Crown & Champa Resorts", 15, "kudadoo.com", "F", "Tamamen güneş enerjili olarak tasarlandı", True),
     ("Diğer Crown & Champa resortları", "Çeşitli", "Crown & Champa Resorts", 0, "crownandchamparesorts.com", "D", "Grup düzeyinde tek görüşme ile 7+ ada", True),
     # --- Villa Hotels / Villa Group (Maldivli) ---
-    ("Sun Island Resort & Spa", "Alif Dhaal (Güney Ari)", "Villa Hotels & Resorts", 350, "villaresorts.com", "D", "", True),
-    ("Paradise Island Resort", "Kaafu (Kuzey Malé)", "Villa Hotels & Resorts", 280, "villaresorts.com", "D", "", True),
+    ("Sun Island Resort & Spa", "Alif Dhaal (Güney Ari)", "Villa Hotels & Resorts", 350, "villaresorts.com", "P", "Yeni adı Villa Park; 2.400+ güneş paneli var", True),
+    ("Paradise Island Resort", "Kaafu (Kuzey Malé)", "Villa Hotels & Resorts", 280, "villaresorts.com", "D", "Yeni adı Villa Nautica", True),
     ("Holiday Island Resort", "Alif Dhaal (Güney Ari)", "Villa Hotels & Resorts", 140, "villaresorts.com", "D", "", True),
     ("Royal Island Resort", "Baa", "Villa Hotels & Resorts", 150, "villaresorts.com", "D", "", True),
     ("Fun Island Resort", "Kaafu (Güney Malé)", "Villa Hotels & Resorts", 100, "villaresorts.com", "D", "", True),
@@ -88,8 +108,8 @@ RESORTS = [
     ("Hard Rock Hotel Maldives", "Kaafu (Güney Malé)", "CROSSROADS / Singha Estate", 178, "hardrockhotels.com/maldives", "D", "Entegre ada kompleksi (marina + 2 otel)", True),
     ("SAii Lagoon Maldives", "Kaafu (Güney Malé)", "CROSSROADS / Singha Estate", 180, "saiihotels.com", "D", "Hard Rock ile aynı ada kompleksi", True),
     # --- Bağımsız / tek-ada büyük resortlar ---
-    ("Kuredu Island Resort", "Lhaviyani", "Kuredu (bağımsız grup)", 380, "kuredu.com", "D", "Ülkenin en büyük resortlarından", True),
-    ("Komandoo Island Resort", "Lhaviyani", "Kuredu (bağımsız grup)", 65, "komandoo.com", "D", "", True),
+    ("Kuredu Island Resort", "Lhaviyani", "Crown & Champa (Kuredu Holdings)", 380, "kuredu.com", "D", "Ülkenin en büyük resortlarından", True),
+    ("Komandoo Island Resort", "Lhaviyani", "Crown & Champa (Kuredu Holdings)", 65, "komandoo.com", "D", "", True),
     ("Meeru Maldives Resort Island", "Kaafu (Kuzey Malé)", "Bağımsız (Maldivli)", 286, "meeru.com", "D", "", False),
     ("Bandos Maldives", "Kaafu (Kuzey Malé)", "Bağımsız (Maldivli)", 250, "bandosmaldives.com", "D", "", False),
     ("Malahini Kuda Bandos", "Kaafu (Kuzey Malé)", "Bağımsız", 70, "malahini.com", "D", "Akademik GES+ESS fizibilite çalışmasına konu oldu", False),
@@ -99,12 +119,12 @@ RESORTS = [
     ("Embudu Village", "Kaafu (Güney Malé)", "Bağımsız", 120, "embudu.com", "D", "", False),
     ("Biyadhoo Island Resort", "Kaafu (Güney Malé)", "Bağımsız", 96, "biyadhoo.com", "D", "", False),
     ("Summer Island Maldives", "Kaafu (Kuzey Malé)", "Bağımsız", 110, "summerislandmaldives.com", "D", "", False),
-    ("Reethi Beach Resort", "Baa", "Bağımsız", 115, "reethibeach.com", "D", "", False),
+    ("Reethi Beach Resort", "Baa", "NH Collection (Minor Hotels)", 115, "nh-collection.com", "D", "Yeni adı NH Collection Maldives Reethi", True),
     ("Robinson Maldives", "Gaafu Alifu", "TUI / Robinson", 125, "robinson.com", "D", "", True),
-    ("Ayada Maldives", "Gaafu Dhaalu", "Bağımsız (Türk sermayeli)", 110, "ayadamaldives.com", "D", "Türk bağlantısı – sıcak giriş fırsatı (doğrulanmalı)", False),
-    ("RAH GILI MALDIVES", "Doğrulanmalı", "Bağımsız", 0, "rahgili.com", "P", "Günlük ~17.000 kWh tüketim, ~8.000 kWh GES; yılda ~540.000 L dizel tasarrufu", False),
+    ("Ayada Maldives", "Gaafu Dhaalu", "Aydeniz Grubu (Ankara, TÜRK)", 110, "ayadamaldives.com", "D", "Türk sahipli (Aydeniz Grubu) – Türkçe, doğrudan sahibe ulaşılabilir", False),
+    ("RAH GILI MALDIVES", "Kaafu (Güney Malé)", "Bağımsız", 0, "rahgili.com", "F", "2 MW GES + 2.500 kWh ESS; günlük ~17.000 kWh tüketim", False),
     ("Holiday Inn Resort Kandooma", "Kaafu (Güney Malé)", "IHG markası", 160, "maldives.holidayinnresorts.com", "P", "Sitede GES programı anlatılıyor", True),
-    ("Centara Grand Island Resort", "Alif Dhaal (Güney Ari)", "Centara Hotels", 112, "centarahotelsresorts.com", "P", "Tüm çatılarda GES; 2,3 GWh üretim / 645 bin L dizel tasarrufu", True),
+    ("Centara Grand Island Resort", "Alif Dhaal (Güney Ari)", "Centara Hotels", 112, "centarahotelsresorts.com", "P", "Yeni adı Machchafushi Island Resort (Centara Collection); tüm çatılarda GES", True),
     ("Centara Ras Fushi", "Kaafu (Kuzey Malé)", "Centara Hotels", 140, "centarahotelsresorts.com", "D", "", True),
     ("Grand Park Kodhipparu", "Kaafu (Kuzey Malé)", "Park Hotel Group", 120, "grandparkkodhipparu.com", "D", "", False),
     ("Emerald Maldives Resort", "Raa", "Emerald Collection", 120, "emeraldmaldives.com", "D", "", False),
@@ -147,21 +167,25 @@ RESORTS = [
 ]
 
 GROUPS = [
-    # (grup, merkez, Maldivler resort sayısı ~, öne çıkan resortlar, enerji durumu/notu, web, öncelik)
-    ("Universal Resorts", "Malé (Maldivli)", "8", "Kuramathi, Kurumba, Velassaru, Baros, Dhigali", "Kuramathi'de kısmi GES; diğerlerinde kamuya açık GES bilgisi yok", "universalresorts.com", "A"),
-    ("Villa Hotels & Resorts (Villa Group)", "Malé (Maldivli)", "5+", "Sun Island, Paradise Island, Royal Island", "Büyük, orta segment, dizel ağırlıklı; Villa Group'un kendi enerji/yakıt işi de var", "villaresorts.com", "A"),
-    ("Sun Siyam Resorts", "Malé (Maldivli)", "5", "Siyam World, Olhuveli, Iru Fushi, Iru Veli, Vilu Reef", "2 resortta GES+ESS (Hayleys Fentons); %50 yenilenebilir @2030 hedefi -> kalan 3 resort için 2. faz", "sunsiyam.com", "A"),
-    ("Crown & Champa Resorts", "Malé (Maldivli)", "10", "Veligandu, Hurawalhi, Kudadoo", "Veligandu tamamlandı; grubun diğer adaları sırada olabilir", "crownandchamparesorts.com", "A"),
-    ("Atmosphere Core", "Malé / Hindistan", "9-10", "Kanifushi, OZEN Reserve, OZEN LIFE, VARU, Amaraa Faru (2027)", "Çatı GES yaygın; ESS ilavesi ve yeni açılışlar fırsat", "atmospherecore.com", "A"),
-    ("Aitken Spence (Adaaran / Heritance)", "Colombo, Sri Lanka", "5", "Adaaran Hudhuranfushi, Rannalhi, Vadoo, Heritance Aarah", "Kamuya açık GES bilgisi sınırlı", "aitkenspence.com", "B"),
-    ("Cinnamon Hotels (John Keells)", "Colombo, Sri Lanka", "4", "Dhonveli, Velifushi, Ellaidhoo, Hakuraa", "Kamuya açık GES bilgisi sınırlı", "cinnamonhotels.com", "B"),
-    ("Minor Hotels (Anantara)", "Bangkok, Tayland", "4+", "Anantara Dhigu/Veli/Naladhu, Kihavah", "Kamuya açık GES bilgisi sınırlı", "minorhotels.com", "B"),
-    ("Pulse Hotels & Resorts (Kandima)", "Malé", "1-2", "Kandima", "Kamuya açık GES bilgisi yok", "kandima.com", "B"),
-    ("CROSSROADS / Singha Estate", "Bangkok, Tayland", "2 + marina", "Hard Rock, SAii Lagoon", "Entegre ada kompleksi, tek enerji santrali", "crossroadsmaldives.com", "B"),
-    ("Centara Hotels & Resorts", "Bangkok, Tayland", "3+", "Centara Grand, Ras Fushi, Mirage", "Centara Grand'da çatı GES -> ESS ilavesi", "centarahotelsresorts.com", "B"),
-    ("Pontiac Land (Fari Islands)", "Singapur", "3 (Capella 2027)", "Patina, Ritz-Carlton, Capella", "Swimsol ile büyük GES+ESS – rakip tarafından alınmış", "fari-islands.com", "C"),
-    ("Soneva", "Maldivler / Tayland", "3", "Soneva Fushi, Jani, Secret", "Canopy Power + Huawei ESS – rakip tarafından alınmış (referans vaka)", "soneva.com", "C"),
-    ("Marriott / Hilton / IHG / Four Seasons vb. küresel markalar", "Çeşitli", "Çok sayıda", "Waldorf, Conrad, Sheraton, Holiday Inn, Four Seasons", "Karar çoğunlukla mülk sahibi (owner) şirkette; marka sadece işletmeci. Owner şirket tespit edilmeli", "—", "B"),
+    # (grup, merkez, Maldivler resort sayısı ~, öne çıkan resortlar, enerji durumu/notu, web, öncelik,
+    #  iletisim_grup.tsv'deki anahtar veya None)
+    ("VERSA Hospitality (eski Universal Resorts)", "Malé (Maldivli)", "8", "Niva Kuramathi, Niva Kurumba, Niva Velassaru, Niva Dhigali, Baros, Milaidhoo, Kandolhu", "Ekim 2025'te VERSA adını aldı, Niva markasını kurdu. Kuramathi'de kısmi GES; diğerlerinde kamuya açık GES bilgisi yok", "versahospitality.com", "A", "VERSA Hospitality (eski Universal Resorts)"),
+    ("Villa Hotels & Resorts (Villa Group)", "Malé (Maldivli)", "5+", "Villa Park (eski Sun Island), Villa Nautica (eski Paradise Island), Royal Island", "Büyük, orta segment; Villa Park'ta 2.400+ panel var, batarya bilgisi yok", "villaresorts.com", "A", "Villa Hotels & Resorts (Villa Group)"),
+    ("Sun Siyam Resorts", "Malé (Maldivli)", "5", "Siyam World, Olhuveli, Iru Fushi, Iru Veli, Vilu Reef", "2 resortta GES+ESS (Hayleys Fentons); %50 yenilenebilir @2030 hedefi -> kalan 3 resort için 2. faz", "sunsiyam.com", "A", "Sun Siyam Resorts"),
+    ("Crown & Champa Resorts", "Malé (Maldivli)", "10", "Kuredu, Komandoo, Veligandu, Hurawalhi, Kudadoo, Vilamendhoo, Meeru (doğrulanmalı)", "Veligandu tamamlandı; Kuredu (380 oda) en büyük fırsat", "crownandchamparesorts.com", "A", "Crown & Champa Resorts"),
+    ("Kuredu Holdings (Crown & Champa ortağı)", "Malé (Maldivli)", "2+", "Kuredu, Komandoo", "Kuredu ve Komandoo'nun sahibi; yeni resortlar geliştiriyor", "—", "A", "Kuredu Holdings (Crown & Champa ortağı; Kuredu, Komandoo vb.)"),
+    ("Atmosphere Core", "Malé / Hindistan", "9-10", "Kanifushi, OZEN Reserve, OZEN LIFE, VARU, Amaraa Faru (2027)", "Çatı GES yaygın; ESS ilavesi ve yeni açılışlar fırsat", "atmospherecore.com", "A", "Atmosphere Core"),
+    ("Aydeniz Grubu (TÜRK – Ayada Maldives sahibi)", "Ankara, Türkiye", "1", "Ayada Maldives", "Kamuya açık GES bilgisi yok. Türk sahipli: Türkçe ve doğrudan sahiple görüşme imkânı – İLK REFERANS İÇİN EN SICAK ADAY", "aydeniz.com", "A", "Aydeniz Grubu (Ayada Maldives sahibi – TÜRK)"),
+    ("Aitken Spence (Adaaran / Heritance)", "Colombo, Sri Lanka", "5", "Adaaran Hudhuranfushi, Rannalhi, Vadoo, Heritance Aarah", "Kamuya açık GES bilgisi sınırlı", "aitkenspencehotels.com", "B", "Aitken Spence – Adaaran Group (Malé ofisi)"),
+    ("Cinnamon Hotels (John Keells)", "Colombo, Sri Lanka", "4", "Dhonveli, Velifushi, Ellaidhoo, Hakuraa", "Kamuya açık GES bilgisi sınırlı", "cinnamonhotels.com", "B", "Cinnamon Hotels – John Keells Maldivian Resorts"),
+    ("Minor Hotels (Anantara, NH Collection)", "Bangkok, Tayland", "5+", "Anantara Dhigu/Veli/Naladhu, Kihavah, NH Reethi", "Kamuya açık GES bilgisi sınırlı. Malé adresi VERSA ile aynı – adaların sahibi VERSA olabilir (doğrulanmalı)", "minorhotels.com", "B", "Minor Hotels – Anantara Maldivler"),
+    ("Pulse Hotels & Resorts (Kandima)", "Malé / Singapur", "1-2", "Kandima", "Kamuya açık GES bilgisi yok. Mayıs 2026'da Director of Engineering ilanı açtı (yeni kişi göreve başlamış olabilir)", "kandima.com", "B", "Pulse Hotels & Resorts (Kandima)"),
+    ("CROSSROADS / Singha Estate", "Bangkok, Tayland", "2 + marina", "Hard Rock, SAii Lagoon", "Entegre ada kompleksi, tek enerji santrali", "crossroadsmaldives.com", "B", "CROSSROADS Maldives (Singha Estate)"),
+    ("Centara Hotels & Resorts", "Bangkok, Tayland", "3+", "Machchafushi (eski Centara Grand), Ras Fushi, Mirage Lagoon", "Machchafushi'de çatı GES -> ESS ilavesi", "centarahotelsresorts.com", "B", None),
+    ("Emerald Collection", "Doğrulanmalı", "2", "Emerald Maldives, Emerald Faarufushi", "Kamuya açık GES bilgisi yok", "emerald-maldives.com", "B", None),
+    ("Pontiac Land (Fari Islands)", "Singapur", "3 (Capella 2027)", "Patina, Ritz-Carlton, Capella", "Swimsol ile büyük GES+ESS – rakip tarafından alınmış", "fari-islands.com", "C", None),
+    ("Soneva", "Maldivler / Dubai", "3", "Soneva Fushi, Jani, Secret", "Canopy Power + Huawei ESS – rakip tarafından alınmış (referans vaka)", "soneva.com", "C", None),
+    ("Marriott / Hilton / IHG / Four Seasons vb. küresel markalar", "Çeşitli", "Çok sayıda", "Waldorf, Conrad, Sheraton, Holiday Inn, Four Seasons", "Karar çoğunlukla mülk sahibi (owner) şirkette; marka sadece işletmeci. Owner şirket tespit edilmeli", "—", "B", None),
 ]
 
 COMPETITORS = [
@@ -190,6 +214,9 @@ PARTNERS = [
     ("Hayleys Fentons", "Bölgesel EPC (Sri Lanka)", "Maldivler resort referansı (Sun Siyam) var; ürün tedarikçisi arıyor olabilir", "fentons.lk (doğrulanmalı)", "Ortak veya rakip"),
     ("Canopy Power", "Mikro şebeke EPC (Singapur)", "Resort mikro şebeke uzmanı; Huawei ile çalışıyor", "canopypower.com", "Huawei kanalı ile çakışma kontrol edilmeli"),
     ("Resort jeneratör bakım/servis firmaları", "O&M", "Her resortun enerji santraline zaten erişimleri var; hibrit kontrol entegrasyonu için kritik", "Saha ziyaretinde tespit edilecek", "Cummins, MTU, Caterpillar yerel bayileri"),
+    ("SunCore Energy", "Yerel GES firması (Maldivler)", "Maldivli GES şirketi; 16+ yıllık proje yöneticisi var", "suncore.mv", "Yerel ortak adayı"),
+    ("Atoll Solar", "Yerel GES / yüzer GES", "Hotelier Maldives GM Forum 2026'da Ocean Sun ile lagün yüzer GES sunumu yaptı – resort yöneticilerine erişimi var", "Doğrulanmalı", "Yerel ortak adayı"),
+    ("DEIF", "Hibrit kontrol sistemi (Danimarka)", "Maldivler'de bir lüks resortta dizel+GES+batarya hibrit kontrolünü yaptı; ESS entegrasyonunda teknik ortak", "deif.com", "Teknik ortak"),
     ("Elemental Water Makers", "Güneş enerjili su arıtma", "Resortlarda tuzdan arındırma en büyük elektrik yüklerinden biri", "elementalwatermakers.com", "Tamamlayıcı ortak"),
 ]
 
@@ -199,7 +226,7 @@ PUBLIC = [
     ("Utility Regulatory Authority (URA)", "Düzenleyici kurum (Kanun 26/2020)", "Elektrik üretim/servis lisansları, şebeke bağlantı ve net metering kuralları", "ura.gov.mv"),
     ("STELCO", "Devlet elektrik şirketi (Malé bölgesi)", "Resortlar şebekeye bağlı değil; ama kamu ESS ihalelerinin alıcısı", "stelco.com.mv"),
     ("FENAKA Corporation", "Devlet hizmet şirketi (dış adalar)", "Dış adalardaki ESS/GES ihaleleri", "fenaka.mv"),
-    ("Ministry of Tourism", "Resort lisansları", "Resort listeleri, yeni ada kiralamaları, istatistik", "tourism.gov.mv"),
+    ("Ministry of Tourism", "Resort lisansları", "Resort listeleri, yeni ada kiralamaları, istatistik. Sitedeki 'Registered Facilities' listesi tüm resortların resmi telefon/e-posta bilgilerini içerir (PDF/CSV indirilebilir). Bakanlık: info@tourism.gov.mv, +960 332 3224", "tourism.gov.mv"),
     ("Maldives Association of Tourism Industry (MATI)", "Resort sahipleri derneği", "Sektöre toplu erişim, etkinlikler, sunum fırsatı", "mati.mv"),
     ("Invest Maldives", "Yatırım ajansı", "Şirket kurma / yabancı yatırım süreçleri", "investmaldives.gov.mv"),
     ("Maldives Customs Service", "Gümrük", "Yenilenebilir enerji ürünlerinde ithalat vergisi muafiyetinin teyidi", "customs.gov.mv"),
@@ -248,8 +275,9 @@ def room_points(rooms):
     return 1  # bilinmiyor
 
 
-def score(rooms, energy, group):
-    total = room_points(rooms) + ENERGY_POINTS[energy] + (1 if group else 0)
+def score(name, rooms, energy, group):
+    bonus, bonus_reason = BONUS.get(name, (0, ""))
+    total = min(7, room_points(rooms) + ENERGY_POINTS[energy] + (1 if group else 0) + bonus)
     prio = "A" if total >= 6 else "B" if total >= 4 else "C"
     reasons = []
     if rooms >= 250:
@@ -268,6 +296,8 @@ def score(rooms, energy, group):
     }[energy])
     if group:
         reasons.append("çok-resortlu grup (tek kararla birden fazla ada)")
+    if bonus_reason:
+        reasons.append(bonus_reason)
     return total, prio, "; ".join(reasons)
 
 
@@ -319,13 +349,18 @@ def sheet_guide(wb):
         ("Büyüklük: 250+ oda = 3 puan, 120–249 = 2, 120 altı veya bilinmiyor = 1", False),
         ("Enerji durumu: GES var ama ESS yok = 3; yeni proje = 3; bilinen GES yok (dizel) = 2; GES+ESS rakip tarafından kurulmuş = 0", False),
         ("Çok-resortlu grup: +1 (tek karar birden fazla adayı kapsar)", False),
+        ("Özel durum: Türk sahipli resort (Ayada) +3", False),
         ("Öncelik: A = 6–7 puan, B = 4–5 puan, C = 0–3 puan", False),
         ("", False),
         ("ÖNEMLİ NOTLAR", True),
         ("• Oda sayıları yaklaşıktır (kamuya açık kaynaklardan/genel bilgiden); görüşme öncesi resort web sitesinden teyit edin.", False),
         ("• 'Dizel ağırlıklı' = internette GES bilgisine rastlanmadı demektir; resortun hiç GES'i olmadığı anlamına gelmeyebilir.", False),
-        ("• Kişisel veri toplanmadı. İletişim için resortların kurumsal web sitelerindeki genel iletişim kanalları kullanılmalı;", False),
-        ("  hedef rol (Chief Engineer vb.) LinkedIn'de unvan ile aranabilir.", False),
+        ("• İletişim sütunları yalnızca KURUMSAL genel adresleri içerir (info@, reservations@, sales@ vb.). Kişisel adres eklenmedi.", False),
+        ("• 'İletişim kaynağı / güven' sütunu adresin nereden alındığını gösterir: 'Otelin kendi sitesi' en güvenilir olanıdır.", False),
+        ("• Rezervasyon adresine yazarken konu satırına 'Attn: Director of Engineering / Chief Engineer' ekleyin; mail ilgili kişiye yönlendirilir.", False),
+        ("• E-postası '—' olan resortlarda adres sitede gizlenmiş; web sitesindeki iletişim formunu veya telefonu kullanın.", False),
+        ("• Resmi tam liste: Turizm Bakanlığı sitesindeki 'Registered Facilities' listesi (tourism.gov.mv) tüm resortların e-posta/telefonunu içerir.", False),
+        ("• Bazı resortların adı 2025–2026'da değişti (Niva, Villa Park, Villa Nautica, Machchafushi, NH Reethi, Emerald Faarufushi) – notlarda belirtildi.", False),
         ("• 'Doğrulanmalı' yazan alanlar masa başı araştırmada kesinleştirilemedi.", False),
     ]
     for i, (text, bold) in enumerate(lines, start=1):
@@ -334,24 +369,34 @@ def sheet_guide(wb):
     ws.column_dimensions["A"].width = 130
 
 
+def contact_cells(name, web):
+    if name in RESORT_CONTACTS:
+        email, phone, note, src = RESORT_CONTACTS[name]
+        return [email, phone, note, src]
+    if web == "—":
+        return ["—", "—", "Bulunamadı (yeni proje / doğrulanmalı)", "—"]
+    return ["—", "—", CONTACT_NOTE, "—"]
+
+
 def sheet_resorts(wb):
     ws = wb.create_sheet("Resortlar")
     headers = ["#", "Resort", "Atoll", "İşletmeci / Grup", "Yaklaşık oda", "Enerji durumu",
-               "Bilinen enerji altyapısı (not)", "Web sitesi", "Kurumsal iletişim kanalı",
+               "Bilinen enerji altyapısı (not)", "Web sitesi", "Genel e-posta (kurumsal)", "Telefon",
+               "İletişim kaynağı / güven", "Kaynak bağlantısı",
                "Hedef rol", "Puan (0–7)", "Öncelik", "Öncelik gerekçesi"]
     ws.append(headers)
     rows = []
     for name, atoll, op, rooms, web, energy, note, group in RESORTS:
-        total, prio, reason = score(rooms, energy, group)
+        total, prio, reason = score(name, rooms, energy, group)
         rows.append((total, name, atoll, op, rooms, energy, note, web, prio, reason))
     rows.sort(key=lambda r: (-r[0], r[1]))
     for i, (total, name, atoll, op, rooms, energy, note, web, prio, reason) in enumerate(rows, start=1):
         ws.append([i, name, atoll, op, rooms if rooms else "Doğrulanmalı", ENERGY_LABEL[energy],
-                   note or "—", web, CONTACT_NOTE if web != "—" else "Doğrulanmalı",
+                   note or "—", web, *contact_cells(name, web),
                    TARGET_ROLE, total, prio, reason])
-        ws.cell(row=i + 1, column=12).fill = PRIO_FILL[prio]
+        ws.cell(row=i + 1, column=15).fill = PRIO_FILL[prio]
     style_header(ws, len(headers))
-    set_widths(ws, [5, 34, 22, 28, 10, 26, 42, 28, 36, 40, 9, 9, 60])
+    set_widths(ws, [5, 34, 22, 28, 10, 26, 42, 26, 34, 18, 36, 40, 40, 9, 9, 60])
     wrap_all(ws)
     add_table(ws, "Resortlar", len(headers), len(rows))
 
@@ -442,10 +487,15 @@ def main():
     wb = Workbook()
     sheet_guide(wb)
     sheet_resorts(wb)
+    group_rows = []
+    for *fields, key in GROUPS:
+        email, phone, address, src = GROUP_CONTACTS.get(key, ["—", "—", "—", "—"])
+        group_rows.append([*fields, email, phone, address, src])
     simple_sheet(wb, "İşletmeci Gruplar", "Gruplar",
                  ["Grup", "Merkez", "Maldivler'deki resort sayısı (yakl.)", "Öne çıkan resortlar",
-                  "Enerji durumu / not", "Web sitesi", "Öncelik"],
-                 GROUPS, [36, 22, 16, 44, 60, 26, 9], prio_col=7)
+                  "Enerji durumu / not", "Web sitesi", "Öncelik", "Merkez ofis e-posta (kurumsal)",
+                  "Merkez ofis telefon", "Adres", "Kaynak bağlantısı"],
+                 group_rows, [36, 22, 16, 44, 60, 26, 9, 36, 20, 40, 40], prio_col=7)
     simple_sheet(wb, "Rakipler ve Projeler", "Rakipler",
                  ["Firma", "Menşe", "Rol", "Maldivler'deki bilinen projeler", "Teknoloji / marka", "Karea için anlamı"],
                  COMPETITORS, [26, 22, 26, 60, 36, 50])

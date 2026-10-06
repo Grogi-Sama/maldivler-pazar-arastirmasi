@@ -1,7 +1,7 @@
 # Maldivler Resort Adaları – GES + Enerji Depolama Pazar Raporu
 
 **Hazırlanan:** Karea Enerji iş geliştirme | **Tarih:** Ekim 2026 | **Yöntem:** Kamuya açık kaynaklarla masa başı araştırma
-**Ek dosya:** `Maldivler_Potansiyel_Musteri_Listesi.xlsx` (90 resort, işletmeci gruplar, rakipler, ortak adayları, kamu kurumları, geri dönüş hesaplayıcısı)
+**Ek dosya:** `Maldivler_Potansiyel_Musteri_Listesi.xlsx` (90 resort ve kurumsal iletişim bilgileri, işletmeci gruplar ve merkez ofisleri, rakipler, ortak adayları, kamu kurumları, geri dönüş hesaplayıcısı)
 
 ---
 
@@ -11,6 +11,7 @@
 - **Elektrik pahalı:** Dizelle üretim maliyeti **0,23–0,33 $/kWh**, küçük adalarda **0,70 $/kWh**'e kadar çıkıyor. 2026'daki petrol şokuyla dizel litresi **~1,14 $**'a (17,54 MVR) yükseldi.
 - **Geri dönüş kısa:** 150 odalı örnek resortta 1 MWp GES + 1 MWh batarya (ESS) yatırımı yaklaşık **4 yılda** kendini ödüyor (Huawei'nin kendi Soneva Secret vakası da 4–5 yıl diyor).
 - **Pazar canlı ama dolmadı:** 179 resortun yaklaşık 50–60'ında bir miktar GES var (çoğu Swimsol). Ancak **bataryalı (ESS) sistem kuran resort sayısı hâlâ az.** Asıl fırsat: (1) GES'i olup bataryası olmayan resortlara **ESS ilavesi**, (2) hiç GES'i olmayan büyük resortlara **GES + ESS paketi**, (3) **yeni yapılan** resortlara tasarım aşamasında girmek.
+- **Türk bağlantısı teyit edildi:** **Ayada Maldives** (Gaafu Dhaalu, ~110 oda) Ankara merkezli **Aydeniz Grubu**'na ait ve kamuya açık GES bilgisi yok. Türkçe, doğrudan sahiple görüşülebilecek, ilk referans için en sıcak aday.
 - **Dikkat:** **Huawei bölgede zaten var** (Soneva Secret 3 MWh; Royal Rosewood 40 MWh, Ağustos 2026). Karea'nın Huawei ile Maldivler'de satış yapma yetkisi netleştirilmeli. **HYXI'nin ise Maldivler'de bilinen hiçbir projesi yok** → ilk referansı Karea yapabilir.
 
 ---
@@ -90,7 +91,7 @@
 
 ## 7. Giriş stratejisi
 
-1. **Önce gruplar, sonra adalar.** Kararlar çoğunlukla Malé'deki grup merkezinde (Technical Services / Engineering Director) veriliyor. Tek görüşme 5–10 adayı açar. Öncelikli gruplar: **Universal Resorts, Villa Hotels, Sun Siyam (2. faz), Crown & Champa, Atmosphere Core.** Küresel markalarda (Hilton, Marriott, IHG) kararı **mülk sahibi şirket** verir, marka değil.
+1. **Önce gruplar, sonra adalar.** Kararlar çoğunlukla Malé'deki grup merkezinde (Technical Services / Engineering Director) veriliyor. Tek görüşme 5–10 adayı açar. Öncelikli gruplar: **VERSA Hospitality (eski Universal Resorts), Villa Hotels, Sun Siyam (2. faz), Crown & Champa (Kuredu Holdings dahil), Atmosphere Core.** Merkez ofis iletişim bilgileri Excel'deki "İşletmeci Gruplar" sekmesinde. Küresel markalarda (Hilton, Marriott, IHG) kararı **mülk sahibi şirket** verir, marka değil.
 2. **İki ayrı teklif:**
    - **"Bataryanı ekle" teklifi:** GES'i olup bataryası olmayan resortlar (çoğu Swimsol müşterisi). Batarya, gündüz fazla güneşi geceye kaydırır ve jeneratör çalışma saatlerini düşürür. Satışı en kolay ürün.
    - **"Komple hibrit" teklifi:** Hiç GES'i olmayan büyük resortlar (Sun Island, Paradise Island, Kuredu, Kandima, Meeru, Bandos…).
@@ -98,14 +99,21 @@
 4. **Finansman ile gelin.** Resortlar "peşin ödemesiz, kWh başına öde" (PPA/kiralama) modeline alışık. Bir yatırım fonu / leasing şirketiyle model hazırlamak satış hızını ciddi artırır.
 5. **Swimsol'u da müşteri olarak görün.** 50+ resortta GES'leri var ve batarya tedarikçisi arıyor olabilirler.
 6. **Ürün kanalını netleştirin.** HYXI: Maldivler yetkisi ve fiyat desteği. Huawei: mevcut kanallarla çakışmamak için bölge ofisiyle proje kaydı.
-7. **Türk bağlantısını kullanın.** Türk sermayeli/yönetimli resortlar (ör. Ayada – doğrulanmalı) ve Türk inşaat firmalarının yaptığı yeni projeler sıcak giriş noktası olabilir. Malé'deki T.C. temsilciliğinden destek istenebilir.
+7. **Türk bağlantısını kullanın.** Ayada Maldives'in sahibi Aydeniz Grubu (Ankara; info@aydeniz.com, +90 312 212 6612). İlk pilot proje için Ankara'da yüz yüze görüşme önerilir. Türk inşaat firmalarının yaptığı yeni projeler de sıcak giriş noktası olabilir. Malé'deki T.C. temsilciliğinden destek istenebilir.
+
+### Pazardaki son değişiklikler (2025–2026)
+- Universal Resorts → **VERSA Hospitality**; resortları **Niva** markasıyla yeniden adlandırılıyor (Niva Kurumba, Niva Kuramathi, Niva Velassaru, Niva Dhigali).
+- Sun Island → **Villa Park**; Paradise Island → **Villa Nautica**; Centara Grand → **Machchafushi Island Resort**; Reethi Beach → **NH Collection Maldives Reethi**; Faarufushi → **Emerald Faarufushi** (Emerald grubu).
+- Kuredu ve Komandoo, **Crown & Champa** ortağı Kuredu Holdings'e ait.
+- RAH GILI Maldives 2 MW GES + 2,5 MWh batarya kurdu (rakip tarafından alınmış).
 
 ## 8. Önerilen sonraki adımlar (ilk 90 gün)
 
 | # | Adım | Süre |
 |---|---|---|
 | 1 | HYXI ve Huawei ile Maldivler satış yetkisi/kanal durumunu yazılı netleştirin | 2 hafta |
-| 2 | Excel'deki **A önceliğindeki 14 resort** ve 5 öncelikli grup için web sitesinden iletişim bilgilerini teyit edin; LinkedIn'de "Chief Engineer / Director of Engineering + resort adı" ile kişileri bulun | 2 hafta |
+| 2 | **Aydeniz Grubu (Ayada) ile Ankara'da görüşme** – pilot proje teklifi | 2–4 hafta |
+| 2b | Excel'deki **A önceliğindeki 15 resort** ve öncelikli gruplara kurumsal adreslerden tanıtım maili (konu: "Attn: Director of Engineering"); LinkedIn'de "Chief Engineer + resort adı" ile kişileri bulun | 2 hafta |
 | 3 | 2–3 yerel ortak adayıyla (Ecogreen, REM, Avi Technologies) online görüşme | 3–4 hafta |
 | 4 | Türkçe/İngilizce tek sayfalık teklif broşürü: "Bataryanı ekle – dizelini %X azalt", örnek geri dönüş tablosuyla | 3 hafta |
 | 5 | İlgilenen 3–5 resorttan son 12 ayın **dizel tüketimi ve saatlik yük verisini** isteyip ücretsiz ön fizibilite yapın | 4–8 hafta |
