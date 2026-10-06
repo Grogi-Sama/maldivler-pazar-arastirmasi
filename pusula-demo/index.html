@@ -1,0 +1,668 @@
+<title>Pusula</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: sol menü + çalışma alanı (masaüstü), alt sekme çubuğu (mobil). Pusula: ince mürekkep, deniz yeşili işaret rengi, kehribar takip rengi. */
+:root{
+  --bg:#F1F4F3; --surface:#FFFFFF; --surface-2:#E8EDEB; --line:#D5DDDA;
+  --fg:#16211F; --muted:#5A6B67; --accent:#0E7A6B; --accent-fg:#FFFFFF; --accent-soft:#D6EEEA;
+  --amber:#A86A12; --amber-soft:#F6E7CF; --blue:#2D5DA8; --blue-soft:#DCE6F6; --red:#B23A36; --red-soft:#F5DEDC; --grey-soft:#E4E8E7;
+  --display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body:"Figtree", "Segoe UI", system-ui, sans-serif;
+  --mono:"JetBrains Mono", ui-monospace, Menlo, monospace;
+  --r:10px; --shadow:0 1px 2px rgba(20,40,36,.06),0 4px 14px rgba(20,40,36,.05);
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0E1513; --surface:#151F1C; --surface-2:#1C2825; --line:#2A3834;
+  --fg:#E4ECE9; --muted:#93A6A1; --accent:#3DB7A3; --accent-fg:#06211C; --accent-soft:#163B35;
+  --amber:#E2A84B; --amber-soft:#3A2D16; --blue:#8DB0EA; --blue-soft:#1C2A42; --red:#EA8C86; --red-soft:#3B1E1C; --grey-soft:#26302E;
+  --shadow:none; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0E1513; --surface:#151F1C; --surface-2:#1C2825; --line:#2A3834;
+  --fg:#E4ECE9; --muted:#93A6A1; --accent:#3DB7A3; --accent-fg:#06211C; --accent-soft:#163B35;
+  --amber:#E2A84B; --amber-soft:#3A2D16; --blue:#8DB0EA; --blue-soft:#1C2A42; --red:#EA8C86; --red-soft:#3B1E1C; --grey-soft:#26302E;
+  --shadow:none; color-scheme:dark}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font:15px/1.5 var(--body);}
+*{box-sizing:border-box}
+button,input,textarea,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.app{display:grid;grid-template-columns:232px minmax(0,1fr);min-height:100%}
+.side{position:sticky;top:env(safe-area-inset-top,0px);height:100vh;padding:20px 14px;border-right:1px solid var(--line);background:var(--surface);display:flex;flex-direction:column;gap:18px}
+.brand{display:flex;align-items:center;gap:10px;padding:0 6px}
+.brand svg{flex:none}
+.brand b{font:700 22px/1 var(--display);letter-spacing:-.01em}
+.brand small{display:block;color:var(--muted);font-size:12px;margin-top:3px}
+nav.menu{display:flex;flex-direction:column;gap:2px}
+.navbtn{display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;border:0;background:none;border-radius:8px;cursor:pointer;color:var(--muted);text-align:left;font-weight:500}
+.navbtn:hover{background:var(--surface-2);color:var(--fg)}
+.navbtn[aria-current="page"]{background:var(--accent-soft);color:var(--fg)}
+.navbtn .cnt{margin-left:auto;font:500 12px var(--mono);color:var(--muted)}
+.side .foot{margin-top:auto;font-size:12px;color:var(--muted);padding:0 6px}
+main{min-width:0;padding-inline:clamp(16px,3vw,36px);padding-block:22px 96px}
+.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:18px}
+h1{font:700 clamp(24px,3vw,30px)/1.15 var(--display);margin:0;letter-spacing:-.015em;text-wrap:balance}
+h2{font:600 18px/1.3 var(--display);margin:0;letter-spacing:-.005em}
+h3{font:600 15px/1.3 var(--body);margin:0}
+.sub{color:var(--muted);margin:4px 0 0;max-width:62ch}
+.ws{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.demo-tag{font:500 11px var(--mono);letter-spacing:.06em;text-transform:uppercase;background:var(--amber-soft);color:var(--amber);padding:3px 8px;border-radius:999px}
+.grid{display:grid;gap:14px;align-content:start}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;box-shadow:var(--shadow);min-width:0}
+.kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-bottom:16px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px}
+.kpi span{display:block;font-size:12px;color:var(--muted);letter-spacing:.02em}
+.kpi b{font:700 26px/1.2 var(--display);font-variant-numeric:tabular-nums}
+.two{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:14px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--line);background:var(--surface);padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:600;font-size:14px;white-space:nowrap}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+.btn.primary:hover{filter:brightness(1.06)}
+.btn.ghost{border-color:transparent;background:none;color:var(--muted)}
+.btn.ghost:hover{color:var(--fg);background:var(--surface-2)}
+.btn.sm{padding:5px 10px;font-size:13px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.row{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.spacer{flex:1}
+label.f{display:flex;flex-direction:column;gap:5px;font-size:13px;font-weight:600;color:var(--muted);min-width:0}
+input[type=text],input[type=email],input[type=search],textarea,select{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 11px;font-size:14px;width:100%;color:var(--fg)}
+textarea{resize:vertical;min-height:84px;line-height:1.5}
+.form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.form .full{grid-column:1/-1}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;padding:3px;background:var(--bg);gap:2px}
+.seg button{border:0;background:none;padding:6px 12px;border-radius:7px;cursor:pointer;font-weight:600;font-size:13px;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--fg);box-shadow:var(--shadow)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:4px 11px;font-size:13px;cursor:pointer;color:var(--muted)}
+.chip[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:2px 9px;border-radius:999px;white-space:nowrap}
+.pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.st-new{background:var(--grey-soft);color:var(--muted)}
+.st-draft{background:var(--blue-soft);color:var(--blue)}
+.st-sent{background:var(--accent-soft);color:var(--accent)}
+.st-reply{background:var(--amber-soft);color:var(--amber)}
+.st-meet{background:var(--accent);color:var(--accent-fg)}
+.st-no{background:var(--red-soft);color:var(--red)}
+.prio{font:700 12px var(--mono);width:24px;height:24px;border-radius:6px;display:inline-grid;place-items:center;flex:none}
+.p-A{background:var(--accent);color:var(--accent-fg)} .p-B{background:var(--accent-soft);color:var(--accent)} .p-C{background:var(--grey-soft);color:var(--muted)}
+.leads{display:flex;flex-direction:column}
+.lead{display:grid;grid-template-columns:22px 24px minmax(0,2.2fr) minmax(0,1.3fr) minmax(0,1.6fr) auto;gap:12px;align-items:center;padding:11px 4px;border-bottom:1px solid var(--line)}
+.lead:last-child{border-bottom:0}
+.lead .nm{font-weight:600;overflow-wrap:anywhere}
+.lead .meta{font-size:12.5px;color:var(--muted);overflow-wrap:anywhere}
+.lead .em{font:500 12.5px var(--mono);color:var(--muted);overflow-wrap:anywhere}
+.lead .why{grid-column:3/-1;font-size:13px;color:var(--muted);margin-top:-6px}
+.mono{font-family:var(--mono);font-size:12.5px}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.empty{text-align:center;padding:32px 16px;color:var(--muted)}
+.empty h3{color:var(--fg);margin-bottom:6px}
+.draft{display:grid;gap:10px}
+.draft .hd{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.draft textarea{min-height:230px;font-size:13.5px}
+.mailto{font:500 13px var(--mono);background:var(--surface-2);padding:2px 7px;border-radius:6px;user-select:all;overflow-wrap:anywhere}
+.queue{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:12px;display:flex;gap:12px;align-items:center;z-index:30;max-width:calc(100% - 32px);font-size:14px}
+.queue .bar{width:120px;height:6px;background:color-mix(in srgb,var(--bg) 25%,transparent);border-radius:9px;overflow:hidden;flex:none}
+.queue .bar i{display:block;height:100%;background:var(--accent)}
+.toast{position:fixed;right:16px;top:calc(16px + env(safe-area-inset-top,0px));background:var(--fg);color:var(--bg);padding:10px 14px;border-radius:10px;z-index:40;font-size:14px;max-width:min(420px,calc(100% - 32px))}
+.dlg-back{position:fixed;inset:0;background:rgba(10,20,18,.45);display:grid;place-items:center;z-index:50;padding:16px}
+.dlg{background:var(--surface);border-radius:14px;padding:20px;max-width:520px;width:100%;display:grid;gap:12px;border:1px solid var(--line)}
+.tl{display:grid;gap:16px}
+.tl-group h3{font:500 12px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.tl-item{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:var(--surface);margin-bottom:6px}
+.tl-item .d{font:500 12.5px var(--mono);color:var(--amber);min-width:86px}
+.tl-item.over .d{color:var(--red)}
+.funnel{display:grid;gap:8px}
+.funnel .fr{display:grid;grid-template-columns:110px minmax(0,1fr) 34px;gap:10px;align-items:center;font-size:13px}
+.funnel .fb{height:10px;background:var(--surface-2);border-radius:9px;overflow:hidden}
+.funnel .fb i{display:block;height:100%;border-radius:9px}
+.note{font-size:13px;color:var(--muted);background:var(--surface-2);border-radius:8px;padding:10px 12px}
+.note b{color:var(--fg)}
+.think{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:14px}
+.dots{display:inline-flex;gap:4px}.dots i{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:b 1s infinite}
+.dots i:nth-child(2){animation-delay:.15s}.dots i:nth-child(3){animation-delay:.3s}
+@keyframes b{0%,100%{opacity:.25}50%{opacity:1}}
+@media (prefers-reduced-motion:reduce){.dots i{animation:none}}
+.tabbar{display:none}
+@media (max-width:900px){
+  .app{grid-template-columns:minmax(0,1fr)}
+  .side{display:none}
+  .tabbar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--surface);border-top:1px solid var(--line);padding:6px 6px calc(6px + env(safe-area-inset-bottom,0px))}
+  .tabbar button{flex:1;border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;color:var(--muted);padding:4px 0;cursor:pointer;font-weight:600}
+  .tabbar button[aria-current="page"]{color:var(--accent)}
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .kpis .kpi:last-child{grid-column:1/-1}
+  .two,.form{grid-template-columns:minmax(0,1fr)}
+  .lead{grid-template-columns:22px 24px minmax(0,1fr) auto}
+  .lead .c-seg,.lead .c-em{grid-column:3/-1}
+  .lead .why{grid-column:3/-1;margin-top:0}
+  .queue{bottom:calc(76px + env(safe-area-inset-bottom,0px))}
+}
+</style>
+
+<div class="app" id="app">
+  <aside class="side">
+    <div class="brand">
+      <svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><circle cx="15" cy="15" r="13" fill="none" stroke="var(--fg)" stroke-width="2"/><path d="M15 5 L19 15 L15 25 L11 15 Z" fill="var(--accent)"/><circle cx="15" cy="15" r="2" fill="var(--surface)"/></svg>
+      <div><b>Pusula</b><small>İş geliştirme asistanı</small></div>
+    </div>
+    <nav class="menu" id="menu"></nav>
+    <div class="foot" id="storeNote">Veriler yükleniyor…</div>
+  </aside>
+  <main id="main"></main>
+  <nav class="tabbar" id="tabbar"></nav>
+</div>
+<div id="layer"></div>
+
+<script>
+/* ---------- yardımcılar ---------- */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const uid = () => Math.random().toString(36).slice(2, 10);
+const todayISO = () => new Date().toISOString().slice(0, 10);
+const addDays = (iso, n) => { const d = new Date(iso + "T12:00:00"); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
+const fmtDate = iso => iso ? new Date(iso + "T12:00:00").toLocaleDateString("tr-TR", {day: "numeric", month: "short", year: "numeric"}) : "—";
+
+const STATUS = {
+  new:   {t: "Yeni",          c: "st-new"},
+  draft: {t: "Taslak hazır",  c: "st-draft"},
+  sent:  {t: "Gönderildi",    c: "st-sent"},
+  reply: {t: "Yanıt geldi",   c: "st-reply"},
+  meet:  {t: "Görüşme",       c: "st-meet"},
+  no:    {t: "İlgilenmiyor",  c: "st-no"},
+};
+const VIEWS = [
+  {id: "panel",   t: "Panel",     i: "M3 12h4l3-8 4 16 3-8h4"},
+  {id: "profil",  t: "Şirketim",  i: "M4 21V5l8-3 8 3v16M9 21v-5h6v5"},
+  {id: "arastir", t: "Araştır",   i: "M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zm9 16-4.5-4.5"},
+  {id: "adaylar", t: "Adaylar",   i: "M4 6h16M4 12h16M4 18h10"},
+  {id: "mailler", t: "Mailler",   i: "M3 6h18v12H3zM3 7l9 6 9-6"},
+  {id: "takip",   t: "Takip",     i: "M7 3v3M17 3v3M4 8h16M5 5h14v15H5z"},
+];
+
+/* ---------- örnek çalışma alanı (Karea Enerji – Maldivler) ---------- */
+const SIG = "With my best regards,\n\nOnur Topuz\nSales & Business Development Director\nKarea Enerji\n+90 505 228 03 72 | onur.topuz@karea.com.tr\nkareaenerji.com.tr";
+function demoState() {
+  const L = (name, kind, segment, region, email, priority, score, why, status, sentAt) => ({
+    id: uid(), name, kind, segment, region, email, emailSource: "Kurumsal genel adres (kamuya açık)", priority, score, why,
+    status, sentAt: sentAt || "", followUpAt: sentAt ? addDays(sentAt, 7) : "", notes: ""});
+  const S = "2026-10-06";
+  return {
+    demo: true,
+    profile: {
+      company: "Karea Enerji", website: "kareaenerji.com.tr", country: "Türkiye", sector: "Güneş enerjisi ve enerji depolama distribütörü",
+      products: "Huawei ve HYXI güneş enerjisi inverterleri; ticari, endüstriyel ve şebeke ölçekli batarya depolama sistemleri (ESS)",
+      value: "Rekabetçi proje fiyatı, proje bazlı üretici garantisi teyidi, sistem boyutlandırma ve teknik destek",
+      mode: "customer", regions: "Maldivler",
+      segmentBrief: "Maldivler'deki yerel EPC/kurulum firmaları (tedarik ortağı olarak) ve dizel jeneratörle elektrik üreten resort adaları ile resort grupları (son kullanıcı).",
+      senderName: "Onur Topuz", senderTitle: "Sales & Business Development Director", senderEmail: "onur.topuz@karea.com.tr",
+      signature: SIG, language: "English", followUpDays: 7,
+    },
+    leads: [
+      L("Avi Technologies", "EPC / kurulumcu", "EPC – tedarik ortağı", "Malé, Maldivler", "info@avitech.com.mv", "A", 92, "GES + batarya + dizel hibrit deneyimi; marka bağımlılığı bilinmiyor.", "sent", S),
+      L("Atoll Solar (Octopus Systems)", "EPC / kurulumcu", "EPC – tedarik ortağı", "Malé, Maldivler", "hello@atollsolar.com", "A", 90, "Resort odaklı; ana şirketi resortların sistem entegratörü. Şu an BYD kullanıyor.", "reply", S),
+      L("Swimsol Maldives", "GES geliştirici", "EPC – tedarik ortağı", "Malé, Maldivler", "maldives@swimsol.com", "A", 88, "50+ resortta GES; batarya eklenecek çok sayıda saha var.", "sent", S),
+      L("Hayleys Solar", "EPC (Sri Lanka)", "EPC – tedarik ortağı", "Colombo, Sri Lanka", "info@hayleyssolar.com", "B", 74, "Huawei kullanıyor; Sun Siyam projesinin yüklenicisi.", "sent", S),
+      L("Magnetron Maldives", "Mühendislik / EPC", "EPC – tedarik ortağı", "Hulhumalé, Maldivler", "info@magnetronmaldives.com", "B", 70, "Pano, RO su arıtma ve GES; 28+ ada.", "no", S),
+      L("Aydeniz Grubu (Ayada Maldives)", "Resort sahibi", "Son kullanıcı – Türk sahipli", "Ankara, Türkiye", "info@aydeniz.com", "A", 95, "Türk sahipli resort; kamuya açık GES bilgisi yok.", "meet", S),
+      L("Villa Hotels & Resorts", "Resort grubu", "Son kullanıcı – grup merkezi", "Malé, Maldivler", "sales@villaresorts.com", "A", 86, "Villa Park'ta 2.400+ panel var, batarya yok.", "sent", S),
+      L("Crown & Champa Resorts", "Resort grubu", "Son kullanıcı – grup merkezi", "Malé, Maldivler", "info@crownandchamparesorts.com", "A", 84, "Veligandu'da GES+ESS tamamlandı; Kuredu sırada olabilir.", "sent", S),
+      L("Astaş Holding", "Yatırımcı / geliştirici", "Son kullanıcı – yeni proje", "İstanbul, Türkiye", "info@astas-holding.com", "A", 93, "Maldivler'de 120 villalık yeni resort; enerji sistemi tasarım aşamasında.", "draft", ""),
+      L("Gürok Grubu (JOALI)", "Resort sahibi", "Son kullanıcı – Türk sahipli", "Kütahya, Türkiye", "info@gurok.com", "A", 89, "JOALI Maldives ve JOALI BEING'in sahibi.", "new", ""),
+      L("Kandima Maldives", "Resort", "Son kullanıcı – resort", "Dhaalu Atoll, Maldivler", "KeepinTouch@pulseresorts.com", "B", 72, "~266 oda; kamuya açık GES bilgisi yok.", "sent", S),
+      L("Robinson Maldives", "Resort", "Son kullanıcı – resort", "Gaafu Alifu, Maldivler", "maldives@robinson.com", "B", 66, "Malé'ye uzak; dizel tedarik riski yüksek.", "new", ""),
+    ],
+    drafts: [],
+    log: [],
+  };
+}
+
+/* ---------- durum ve kayıt ---------- */
+let state = demoState();
+let view = "panel";
+let filters = {segment: "Tümü", status: "Tümü", prio: "Tümü", q: ""};
+let selected = new Set();
+let research = {running: false, results: [], error: "", ctl: null, note: ""};
+let mailBusy = false;
+let sample = null, db = null, docRef = null, saveTimer = null, saving = Promise.resolve();
+
+try { const v = localStorage.getItem("pusula.view"); if (v && VIEWS.some(x => x.id === v)) view = v; } catch (e) {}
+
+function persist() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    const body = JSON.parse(JSON.stringify(state));
+    if (docRef) {
+      saving = saving.then(() => docRef.set(body)).then(() => setStoreNote(), e => setStoreNote("Kaydedilemedi: " + (e.code || "hata")));
+    } else {
+      try { localStorage.setItem("pusula.state", JSON.stringify(body)); } catch (e) {}
+    }
+  }, 900);
+}
+function commit(fn) { fn(); persist(); render(); }
+function setStoreNote(msg) {
+  $("#storeNote").textContent = msg || (docRef ? "Veriler hesabınızda saklanıyor." : "Veriler bu tarayıcıda saklanıyor.");
+}
+function log(leadId, action) { state.log.unshift({at: new Date().toISOString(), leadId, action}); state.log = state.log.slice(0, 200); }
+const leadById = id => state.leads.find(l => l.id === id);
+
+/* ---------- arayüz iskeleti ---------- */
+function icon(d) { return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${d}"/></svg>`; }
+function counts() {
+  const c = {total: state.leads.length, drafts: state.drafts.length, sent: 0, reply: 0, due: 0};
+  const t = todayISO();
+  for (const l of state.leads) {
+    if (["sent","reply","meet","no"].includes(l.status)) c.sent++;
+    if (["reply","meet"].includes(l.status)) c.reply++;
+    if (l.status === "sent" && l.followUpAt && l.followUpAt <= t) c.due++;
+  }
+  return c;
+}
+function renderNav() {
+  const c = counts();
+  const badge = {adaylar: c.total, mailler: c.drafts || "", takip: c.due || ""};
+  $("#menu").innerHTML = VIEWS.map(v => `<button class="navbtn" data-nav="${v.id}" ${v.id === view ? 'aria-current="page"' : ""}>${icon(v.i)}<span>${v.t}</span><span class="cnt">${badge[v.id] ?? ""}</span></button>`).join("");
+  $("#tabbar").innerHTML = VIEWS.map(v => `<button data-nav="${v.id}" ${v.id === view ? 'aria-current="page"' : ""}>${icon(v.i)}${v.t}</button>`).join("");
+}
+function head(title, sub, right = "") {
+  const tag = state.demo ? `<span class="demo-tag">Örnek çalışma alanı</span>` : "";
+  return `<div class="top"><div><div class="ws">${esc(state.profile.company || "Şirketiniz")} · ${esc(state.profile.regions || "Bölge seçilmedi")} ${tag}</div><h1>${title}</h1>${sub ? `<p class="sub">${sub}</p>` : ""}</div><div class="row">${right}</div></div>`;
+}
+function render() {
+  renderNav();
+  const m = $("#main");
+  m.innerHTML = ({panel: vPanel, profil: vProfil, arastir: vArastir, adaylar: vAdaylar, mailler: vMailler, takip: vTakip})[view]();
+}
+
+/* ---------- Panel ---------- */
+function vPanel() {
+  const c = counts();
+  const t = todayISO();
+  const due = state.leads.filter(l => l.status === "sent" && l.followUpAt && l.followUpAt <= addDays(t, 7)).sort((a, b) => a.followUpAt.localeCompare(b.followUpAt)).slice(0, 5);
+  const stages = [["new","Yeni","var(--muted)"],["draft","Taslak","var(--blue)"],["sent","Gönderildi","var(--accent)"],["reply","Yanıt","var(--amber)"],["meet","Görüşme","var(--accent)"],["no","İlgilenmiyor","var(--red)"]];
+  const max = Math.max(1, ...stages.map(s => state.leads.filter(l => l.status === s[0]).length));
+  const top = [...state.leads].filter(l => l.status === "new").sort((a, b) => b.score - a.score).slice(0, 4);
+  return head("Bugün ne yapalım?", "Araştırma, mail ve takip işlerinizin özeti.", `<button class="btn primary" data-nav="arastir">Yeni araştırma</button>`) + `
+  <div class="kpis">
+    <div class="kpi"><span>Aday</span><b>${c.total}</b></div>
+    <div class="kpi"><span>Hazır taslak</span><b>${c.drafts}</b></div>
+    <div class="kpi"><span>Mail gönderilen</span><b>${c.sent}</b></div>
+    <div class="kpi"><span>Yanıt / görüşme</span><b>${c.reply}</b></div>
+    <div class="kpi"><span>Takibi gelen</span><b style="color:${c.due ? "var(--amber)" : "inherit"}">${c.due}</b></div>
+  </div>
+  <div class="two">
+    <div class="card grid">
+      <div class="row"><h2>Yaklaşan takipler</h2><span class="spacer"></span><button class="btn ghost sm" data-nav="takip">Tümü</button></div>
+      ${due.length ? due.map(l => `<div class="tl-item ${l.followUpAt < t ? "over" : ""}"><span class="d">${fmtDate(l.followUpAt)}</span><span style="flex:1;min-width:0"><b>${esc(l.name)}</b><br><span class="small muted">İlk mail: ${fmtDate(l.sentAt)}</span></span><button class="btn sm" data-remind="${l.id}">Hatırlatma hazırla</button></div>`).join("") : `<p class="muted small">Önümüzdeki 7 günde takip yok.</p>`}
+    </div>
+    <div class="card grid">
+      <h2>Satış hunisi</h2>
+      <div class="funnel">${stages.map(s => { const n = state.leads.filter(l => l.status === s[0]).length; return `<div class="fr"><span>${s[1]}</span><span class="fb"><i style="width:${n / max * 100}%;background:${s[2]}"></i></span><span class="mono">${n}</span></div>`; }).join("")}</div>
+    </div>
+  </div>
+  <div class="card grid" style="margin-top:14px">
+    <div class="row"><h2>Sıradaki en iyi adaylar</h2><span class="spacer"></span><button class="btn sm" data-bulkintro="${top.map(l => l.id).join(",")}" ${top.length ? "" : "disabled"}>Bunlara tanışma maili hazırla</button></div>
+    ${top.length ? top.map(l => `<div class="row"><span class="prio p-${l.priority}">${l.priority}</span><b>${esc(l.name)}</b><span class="muted small">${esc(l.segment)} · ${esc(l.region)}</span></div>`).join("") : `<p class="muted small">Tüm adaylara mail hazırlanmış. Yeni aday bulmak için araştırma başlatın.</p>`}
+  </div>`;
+}
+
+/* ---------- Şirketim ---------- */
+function vProfil() {
+  const p = state.profile;
+  const f = (id, label, val, type = "text", full = false) => `<label class="f ${full ? "full" : ""}" for="p_${id}">${label}<input id="p_${id}" type="${type}" data-prof="${id}" value="${esc(val)}"></label>`;
+  const ta = (id, label, val, rows = 3) => `<label class="f full" for="p_${id}">${label}<textarea id="p_${id}" rows="${rows}" data-prof="${id}">${esc(val)}</textarea></label>`;
+  return head("Şirketim ve hedefim", "Pusula araştırmayı ve mailleri bu bilgilere göre hazırlar. Ne kadar net yazarsanız sonuçlar o kadar isabetli olur.",
+    state.demo ? `<button class="btn" id="fresh">Kendi çalışma alanımı başlat</button>` : "") + `
+  <div class="card grid">
+    <div class="row"><h2>Ne arıyoruz?</h2><span class="spacer"></span>
+      <div class="seg" role="group" aria-label="Arama türü">
+        <button data-mode="customer" aria-pressed="${p.mode === "customer"}">Müşteri bul</button>
+        <button data-mode="supplier" aria-pressed="${p.mode === "supplier"}">Tedarikçi bul</button>
+      </div></div>
+    <div class="form">
+      ${f("company", "Şirket adı", p.company)}
+      ${f("website", "Web sitesi", p.website)}
+      ${f("sector", "Sektör / faaliyet", p.sector)}
+      ${f("country", "Merkez ülke", p.country)}
+      ${ta("products", p.mode === "supplier" ? "Hangi ürünleri / hizmetleri tedarik etmek istiyorsunuz?" : "Sattığınız ürünler ve hizmetler", p.products)}
+      ${ta("value", "Size neden çalışılmalı? (fiyat, garanti, destek, referans…)", p.value, 2)}
+      ${f("regions", "Hedef ülke / bölge", p.regions)}
+      ${f("language", "Mail dili", p.language)}
+      ${ta("segmentBrief", "Hedef müşteri / segment tarifi", p.segmentBrief, 3)}
+    </div>
+  </div>
+  <div class="card grid" style="margin-top:14px">
+    <h2>Gönderen ve imza</h2>
+    <div class="form">
+      ${f("senderName", "Ad soyad", p.senderName)}
+      ${f("senderTitle", "Unvan", p.senderTitle)}
+      ${f("senderEmail", "Gönderen e-posta", p.senderEmail, "email")}
+      <label class="f" for="p_followUpDays">Hatırlatma kaç gün sonra?<select id="p_followUpDays" data-prof="followUpDays">${[3,5,7,10,14].map(n => `<option value="${n}" ${Number(p.followUpDays) === n ? "selected" : ""}>${n} gün</option>`).join("")}</select></label>
+      ${ta("signature", "İmza (mailin sonuna eklenir)", p.signature, 6)}
+    </div>
+    <p class="note">Kaydetmenize gerek yok; değişiklikler otomatik saklanır.</p>
+  </div>`;
+}
+
+/* ---------- Araştır ---------- */
+function vArastir() {
+  const p = state.profile;
+  const res = research.results;
+  const body = research.running
+    ? `<div class="card"><div class="think"><span class="dots"><i></i><i></i><i></i></span><span>Pusula hedef pazarı tarıyor ve adayları sınıflandırıyor. Bu 30–90 saniye sürebilir.</span><span class="spacer"></span><button class="btn sm" id="stopRes">Durdur</button></div></div>`
+    : res.length ? `<div class="card grid">
+        <div class="row"><h2>${res.length} aday bulundu</h2><span class="spacer"></span><button class="btn sm" id="selAllRes">Tümünü seç</button><button class="btn primary sm" id="addRes">Seçilenleri listeye ekle</button></div>
+        ${research.note ? `<p class="note">${research.note}</p>` : ""}
+        <div class="leads">${res.map((r, i) => `<div class="lead">
+          <input type="checkbox" id="r${i}" data-ri="${i}" ${r._sel ? "checked" : ""} aria-label="${esc(r.name)} seç">
+          <span class="prio p-${r.priority}">${r.priority}</span>
+          <div><label class="nm" for="r${i}">${esc(r.name)}</label><div class="meta">${esc(r.kind)} · ${esc(r.region)}</div></div>
+          <div class="meta c-seg">${esc(r.segment)}</div>
+          <div class="em c-em">${esc(r.email || "e-posta doğrulanmalı")}</div>
+          <span class="mono muted">${r.score}</span>
+          <div class="why">${esc(r.why)}</div></div>`).join("")}</div></div>` : "";
+  return head("Araştır", p.mode === "supplier" ? "Ürün ihtiyacınızı tarif edin, Pusula size tedarikçi adaylarını bulup sınıflandırsın." : "Hedef müşterinizi tarif edin, Pusula potansiyel müşteri listesini çıkarıp önceliklendirsin.") + `
+  <div class="card grid">
+    <div class="row"><div class="seg" role="group" aria-label="Arama türü">
+      <button data-mode="customer" aria-pressed="${p.mode === "customer"}">Müşteri bul</button>
+      <button data-mode="supplier" aria-pressed="${p.mode === "supplier"}">Tedarikçi bul</button></div></div>
+    <label class="f" for="brief">Kimi arıyoruz?<textarea id="brief" rows="4">${esc(p.segmentBrief)}</textarea></label>
+    <div class="form">
+      <label class="f" for="region">Bölge<input id="region" type="text" value="${esc(p.regions)}"></label>
+      <label class="f" for="howMany">Kaç aday?<select id="howMany">${[5,10,15].map(n => `<option ${n === 10 ? "selected" : ""}>${n}</option>`).join("")}</select></label>
+    </div>
+    <div class="row"><button class="btn primary" id="runRes" ${research.running ? "disabled" : ""}>Araştırmayı başlat</button>
+      <span class="small muted">Mevcut listenizdeki firmalar tekrar önerilmez.</span></div>
+    ${research.error ? `<p class="note"><b>Araştırma tamamlanamadı.</b> ${esc(research.error)}</p>` : ""}
+  </div>
+  <div style="margin-top:14px">${body}</div>`;
+}
+
+/* ---------- Adaylar ---------- */
+function filteredLeads() {
+  const q = filters.q.toLowerCase();
+  return state.leads.filter(l =>
+    (filters.segment === "Tümü" || l.segment === filters.segment) &&
+    (filters.status === "Tümü" || l.status === filters.status) &&
+    (filters.prio === "Tümü" || l.priority === filters.prio) &&
+    (!q || (l.name + l.region + l.email + l.kind).toLowerCase().includes(q))
+  ).sort((a, b) => a.priority.localeCompare(b.priority) || b.score - a.score);
+}
+function vAdaylar() {
+  const segs = ["Tümü", ...new Set(state.leads.map(l => l.segment))];
+  const list = filteredLeads();
+  const chip = (k, v, label) => `<button class="chip" data-f="${k}" data-v="${esc(v)}" aria-pressed="${filters[k] === v}">${esc(label ?? v)}</button>`;
+  return head("Adaylar", "Bulunan firmalar segmentlere ve önceliğe göre sınıflandırıldı. Seçin, tek tıkla mail taslağı hazırlayın.",
+    `<button class="btn primary" id="introSel" ${selected.size ? "" : "disabled"}>Tanışma maili hazırla (${selected.size})</button>`) + `
+  <div class="card grid">
+    <div class="row"><input type="search" id="q" placeholder="Firma, bölge veya e-posta ara" value="${esc(filters.q)}" style="max-width:320px"><span class="spacer"></span>
+      <div class="chips">${["Tümü","A","B","C"].map(v => chip("prio", v, v === "Tümü" ? "Tüm öncelikler" : "Öncelik " + v)).join("")}</div></div>
+    <div class="chips">${segs.map(s => chip("segment", s)).join("")}</div>
+    <div class="chips">${chip("status", "Tümü", "Tüm durumlar")}${Object.entries(STATUS).map(([k, v]) => chip("status", k, v.t)).join("")}</div>
+  </div>
+  <div class="card" style="margin-top:14px">
+    ${list.length ? `<div class="row small muted" style="padding:0 4px 8px"><label class="row" for="selAll"><input type="checkbox" id="selAll" ${list.every(l => selected.has(l.id)) ? "checked" : ""}> Görünenleri seç</label><span class="spacer"></span>${list.length} aday</div>
+    <div class="leads">${list.map(l => `<div class="lead">
+      <input type="checkbox" id="l_${l.id}" data-sel="${l.id}" ${selected.has(l.id) ? "checked" : ""} aria-label="${esc(l.name)} seç">
+      <span class="prio p-${l.priority}" title="Puan ${l.score}">${l.priority}</span>
+      <div><label class="nm" for="l_${l.id}">${esc(l.name)}</label><div class="meta">${esc(l.kind)} · ${esc(l.region)}</div></div>
+      <div class="meta c-seg">${esc(l.segment)}</div>
+      <div class="em c-em">${esc(l.email || "e-posta yok")}</div>
+      <select data-status="${l.id}" aria-label="Durum" style="width:auto;padding:4px 8px;font-size:12.5px">${Object.entries(STATUS).map(([k, v]) => `<option value="${k}" ${l.status === k ? "selected" : ""}>${v.t}</option>`).join("")}</select>
+      <div class="why">${esc(l.why)}${l.sentAt ? ` · <span class="mono">Gönderim ${fmtDate(l.sentAt)}</span>` : ""}</div></div>`).join("")}</div>`
+    : `<div class="empty"><h3>Bu filtreye uyan aday yok</h3><p>Filtreleri temizleyin ya da yeni bir araştırma başlatın.</p><button class="btn primary" data-nav="arastir">Araştır</button></div>`}
+  </div>`;
+}
+
+/* ---------- Mailler ---------- */
+function vMailler() {
+  const ds = state.drafts;
+  return head("Mailler", "Taslaklar spam filtrelerine takılmayacak şekilde kısa, kişisel ve düz metin hazırlanır. Kontrol edin, gönderin.",
+    ds.length ? `<button class="btn primary" id="sendAll">Tümünü güvenli hızda gönder (${ds.length})</button>` : "") + `
+  <p class="note"><b>Demo modu:</b> Bu sürüm mail göndermez; "Gönder" adayı gönderildi olarak işaretler ve hatırlatmayı takvime koyar. Tam sürümde mailler Outlook veya Gmail hesabınızdan, her mail arasında bekleme süresiyle tek tek gider.</p>
+  ${mailBusy ? `<div class="card" style="margin-top:14px"><div class="think"><span class="dots"><i></i><i></i><i></i></span>Taslaklar kişiselleştiriliyor…</div></div>` : ""}
+  <div class="grid" style="margin-top:14px">
+  ${ds.length ? ds.map(d => { const l = leadById(d.leadId) || {}; return `<div class="card draft">
+    <div class="hd"><span class="pill ${d.type === "reminder" ? "st-reply" : "st-draft"}">${d.type === "reminder" ? "Hatırlatma" : "Tanışma"}</span><b>${esc(l.name || "—")}</b><span class="spacer"></span><span class="mailto">${esc(l.email || "e-posta yok")}</span></div>
+    <label class="f" for="s_${d.id}">Konu<input id="s_${d.id}" type="text" data-dsub="${d.id}" value="${esc(d.subject)}"></label>
+    <label class="f" for="b_${d.id}">Metin<textarea id="b_${d.id}" data-dbody="${d.id}">${esc(d.body)}</textarea></label>
+    <div class="row"><button class="btn primary" data-send="${d.id}">Gönder</button><button class="btn" data-copy="${d.id}">Metni kopyala</button><span class="spacer"></span><button class="btn ghost sm" data-ai="${d.id}">Claude ile yeniden yaz</button><button class="btn ghost sm" data-del="${d.id}">Sil</button></div>
+  </div>`; }).join("") : `<div class="card empty"><h3>Hazır taslak yok</h3><p>Adaylar ekranında firmaları seçip "Tanışma maili hazırla"ya basın.</p><button class="btn primary" data-nav="adaylar">Adaylara git</button></div>`}
+  </div>`;
+}
+
+/* ---------- Takip ---------- */
+function vTakip() {
+  const t = todayISO(), w = addDays(t, 7);
+  const sent = state.leads.filter(l => l.status === "sent" && l.followUpAt).sort((a, b) => a.followUpAt.localeCompare(b.followUpAt));
+  const g = [["Gecikmiş", sent.filter(l => l.followUpAt < t)], ["Bugün", sent.filter(l => l.followUpAt === t)], ["Bu hafta", sent.filter(l => l.followUpAt > t && l.followUpAt <= w)], ["Daha sonra", sent.filter(l => l.followUpAt > w)]];
+  const hot = state.leads.filter(l => ["reply","meet"].includes(l.status));
+  return head("Takip takvimi", `Mail gönderilen her firma için ${state.profile.followUpDays || 7} gün sonra hatırlatma planlanır. Yanıt gelenleri durumundan işaretleyin.`) + `
+  <div class="two">
+    <div class="tl">${g.map(([name, arr]) => `<div class="tl-group"><h3>${name} · ${arr.length}</h3>${arr.length ? arr.map(l => `<div class="tl-item ${l.followUpAt < t ? "over" : ""}"><span class="d">${fmtDate(l.followUpAt)}</span><span style="flex:1;min-width:0"><b>${esc(l.name)}</b><br><span class="small muted">İlk mail ${fmtDate(l.sentAt)} · ${esc(l.email)}</span></span><button class="btn sm" data-remind="${l.id}">Hatırlatma hazırla</button><button class="btn ghost sm" data-setst="${l.id}:reply">Yanıt geldi</button></div>`).join("") : `<p class="small muted">Yok.</p>`}</div>`).join("")}</div>
+    <div class="card grid" style="align-self:start"><h2>Sıcak fırsatlar</h2>${hot.length ? hot.map(l => `<div class="row"><span class="pill ${STATUS[l.status].c}">${STATUS[l.status].t}</span><b>${esc(l.name)}</b></div><p class="small muted" style="margin:0">${esc(l.why)}</p>`).join("") : `<p class="small muted">Henüz yanıt yok.</p>`}</div>
+  </div>`;
+}
+
+/* ---------- mail üretimi ---------- */
+function templateIntro(l) {
+  const p = state.profile;
+  const supplier = p.mode === "supplier";
+  const greet = `Dear ${l.name} team,`;
+  const route = supplier ? "Could you kindly forward this to your export or sales team?" : "Could you kindly forward this to the person responsible for purchasing or engineering?";
+  const hook = l.why ? `I'm reaching out because ${l.why.replace(/\.$/, "").replace(/^./, c => c.toLowerCase())}.` : `I'm reaching out regarding your work in ${l.region}.`;
+  const intro = supplier
+    ? `I'm ${p.senderName} from ${p.company} in ${p.country}. We are looking for a reliable supplier for: ${p.products}.`
+    : `I'm ${p.senderName} from ${p.company} in ${p.country}. We supply ${p.products}.`;
+  const offer = supplier
+    ? `What we are looking for:\n- Product range and specifications for ${p.regions || "our market"}\n- Pricing for project and repeat volumes\n- Warranty and after-sales terms`
+    : `What we can offer:\n- ${String(p.value || "").split(/[,;]/).map(s => s.trim()).filter(Boolean).join("\n- ")}`;
+  const cta = "Would you be open to a short call or video meeting in the coming weeks?";
+  const opt = "If this isn't relevant for you, just reply and let me know – I won't follow up.";
+  return {subject: supplier ? `Supply request – ${p.company}` : `Attn: ${l.kind?.includes("EPC") ? "Procurement" : "Engineering"} – ${short(p.products)} for ${l.name}`,
+    body: [greet, route, hook, intro, offer, cta, opt, p.signature].join("\n\n")};
+}
+function templateReminder(l) {
+  const p = state.profile;
+  return {subject: `Re: following up – ${p.company}`,
+    body: [`Dear ${l.name} team,`, `I'm following up on my email from ${fmtDate(l.sentAt)} about ${short(p.products).toLowerCase()} for your projects.`,
+      "If the timing isn't right, I completely understand. If it would help, I can send a one-page overview or an indicative offer for a current project.",
+      "Would a short call next week work for you?", "If this isn't relevant, just reply and I won't follow up again.", p.signature].join("\n\n")};
+}
+function short(s) { s = String(s || ""); const i = s.search(/[;(]/); return (i > 0 ? s.slice(0, i) : s).trim().slice(0, 60); }
+
+function makeDrafts(ids, type) {
+  let n = 0;
+  commit(() => {
+    for (const id of ids) {
+      const l = leadById(id); if (!l) continue;
+      if (state.drafts.some(d => d.leadId === id && d.type === type)) continue;
+      const t = type === "reminder" ? templateReminder(l) : templateIntro(l);
+      state.drafts.push({id: uid(), leadId: id, type, subject: t.subject, body: t.body, createdAt: todayISO()});
+      if (type === "intro" && l.status === "new") l.status = "draft";
+      n++;
+    }
+    selected.clear(); view = "mailler";
+  });
+  toast(n ? `${n} taslak hazırlandı.` : "Bu firmalar için taslak zaten var.");
+  if (n && sample) aiPolish(state.drafts.slice(-n).map(d => d.id));
+}
+
+async function aiPolish(draftIds) {
+  if (!sample || !draftIds.length) return;
+  const p = state.profile;
+  const items = draftIds.map(id => { const d = state.drafts.find(x => x.id === id); const l = leadById(d.leadId); return {draftId: id, type: d.type, company: l.name, kind: l.kind, region: l.region, segment: l.segment, notes: l.why, sentAt: l.sentAt}; });
+  mailBusy = true; render();
+  try {
+    const out = await sample.json(
+`You write short B2B outreach emails that must not look like spam.
+Sender company: ${p.company} (${p.country}). Sector: ${p.sector}. Products: ${p.products}. Value: ${p.value}.
+Goal: ${p.mode === "supplier" ? "find a supplier for these products" : "find customers or EPC/distribution partners for these products"}. Target region: ${p.regions}.
+Rules: language ${p.language}; plain text; 120-180 words; open with one specific, factual sentence about the recipient based ONLY on the notes given (no invented facts or numbers); one short list of 3-5 bullets; one clear question as call to action; end with an opt-out sentence ("If this isn't relevant, just reply and I won't follow up."); no words like free, guaranteed, urgent; no links; do NOT include a signature or sign-off (it is added later). For type "reminder": 60-90 words, polite follow-up to the first email sent on sentAt.
+Reply with only a JSON array of {"draftId": string, "subject": string, "body": string}.
+Recipients: ${JSON.stringify(items)}`, {modelTier: "default"});
+    if (Array.isArray(out)) commit(() => { for (const o of out) { const d = state.drafts.find(x => x.id === String(o.draftId)); if (d && o.subject && o.body) { d.subject = String(o.subject); d.body = String(o.body).trim() + "\n\n" + p.signature; } } });
+    toast("Taslaklar Claude ile kişiselleştirildi.");
+  } catch (e) {
+    if (["not_granted","sampling_disabled","capability_disabled","not_declared"].includes(e.code)) sample = null;
+    if (e.code !== "cancelled") toast("Kişiselleştirme yapılamadı; şablon metin duruyor.");
+  } finally { mailBusy = false; render(); }
+}
+
+/* ---------- güvenli gönderim kuyruğu (demo) ---------- */
+let queue = [], qTotal = 0, qTimer = null;
+function markSent(d) {
+  const l = leadById(d.leadId); if (!l) return;
+  const t = todayISO();
+  if (d.type === "intro") { l.status = "sent"; l.sentAt = t; }
+  l.followUpAt = addDays(t, Number(state.profile.followUpDays) || 7);
+  log(l.id, d.type === "reminder" ? "Hatırlatma gönderildi" : "Tanışma maili gönderildi");
+  state.drafts = state.drafts.filter(x => x.id !== d.id);
+}
+function startQueue(ids) {
+  const add = ids.filter(id => !queue.includes(id));
+  queue.push(...add);
+  if (qTimer) { qTotal += add.length; drawQueue(); } else { qTotal = queue.length; tick(); }
+}
+function tick() {
+  const id = queue.shift();
+  const d = state.drafts.find(x => x.id === id);
+  if (d) commit(() => markSent(d));
+  drawQueue();
+  if (queue.length) qTimer = setTimeout(tick, 2500); else { qTimer = null; setTimeout(() => { $("#layer").querySelector(".queue")?.remove(); }, 1500); toast("Tüm mailler gönderildi olarak işaretlendi; hatırlatmalar takvimde."); }
+}
+function drawQueue() {
+  const done = qTotal - queue.length;
+  let el = $("#layer").querySelector(".queue");
+  if (!el) { el = document.createElement("div"); el.className = "queue"; $("#layer").append(el); }
+  el.innerHTML = `<span>${done}/${qTotal} gönderildi</span><span class="bar"><i style="width:${done / qTotal * 100}%"></i></span><span class="small" style="opacity:.75">Demo: 2,5 sn aralık · gerçekte ~45 sn</span>`;
+}
+
+/* ---------- araştırma ---------- */
+const FALLBACK = [
+  {name: "Ecogreen Maldives", kind: "EPC / kurulumcu", segment: "EPC – tedarik ortağı", region: "Omadhoo, Maldivler", email: "contact@ecogreenmaldives.com", priority: "B", score: 71, why: "2014'ten beri tüm atollerde resort ve misafirhane GES kurulumu."},
+  {name: "SunCore Energy", kind: "EPC / kurulumcu", segment: "EPC – tedarik ortağı", region: "Malé, Maldivler", email: "info@suncore.mv", priority: "B", score: 64, why: "Yerel GES firması; 16+ yıllık proje yöneticisi."},
+  {name: "Maxx Royal Resorts", kind: "Resort geliştirici", segment: "Son kullanıcı – yeni proje", region: "Bodrum, Türkiye", email: "contact@maxxroyal.com", priority: "A", score: 88, why: "Maxx Royal Maldives 2027'de açılacak; enerji sistemi tasarım aşamasında."},
+  {name: "Sun Siyam Resorts", kind: "Resort grubu", segment: "Son kullanıcı – grup merkezi", region: "Malé, Maldivler", email: "sales@sunsiyam.com", priority: "A", score: 85, why: "2030'da %50 yenilenebilir hedefi; 3 resort 2. faz adayı."},
+  {name: "Atmosphere Core", kind: "Resort grubu", segment: "Son kullanıcı – grup merkezi", region: "Malé, Maldivler", email: "info@atmospherecore.com", priority: "A", score: 83, why: "8.900 panel kurulu; batarya ve 2027'deki yeni resort fırsatı."},
+];
+async function runResearch() {
+  const p = state.profile;
+  const brief = $("#brief").value.trim(), region = $("#region").value.trim(), n = Number($("#howMany").value) || 10;
+  commit(() => { p.segmentBrief = brief; p.regions = region; });
+  research = {running: true, results: [], error: "", ctl: new AbortController(), note: ""};
+  render();
+  const known = state.leads.map(l => l.name);
+  if (!sample) {
+    await new Promise(r => setTimeout(r, 1400));
+    research.results = FALLBACK.filter(f => !known.includes(f.name)).map(r => ({...r, _sel: true}));
+    research.note = "Bu görünümde Claude bağlantısı yok; örnek sonuçlar gösteriliyor.";
+    research.running = false; render(); return;
+  }
+  try {
+    const out = await sample.json(
+`You are a B2B business-development researcher. Build a prospect list.
+Our company: ${p.company} (${p.country}), ${p.sector}. Products: ${p.products}. Value: ${p.value}.
+We are looking for: ${p.mode === "supplier" ? "SUPPLIERS / manufacturers / distributors that can supply our needs" : "CUSTOMERS and channel partners (EPCs, installers, distributors, end users)"}.
+Target region: ${region}. Target description: ${brief}
+Exclude these companies already in our list: ${known.join("; ")}.
+Return ${n} real organisations you are confident exist. For each give a general corporate contact email ONLY if you are confident it is the organisation's real published address, otherwise "". Never invent personal emails.
+Classify each into a short segment label (reuse labels like "EPC – tedarik ortağı", "Son kullanıcı – grup merkezi", "Son kullanıcı – resort", "Son kullanıcı – yeni proje", "Distribütör", "Üretici" where they fit), give priority A/B/C and a 0-100 fit score, and one Turkish sentence "why" explaining the fit.
+Reply with only a JSON array of {"name","kind","segment","region","website","email","priority","score","why"} (kind, segment, region and why in Turkish).`,
+      {signal: research.ctl.signal, modelTier: "default"});
+    research.results = (Array.isArray(out) ? out : []).filter(r => r && r.name && !known.includes(r.name)).map(r => ({
+      name: String(r.name), kind: String(r.kind || ""), segment: String(r.segment || "Diğer"), region: String(r.region || region), website: String(r.website || ""),
+      email: String(r.email || ""), priority: ["A","B","C"].includes(r.priority) ? r.priority : "B", score: Math.max(0, Math.min(100, Number(r.score) || 50)), why: String(r.why || ""), _sel: r.priority !== "C"}));
+    research.note = "Sonuçlar Claude'un bilgisinden üretildi. E-posta adreslerini göndermeden önce firmanın web sitesinden doğrulayın; tam sürümde canlı web araması ve adres doğrulaması yapılır.";
+    if (!research.results.length) research.error = "Yeni aday bulunamadı. Tarifi genişletmeyi deneyin.";
+  } catch (e) {
+    if (["not_granted","sampling_disabled","capability_disabled","not_declared"].includes(e.code)) { sample = null; research.error = "Claude bu görünümde kullanılamıyor. Örnek sonuçlar için tekrar deneyin."; }
+    else if (e.code === "cancelled") research.error = "";
+    else if (e.code === "rate_limited") research.error = "Kısa sürede çok istek yapıldı. Birkaç dakika sonra tekrar deneyin.";
+    else research.error = "Yanıt okunamadı. Tarifi kısaltıp tekrar deneyin.";
+  } finally { research.running = false; render(); }
+}
+function addResults() {
+  const pick = research.results.filter(r => r._sel);
+  commit(() => {
+    for (const r of pick) state.leads.push({id: uid(), name: r.name, kind: r.kind, segment: r.segment, region: r.region, email: r.email, emailSource: r.email ? "Yapay zekâ önerisi – doğrulanmalı" : "", priority: r.priority, score: r.score, why: r.why, status: "new", sentAt: "", followUpAt: "", notes: ""});
+    research.results = research.results.filter(r => !r._sel);
+    view = "adaylar"; filters = {segment: "Tümü", status: "new", prio: "Tümü", q: ""};
+  });
+  toast(`${pick.length} aday listeye eklendi.`);
+}
+
+/* ---------- küçük bileşenler ---------- */
+let toastT;
+function toast(msg) {
+  let el = $("#layer").querySelector(".toast");
+  if (!el) { el = document.createElement("div"); el.className = "toast"; el.setAttribute("role", "status"); $("#layer").append(el); }
+  el.textContent = msg; clearTimeout(toastT); toastT = setTimeout(() => el.remove(), 3200);
+}
+function confirmDlg(title, text, okLabel, onOk) {
+  const back = document.createElement("div"); back.className = "dlg-back";
+  back.innerHTML = `<div class="dlg" role="dialog" aria-modal="true" aria-label="${esc(title)}"><h2>${esc(title)}</h2><p class="small" style="margin:0">${text}</p><div class="row"><span class="spacer"></span><button class="btn" data-x>Vazgeç</button><button class="btn primary" data-ok>${esc(okLabel)}</button></div></div>`;
+  back.addEventListener("click", e => { if (e.target === back || e.target.closest("[data-x]")) back.remove(); if (e.target.closest("[data-ok]")) { back.remove(); onOk(); } });
+  $("#layer").append(back); back.querySelector("[data-ok]").focus();
+}
+
+/* ---------- olaylar ---------- */
+document.addEventListener("click", e => {
+  const t = e.target.closest("button, input[type=checkbox]"); if (!t) return;
+  const ds = t.dataset;
+  if (ds.nav) { view = ds.nav; try { localStorage.setItem("pusula.view", view); } catch (x) {} render(); window.scrollTo(0, 0); return; }
+  if (ds.mode) { commit(() => state.profile.mode = ds.mode); return; }
+  if (ds.f) { filters[ds.f] = ds.v; render(); return; }
+  if (ds.sel) { t.checked ? selected.add(ds.sel) : selected.delete(ds.sel); renderNav(); const b = $("#introSel"); if (b) { b.disabled = !selected.size; b.textContent = `Tanışma maili hazırla (${selected.size})`; } return; }
+  if (t.id === "selAll") { const ls = filteredLeads(); ls.forEach(l => t.checked ? selected.add(l.id) : selected.delete(l.id)); render(); return; }
+  if (t.id === "introSel") { makeDrafts([...selected], "intro"); return; }
+  if (ds.bulkintro) { makeDrafts(ds.bulkintro.split(",").filter(Boolean), "intro"); return; }
+  if (ds.remind) { makeDrafts([ds.remind], "reminder"); return; }
+  if (ds.setst) { const [id, st] = ds.setst.split(":"); commit(() => { const l = leadById(id); if (l) { l.status = st; log(id, STATUS[st].t); } }); return; }
+  if (ds.ri !== undefined) { research.results[Number(ds.ri)]._sel = t.checked; return; }
+  if (t.id === "runRes") { runResearch(); return; }
+  if (t.id === "fresh") { confirmDlg("Boş çalışma alanı", "Örnek adaylar, taslaklar ve takipler silinir; şirket ve imza bilgileri kalır, düzenleyebilirsiniz.", "Başlat", () => commit(() => { state.leads = []; state.drafts = []; state.log = []; state.demo = false; selected.clear(); })); return; }
+  if (t.id === "stopRes") { research.ctl?.abort(); return; }
+  if (t.id === "selAllRes") { research.results.forEach(r => r._sel = true); render(); return; }
+  if (t.id === "addRes") { addResults(); return; }
+  if (ds.send) { const d = state.drafts.find(x => x.id === ds.send); const l = d && leadById(d.leadId);
+    if (!l?.email) { toast("Bu firmanın e-posta adresi yok. Adaylar ekranından ekleyin."); return; }
+    confirmDlg("Maili gönder", `<b>${esc(l.name)}</b> (${esc(l.email)}) adresine "${esc(d.subject)}" konulu mail gönderilecek ve ${state.profile.followUpDays || 7} gün sonrasına hatırlatma planlanacak.<br><br>Demo modunda gerçek gönderim yapılmaz.`, "Gönder", () => startQueue([d.id])); return; }
+  if (t.id === "sendAll") { const ok = state.drafts.filter(d => leadById(d.leadId)?.email).map(d => d.id);
+    confirmDlg("Tümünü gönder", `${ok.length} mail sırayla, aralarında bekleme süresiyle gönderilecek. Aynı anda toplu gönderim yapılmaz; bu, spam filtrelerine takılmamak için gerekli.`, "Gönderimi başlat", () => startQueue(ok)); return; }
+  if (ds.copy) { const d = state.drafts.find(x => x.id === ds.copy); const txt = `${d.subject}\n\n${d.body}`;
+    navigator.clipboard?.writeText(txt).then(() => toast("Konu ve metin kopyalandı."), () => { const ta = document.getElementById("b_" + d.id); ta.select(); toast("Metni seçtim; Ctrl+C ile kopyalayın."); }); return; }
+  if (ds.del) { commit(() => { const d = state.drafts.find(x => x.id === ds.del); state.drafts = state.drafts.filter(x => x.id !== ds.del); const l = d && leadById(d.leadId); if (l && l.status === "draft") l.status = "new"; }); return; }
+  if (ds.ai) { if (!sample) { toast("Claude bu görünümde kullanılamıyor."); return; } aiPolish([ds.ai]); return; }
+});
+document.addEventListener("input", e => {
+  const t = e.target, ds = t.dataset;
+  if (ds.prof) { state.profile[ds.prof] = t.value; persist(); return; }
+  if (ds.dsub) { const d = state.drafts.find(x => x.id === ds.dsub); if (d) { d.subject = t.value; persist(); } return; }
+  if (ds.dbody) { const d = state.drafts.find(x => x.id === ds.dbody); if (d) { d.body = t.value; persist(); } return; }
+  if (t.id === "q") { filters.q = t.value; const pos = t.selectionStart; render(); const q = $("#q"); q.focus(); q.setSelectionRange(pos, pos); }
+});
+document.addEventListener("change", e => {
+  const ds = e.target.dataset;
+  if (ds.status) { commit(() => { const l = leadById(ds.status); if (l) { l.status = e.target.value; if (e.target.value === "sent" && !l.sentAt) { l.sentAt = todayISO(); l.followUpAt = addDays(l.sentAt, Number(state.profile.followUpDays) || 7); } log(l.id, STATUS[l.status].t); } }); }
+  if (ds.prof === "followUpDays") { state.profile.followUpDays = Number(e.target.value); persist(); }
+});
+
+/* ---------- başlangıç ---------- */
+try { const s = localStorage.getItem("pusula.state"); if (s) state = JSON.parse(s); } catch (e) {}
+render(); setStoreNote("Veriler bu tarayıcıda saklanıyor.");
+(async () => {
+  if (!window.claude?.use) return;
+  claude.use("sample").then(s => { sample = s; });
+  try {
+    const [d, u] = await Promise.all([claude.use("db"), claude.use("user")]);
+    const id = u ? await u.id() : null;
+    if (d && id) {
+      db = d; docRef = db.collection("data/users/" + id).doc("workspace");
+      const snap = await docRef.get();
+      if (snap.exists && snap.data()?.profile) { state = JSON.parse(JSON.stringify(snap.data())); render(); }
+      setStoreNote();
+    }
+  } catch (e) { setStoreNote("Veriler bu tarayıcıda saklanıyor."); }
+})();
+</script>
