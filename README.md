@@ -16,3 +16,8 @@ Maldivler'de ulusal şebeke yok; resort adaları elektriği çoğunlukla dizel j
 
 ## Kullanıcı notu
 Kullanıcı yazılımcı değil (iş geliştirme ve satış direktörü). Türkçe, sade ve adım adım anlatılmalı.
+
+## Çıktılar (Ekim 2026)
+- **[Pazar_Raporu.md](Pazar_Raporu.md)** – Türkçe pazar raporu (bulgular, geri dönüş hesabı, giriş stratejisi, sonraki adımlar)
+- **[Maldivler_Potansiyel_Musteri_Listesi.xlsx](Maldivler_Potansiyel_Musteri_Listesi.xlsx)** – 90 resort, işletmeci gruplar, rakipler, ortak adayları, kamu kurumları, geri dönüş hesaplayıcısı
+- `araclar/excel_olustur.py` – Excel dosyasını yeniden üreten betik
