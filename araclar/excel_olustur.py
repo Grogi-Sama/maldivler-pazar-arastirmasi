@@ -31,7 +31,10 @@ GROUP_CONTACTS = load_tsv("iletisim_grup.tsv")  # e-posta, telefon, adres, kayna
 MAIL_LOG = [line.split("\t") for line in (HERE / "mail_takip.tsv").read_text(encoding="utf-8").splitlines()
             if line.strip()]
 # Aynı kurumun başka sayfalardaki satırları da işaretlensin
-EXTRA_ANCHORS = {"Aydeniz Grubu (Ayada Maldives sahibi)": [("Resortlar", "Ayada Maldives")]}
+EXTRA_ANCHORS = {
+    "Aydeniz Grubu (Ayada Maldives sahibi)": [("Resortlar", "Ayada Maldives")],
+    "Kandima / Pulse Hotels & Resorts": [("Resortlar", "Kandima Maldives")],
+}
 STATUS_FILL = {
     "Mail gönderildi": PatternFill("solid", fgColor="DDEBF7"),   # açık mavi
     "Yanıt geldi": PatternFill("solid", fgColor="FFF2CC"),       # açık sarı
