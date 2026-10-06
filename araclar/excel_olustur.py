@@ -205,19 +205,20 @@ COMPETITORS = [
 ]
 
 PARTNERS = [
-    # (firma, tür, neden uygun, web, not)
-    ("Swimsol", "GES lideri / EPC", "50+ resort müşterisi var; ESS ilavesi gereken GES'lerin çoğu onların. ESS tedarikçisi olarak yaklaşılabilir", "swimsol.com", "Hem rakip hem müşteri olabilir"),
-    ("Ecogreen Maldives", "Yerel kurulumcu", "Tüm atollerde turnkey GES; yerel lisans ve saha ekibi", "ecogreenmaldives.com", "Yerel ortak adayı"),
-    ("Renewable Energy Maldives (REM)", "Yerel kurulumcu", "2012'den beri yerel GES deneyimi", "Doğrulanmalı", "Yerel ortak adayı"),
-    ("Avi Technologies", "Kurulumcu", "Batarya entegrasyonu odaklı", "Doğrulanmalı", "Ortak adayı"),
-    ("Solar Atolls / Atoll Solar / AOI Utopia", "Yerel kurulumcular", "ENF Solar dizininde Maldivler kurulumcuları", "enfsolar.com/directory/installer/Maldives", "Ön eleme yapılmalı"),
-    ("Hayleys Fentons", "Bölgesel EPC (Sri Lanka)", "Maldivler resort referansı (Sun Siyam) var; ürün tedarikçisi arıyor olabilir", "fentons.lk (doğrulanmalı)", "Ortak veya rakip"),
-    ("Canopy Power", "Mikro şebeke EPC (Singapur)", "Resort mikro şebeke uzmanı; Huawei ile çalışıyor", "canopypower.com", "Huawei kanalı ile çakışma kontrol edilmeli"),
-    ("Resort jeneratör bakım/servis firmaları", "O&M", "Her resortun enerji santraline zaten erişimleri var; hibrit kontrol entegrasyonu için kritik", "Saha ziyaretinde tespit edilecek", "Cummins, MTU, Caterpillar yerel bayileri"),
-    ("SunCore Energy", "Yerel GES firması (Maldivler)", "Maldivli GES şirketi; 16+ yıllık proje yöneticisi var", "suncore.mv", "Yerel ortak adayı"),
-    ("Atoll Solar", "Yerel GES / yüzer GES", "Hotelier Maldives GM Forum 2026'da Ocean Sun ile lagün yüzer GES sunumu yaptı – resort yöneticilerine erişimi var", "Doğrulanmalı", "Yerel ortak adayı"),
-    ("DEIF", "Hibrit kontrol sistemi (Danimarka)", "Maldivler'de bir lüks resortta dizel+GES+batarya hibrit kontrolünü yaptı; ESS entegrasyonunda teknik ortak", "deif.com", "Teknik ortak"),
-    ("Elemental Water Makers", "Güneş enerjili su arıtma", "Resortlarda tuzdan arındırma en büyük elektrik yüklerinden biri", "elementalwatermakers.com", "Tamamlayıcı ortak"),
+    # (firma, tür, bilinen marka tercihi, Karea/HYXI için değerlendirme, web, not)
+    ("Swimsol", "GES lideri / EPC (Avusturya, Malé'de yerleşik)", "Panel: kendi SolarSea sistemi. Batarya markası kamuya açık değil", "50+ resortta GES; Veligandu (1,7 MWh) ve RAH GILI (2,5 MWh) bataryalarını da kurdu. Batarya tedarikçisi olarak HYXI için en büyük potansiyel", "swimsol.com", "Hem rakip hem müşteri olabilir"),
+    ("Avi Technologies", "Yerel EPC (2015)", "Kamuya açık marka bilgisi yok", "GES + ESS + dizel entegrasyonu yapıyor (Haa Alif'te 14 adada 3,78 MWh ESS). 15+ MW kurulum. HYXI C&I ESS için en uygun yerel ortak adayı", "avitech.com.mv", "Yerel ortak – 1. öncelik"),
+    ("Atoll Solar (Octopus Systems)", "Yerel EPC, resort odaklı", "BYD ile çalışıyor", "Ana şirket Octopus Systems resortların sistem entegratörü, yani tüm resortlara zaten erişimi var. BYD'ye alternatif ikinci marka olarak HYXI sunulabilir", "atollsolar.com", "Yerel ortak – 1. öncelik"),
+    ("Ecogreen Maldives", "Yerel kurulumcu (2014)", "Kamuya açık marka bilgisi yok", "Resort, misafirhane, konut ve tekne GES. Ağırlıklı olarak küçük/orta ölçek", "ecogreenmaldives.com", "Yerel ortak adayı"),
+    ("Renewable Energy Maldives (REM)", "Yerel kurulumcu (2006)", "Sri Lanka kolu (REM Lanka) SolaX kullanıyor", "~25 ada ve resortlarla çalışmış eski oyuncu", "LinkedIn: REM Solar", "Yerel ortak adayı"),
+    ("SunCore Energy", "Yerel GES firması", "Kamuya açık marka bilgisi yok", "16+ yıllık proje direktörü; kamu ve kurumsal projeler", "suncore.mv", "Yerel ortak adayı"),
+    ("Hayleys Fentons / Hayleys Solar", "Bölgesel EPC (Sri Lanka, 500+ MW)", "HUAWEI kullanıyor (inverter tedarikçileri arasında; Hayleys Electronics Huawei ile ortak forum yaptı); BYD batarya ortağı", "Sun Siyam projesinin yüklenicisi. Huawei kanalında oldukları için HYXI'ye geçmeleri zor; Huawei tarafında ise bölgesel rakip/kanal", "hayleysfentons.com", "Huawei kullanıcısı"),
+    ("Canopy Power", "Mikro şebeke EPC (Singapur)", "HUAWEI ESS (Soneva Secret 3 MWh)", "Huawei kanalında", "canopypower.com", "Huawei kullanıcısı"),
+    ("Solmacher Solar Energy", "EPC", "HUAWEI (Royal Rosewood 40 MWh ESS + inverter, Ağu. 2026)", "Huawei'nin Maldivler'deki en büyük projesi bu firmada", "Doğrulanmalı", "Huawei kullanıcısı"),
+    ("SINOSOAR", "Çin EPC – kamu hibrit projeleri", "Kendi PCS/EMS'i; Sungrow ile bağlantılı", "134 adada kamu mikro şebeke projesi (ADB/ASSURE 40 MWh dahil). Kamu ihaleleri tarafında güçlü rakip", "sinosoarhybrid.com", "Rakip (kamu)"),
+    ("Resort jeneratör bakım/servis firmaları", "O&M", "Cummins, MTU, Caterpillar yerel bayileri", "Her resortun enerji santraline zaten erişimleri var; hibrit kontrol entegrasyonu için kritik", "Saha ziyaretinde tespit edilecek", "Teknik ortak"),
+    ("DEIF", "Hibrit kontrol sistemi (Danimarka)", "—", "Maldivler'de bir lüks resortta dizel+GES+batarya kontrolünü yaptı; ESS entegrasyonunda teknik ortak", "deif.com", "Teknik ortak"),
+    ("Elemental Water Makers", "Güneş enerjili su arıtma", "—", "Resortlarda tuzdan arındırma en büyük elektrik yüklerinden biri", "elementalwatermakers.com", "Tamamlayıcı ortak"),
 ]
 
 PUBLIC = [
@@ -500,8 +501,9 @@ def main():
                  ["Firma", "Menşe", "Rol", "Maldivler'deki bilinen projeler", "Teknoloji / marka", "Karea için anlamı"],
                  COMPETITORS, [26, 22, 26, 60, 36, 50])
     simple_sheet(wb, "EPC-Ortak Adayları", "Ortaklar",
-                 ["Firma", "Tür", "Neden uygun", "Web sitesi", "Not"],
-                 PARTNERS, [36, 26, 60, 34, 30])
+                 ["Firma", "Tür", "Bilinen marka tercihi (inverter/batarya)", "Karea / HYXI için değerlendirme",
+                  "Web sitesi", "Not"],
+                 PARTNERS, [32, 30, 44, 64, 24, 22])
     simple_sheet(wb, "Kamu ve Finansman", "Kamu",
                  ["Kurum / Program", "Rol", "Karea için önemi", "Web sitesi"],
                  PUBLIC, [44, 40, 70, 26])

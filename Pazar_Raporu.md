@@ -122,6 +122,20 @@
 
 ---
 
+## 9. Ürün kanalı, Huawei'nin bölge yapısı ve garanti riski
+
+**Huawei Maldivler'e nereden satıyor?** Maldivler'de Huawei'nin enerji (Digital Power) için kendi ofisi bulunamadı. Huawei'nin Maldivler'deki geçmişi telekom (Ooredoo, Dhiraagu) tarafında. Maldivler projeleri **Huawei Güney Asya Digital Power** birimi altında yürüyor; en yakın büyük ofis Colombo'daki Huawei Technologies Lanka. Sri Lanka'da Huawei FusionSolar'ın münhasır distribütörü Solar Booze. Maldivler'deki iki büyük Huawei projesi ise distribütör yerine **EPC firmaları ile Huawei arasında doğrudan proje anlaşmasıyla** yapılmış (Canopy Power – Soneva Secret, Solmacher – Royal Rosewood).
+
+**Maldivler'de Huawei kullanan EPC'ler:** Canopy Power, Solmacher, Hayleys Fentons (Sri Lanka; Huawei inverter tedarikçileri arasında). **HYXI kullanan bilinen kimse yok.**
+
+**Garanti – en önemli risk:**
+- Huawei'nin yurt dışı C&I inverter ve C&I ESS garanti politikalarına göre garanti **yalnızca ürünün satın alındığı ülke veya bölgede geçerli** ve başka ülkeye **devredilemiyor**. Ürün başka ülkeye taşınırsa garanti ancak denetim (ürün muayenesi) sonrasında yeniden satın alınarak sağlanabiliyor. FusionSolar sisteminin "yetkisiz kanaldan gelen cihaz" uyarısı verdiği de kullanıcılar tarafından bildiriliyor.
+- **HYXI'de durum daha net:** Bir ülke için satılıp başka ülkede kurulan ürünlerde, kurulumdan **önce HYXI'den yazılı onay alınmadıysa garanti geçersiz**.
+- **Sonuç:** Türkiye kanalından alınıp Maldivler'e gönderilen Huawei veya HYXI ürünleri, üreticiden önceden yazılı onay alınmadan kurulursa **garantisiz kalma riski yüksek**. Resortlar ve finansman kuruluşları 10–15 yıllık garanti şartı arar; garantisiz ürün satılamaz.
+- **Çözüm:** Her proje için üreticiye **proje kaydı / ihracat onayı** (Huawei'de Güney Asya bölge ekibi, HYXI'de global satış ekibi) yaptırılmalı ve garantinin Maldivler'de geçerli olduğu **yazılı** alınmalı. Yedek parça ve servisin (bataryalar tehlikeli madde, adaya taşıma yavaş) kim tarafından verileceği de sözleşmeye yazılmalı.
+
+**HYXI için strateji:** Huawei'nin bölgede yerleşik kanalları var (Canopy, Solmacher, Hayleys), Karea'nın orada fark yaratması zor. **HYXI ise boş alan:** HYXI'den Maldivler için proje bazlı yetki ve garanti onayı alınarak (1) **Avi Technologies** (GES+ESS entegrasyon deneyimi) ve (2) **Atoll Solar / Octopus Systems** (resortlara erişimi var, şu an BYD satıyor) yerel kurulum ortağı yapılabilir; (3) **Swimsol**'a batarya tedarikçisi olarak gidilebilir.
+
 ## Kaynaklar
 
 - CIF / ADB – Maldivler vaka çalışması (dizel maliyetleri, resort dizel kapasitesi): https://www.cif.org/sites/cif_enc/files/knowledge-documents/66436_191219_maldives_case_study_v7s.pdf
@@ -143,5 +157,13 @@
 - Pontiac Land yeşil kredi: https://hotelsmag.com/news/pontiac-land-secures-green-loan-in-the-maldives/
 - URA / Enerji Kanunu: https://www.ctlstrategies.com/latest/maldives-energy-act/
 - Yeni resortlar 2026–2027: https://resortlife.travel/maldives-new-resorts
+- Huawei C&I ESS garanti politikası (yurt dışı): https://solar.huawei.com/download?p=%2F-%2Fmedia%2FSolarV4%2Fsolar-version2%2Fcommon%2Fservice-support%2Fwarranty%2Fpdf%2Fc-i-ess-warranty-policy-oversea-v2-0.pdf
+- Huawei C&I inverter garanti politikası (yurt dışı): https://www.sig.energy/wp-content/uploads/2025/01/c-i-inverter-warranty-policy-oversea-v2-0.pdf
+- HYXI global garanti şartları: https://webfile.hyxipower.com/soft/20250414/HYXIPOWER-Products-Warranty-Terms--Conditions-Global_EN-202504111.pdf
+- Hayleys – Huawei ortak forumu: https://www.hayleys.com/advancing-smart-power-solutions-for-sri-lanka-at-hayleys-electronics-partner-forum/
+- Solar Booze – Huawei Sri Lanka distribütörü: https://www.dailymirror.lk/print/business-news/Huawei-Fusion-recognises-Solar-Boozes-outstanding-distribution-partnership/273-291869
+- Avi Technologies: https://avitech.com.mv/about
+- Atoll Solar (Octopus Systems, BYD): https://atollsolar.com/about/
+- SINOSOAR Maldivler projeleri: https://www.sinosoarhybrid.com/40mwh-energy-storage-project-maldives/
 
 *Sınırlamalar: Bu çalışma internetteki kamuya açık kaynaklara dayanır; bazı kaynak sayfalarına doğrudan erişilemediği için arama özetlerinden yararlanılmıştır. Oda sayıları yaklaşıktır. "Doğrulanmalı" işaretli bilgiler görüşme öncesi teyit edilmelidir. Kişisel veri toplanmamıştır.*
