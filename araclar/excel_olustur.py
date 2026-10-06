@@ -27,6 +27,18 @@ def load_tsv(name):
 RESORT_CONTACTS = load_tsv("iletisim_resort.tsv")  # e-posta, telefon, güven/not, kaynak
 GROUP_CONTACTS = load_tsv("iletisim_grup.tsv")  # e-posta, telefon, adres, kaynak
 
+# Mail takibi: tarih, tur, kurum, kategori, e-posta, konu, durum, sonraki adım, sonraki tarih, sayfa, satır anahtarı
+MAIL_LOG = [line.split("\t") for line in (HERE / "mail_takip.tsv").read_text(encoding="utf-8").splitlines()
+            if line.strip()]
+# Aynı kurumun başka sayfalardaki satırları da işaretlensin
+EXTRA_ANCHORS = {"Aydeniz Grubu (Ayada Maldives sahibi)": [("Resortlar", "Ayada Maldives")]}
+STATUS_FILL = {
+    "Mail gönderildi": PatternFill("solid", fgColor="DDEBF7"),   # açık mavi
+    "Yanıt geldi": PatternFill("solid", fgColor="FFF2CC"),       # açık sarı
+    "Görüşme planlandı": PatternFill("solid", fgColor="E2EFDA"), # açık yeşil
+    "İlgilenmiyor": PatternFill("solid", fgColor="EDEDED"),      # gri
+}
+
 # Puan formülünün dışında kalan özel durumlar: (ek puan, gerekçe)
 BONUS = {
     "Ayada Maldives": (3, "Türk sahipli (Aydeniz Grubu, Ankara) – doğrudan sahiple Türkçe görüşme, ilk referans için ideal"),
@@ -216,6 +228,7 @@ PARTNERS = [
     ("Canopy Power", "Mikro şebeke EPC (Singapur)", "HUAWEI ESS (Soneva Secret 3 MWh)", "Huawei kanalında", "canopypower.com", "Huawei kullanıcısı"),
     ("Solmacher Solar Energy", "EPC", "HUAWEI (Royal Rosewood 40 MWh ESS + inverter, Ağu. 2026)", "Huawei'nin Maldivler'deki en büyük projesi bu firmada", "Doğrulanmalı", "Huawei kullanıcısı"),
     ("SINOSOAR", "Çin EPC – kamu hibrit projeleri", "Kendi PCS/EMS'i; Sungrow ile bağlantılı", "134 adada kamu mikro şebeke projesi (ADB/ASSURE 40 MWh dahil). Kamu ihaleleri tarafında güçlü rakip", "sinosoarhybrid.com", "Rakip (kamu)"),
+    ("Magnetron Maldives", "Yerel mühendislik / EPC (2014)", "Kamuya açık marka bilgisi yok", "Elektrik panosu, RO su arıtma ve GES; 28+ adada resort ve kamu müşterisi. RO tesisleri batarya için ideal yük", "magnetronmaldives.com", "Yerel ortak adayı"),
     ("Resort jeneratör bakım/servis firmaları", "O&M", "Cummins, MTU, Caterpillar yerel bayileri", "Her resortun enerji santraline zaten erişimleri var; hibrit kontrol entegrasyonu için kritik", "Saha ziyaretinde tespit edilecek", "Teknik ortak"),
     ("DEIF", "Hibrit kontrol sistemi (Danimarka)", "—", "Maldivler'de bir lüks resortta dizel+GES+batarya kontrolünü yaptı; ESS entegrasyonunda teknik ortak", "deif.com", "Teknik ortak"),
     ("Elemental Water Makers", "Güneş enerjili su arıtma", "—", "Resortlarda tuzdan arındırma en büyük elektrik yüklerinden biri", "elementalwatermakers.com", "Tamamlayıcı ortak"),
@@ -345,6 +358,7 @@ def sheet_guide(wb):
         ("Kamu ve Finansman: bakanlık, düzenleyici kurum, kalkınma bankası programları", False),
         ("Geri Dönüş Hesabı: sarı hücreleri değiştirerek kendi senaryonuzu hesaplayın", False),
         ("Kaynaklar: bulguların dayandığı kamuya açık kaynaklar", False),
+        ("Mail Takibi: gönderilen mailler, durumları ve takip tarihleri. Mail atılan kurumların satırları diğer sekmelerde de renklendirildi.", False),
         ("", False),
         ("ÖNCELİK PUANI NASIL HESAPLANDI? (0–7 puan)", True),
         ("Büyüklük: 250+ oda = 3 puan, 120–249 = 2, 120 altı veya bilinmiyor = 1", False),
@@ -484,6 +498,53 @@ def sheet_payback(wb):
             value="Not: Batarya ~10–12. yılda kapasite kaybı yaşar; uzun vadeli hesapta yenileme bütçesi eklenmelidir.")
 
 
+def sheet_mail_log(wb):
+    ws = wb.create_sheet("Mail Takibi", 1)
+    headers = ["Gönderim tarihi", "Tur", "Kurum", "Kategori", "E-posta", "Konu", "Durum",
+               "Sonraki adım", "Sonraki adım tarihi"]
+    ws.append(headers)
+    for row in MAIL_LOG:
+        ws.append(row[:9])
+        fill = STATUS_FILL.get(row[6])
+        if fill:
+            for c in ws[ws.max_row]:
+                c.fill = fill
+    style_header(ws, len(headers))
+    set_widths(ws, [14, 8, 34, 26, 32, 56, 18, 34, 16])
+    wrap_all(ws)
+    n = ws.max_row + 2
+    ws.cell(row=n, column=1, value="Renkler:").font = Font(bold=True)
+    for i, (status, fill) in enumerate(STATUS_FILL.items(), start=1):
+        c = ws.cell(row=n + i, column=1, value=status)
+        c.fill = fill
+
+
+def mark_rows(wb):
+    """Mail atılan kurumların satırlarını renklendirir ve 'Mail durumu' sütununa yazar."""
+    targets = {}
+    for row in MAIL_LOG:
+        status = f"{row[6]} ({row[0]})"
+        for sheet, key in [(row[9], row[10])] + EXTRA_ANCHORS.get(row[2], []):
+            targets.setdefault(sheet, {})[key] = (status, STATUS_FILL.get(row[6]))
+    for sheet, keys in targets.items():
+        ws = wb[sheet]
+        name_col = 2 if sheet == "Resortlar" else 1
+        col = ws.max_column + 1
+        ws.cell(row=1, column=col, value="Mail durumu")
+        style_header(ws, col)
+        ws.column_dimensions[get_column_letter(col)].width = 26
+        for r in range(2, ws.max_row + 1):
+            hit = keys.get(ws.cell(row=r, column=name_col).value)
+            if not hit:
+                continue
+            ws.cell(row=r, column=col, value=hit[0]).alignment = Alignment(wrap_text=True, vertical="top")
+            for c in ws[r]:
+                if c.fill.fgColor.rgb not in [f.fgColor.rgb for f in PRIO_FILL.values()]:
+                    c.fill = hit[1]
+        table = next(iter(ws.tables.values()))
+        table.ref = f"A1:{get_column_letter(col)}{table.ref.split(':')[1].lstrip('ABCDEFGHIJKLMNOPQRSTUVWXYZ')}"
+
+
 def main():
     wb = Workbook()
     sheet_guide(wb)
@@ -509,6 +570,8 @@ def main():
                  PUBLIC, [44, 40, 70, 26])
     sheet_payback(wb)
     simple_sheet(wb, "Kaynaklar", "Kaynaklar", ["Bilgi", "Kaynak bağlantısı"], SOURCES, [70, 100])
+    sheet_mail_log(wb)
+    mark_rows(wb)
     wb.save(OUT)
     print(f"Kaydedildi: {OUT}")
 
