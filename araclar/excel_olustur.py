@@ -38,6 +38,8 @@ EXTRA_ANCHORS = {
     "Four Seasons Landaa Giraavaru & Kuda Huraa": [("Resortlar", "Four Seasons Kuda Huraa")],
     "Emerald Maldives & Emerald Faarufushi": [("Resortlar", "Faarufushi Maldives"), ("İşletmeci Gruplar", "Emerald Collection")],
     "Anantara Dhigu / Veli / Naladhu (Minor Hotels)": [("İşletmeci Gruplar", "Minor Hotels (Anantara, NH Collection)")],
+    "Club Med Kani & Finolhu Villas": [("Resortlar", "Club Med Finolhu Villas")],
+    "Centara Maldives (Ras Fushi, Machchafushi, Mirage Lagoon)": [("Resortlar", "Centara Grand Island Resort"), ("İşletmeci Gruplar", "Centara Hotels & Resorts")],
 }
 STATUS_FILL = {
     "Mail gönderildi": PatternFill("solid", fgColor="DDEBF7"),   # açık mavi
@@ -532,6 +534,8 @@ def mark_rows(wb):
     for row in MAIL_LOG:
         status = f"{row[6]} ({row[0]})"
         for sheet, key in [(row[9], row[10])] + EXTRA_ANCHORS.get(row[2], []):
+            if sheet == "-":
+                continue
             targets.setdefault(sheet, {})[key] = (status, STATUS_FILL.get(row[6]))
     for sheet, keys in targets.items():
         ws = wb[sheet]
