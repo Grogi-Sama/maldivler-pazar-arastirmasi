@@ -4,6 +4,7 @@
 
 import UYGULAMA from "../public/index.html";
 import {gemini, tavily, webArastir, ServisHatasi} from "./arastirma.js";
+import {baglantiBaslat, baglantiTamamla, postaDurumu, baglantiKaldir, gonder, PostaHatasi} from "./posta.js";
 import IKON_192 from "../marka/ikon-192.png";
 import IKON_512 from "../marka/ikon-512.png";
 import IKON_MASKABLE from "../marka/ikon-maskable-512.png";
@@ -131,6 +132,24 @@ async function api(req, env, yol) {
       : await env.DB.prepare("INSERT OR IGNORE INTO calisma_alani (kullanici_id, veri, surum, guncelleme) VALUES (?, ?, 1, ?)").bind(k.id, JSON.stringify(veri), simdi).run();
     if (!r.meta.changes) return hata("Çalışma alanı başka bir cihazda değişti. Sayfayı yenileyin.", 409);
     return json({surum: yeni, guncelleme: simdi});
+  }
+  // Outlook bağlantısı ve gerçek gönderim
+  try {
+    if (yol === "/api/microsoft/baglan") return Response.redirect(await baglantiBaslat(req, env, k.id), 302);
+    if (yol === "/api/microsoft/geri") return Response.redirect(new URL(await baglantiTamamla(req, env, k.id), req.url).toString(), 302);
+    if (yol === "/api/posta/durum") return json(await postaDurumu(env, k.id));
+    if (yol === "/api/posta/kaldir" && req.method === "POST") { await baglantiKaldir(env, k.id); return json({tamam: true}); }
+    if (yol === "/api/posta/gonder" && req.method === "POST") {
+      const metin = await req.text();
+      if (metin.length > 600_000) return hata("Mail çok büyük.", 413);
+      return json(await gonder(req, env, k.id, JSON.parse(metin)));
+    }
+  } catch (e) {
+    if (e instanceof PostaHatasi) {
+      if (yol === "/api/microsoft/geri") return Response.redirect(new URL("/?ms=hata&neden=" + encodeURIComponent(e.message), req.url).toString(), 302);
+      return hata(e.message, e.durum);
+    }
+    throw e;
   }
   // Yapay zekâ ve web araştırması (anahtarlar sunucuda kalır)
   try {

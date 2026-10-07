@@ -9,5 +9,12 @@
   // Uygulama sayfası sunucu koduna gömülür (ayrı dosya yüklemesi gerekmez)
   "rules": [{"type": "Text", "globs": ["**/*.html"], "fallthrough": false}, {"type": "Data", "globs": ["**/*.png"], "fallthrough": false}],
   "d1_databases": [{"binding": "DB", "database_name": "pusula-db", "database_id": "49b818c5-bb62-48df-b22c-fc76d2f6e501", "migrations_dir": "migrations"}],
+  // Microsoft uygulama kimliği gizli değildir; gizli anahtar (MS_CLIENT_SECRET) Cloudflare'de "Secret" olarak tutulur.
+  // ALICI_KILIDI "acik" iken mailler yalnızca TEST_ALICILAR adreslerine gidebilir.
+  "vars": {
+    "MS_CLIENT_ID": "92634a77-ed52-4bf3-8c5b-a6bd0876a1e2",
+    "ALICI_KILIDI": "acik",
+    "TEST_ALICILAR": "onur.topuz@arsdef.com,onur.topuz@ercsistem.com.tr"
+  },
   "observability": {"enabled": true}
 }

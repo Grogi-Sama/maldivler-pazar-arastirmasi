@@ -214,6 +214,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 }
 .mailto.mto{display:grid;gap:3px;text-align:left}
 .mailto.mto .pill{vertical-align:middle;white-space:nowrap}
+.conn-ms{display:grid;gap:8px;border-top:1px solid var(--line);padding-top:12px}
 </style>
 
 <div class="app" id="app">
@@ -382,6 +383,22 @@ try { const v = localStorage.getItem("pusula.view"); if (v && VIEWS.some(x => x.
 const SERVER = /^https?:$/.test(location.protocol) && !window.claude;
 let srvVer = 0, srvConflict = false, srvReady = false;
 const AI = () => SERVER ? "yapay zekâ" : "Claude";
+let posta = null; // sunucu modunda Outlook bağlantı durumu
+const realMail = () => SERVER && !!posta?.bagli;
+async function loadPosta() { try { const r = await fetch("/api/posta/durum"); if (r.ok) { posta = await r.json(); render(); } } catch (e) {} }
+async function realSend(d) {
+  const l = leadById(d.leadId) || {};
+  try {
+    const r = await fetch("/api/posta/gonder", {method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({kime: recipientFor(d), firmaEposta: l.email || "", konu: d.subject, metin: d.body, imza: sigImgOn() && d.type !== "reply" ? state.profile.sigImg : ""})});
+    if (r.status === 401 && !(await r.clone().json().catch(() => ({}))).hata?.includes("Microsoft")) { location.href = "/giris"; return false; }
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { toast(j.hata || "Gönderilemedi."); return false; }
+    if (posta) posta.bugunGonderilen++;
+    return true;
+  } catch (e) { toast("Sunucuya ulaşılamadı; mail gönderilmedi."); return false; }
+}
+const gapMs = () => { if (!realMail()) return 2200; const sn = state.profile.sending; return testOn() ? 15000 + Math.random() * 15000 : (sn.minGap + Math.random() * Math.max(0, sn.maxGap - sn.minGap)) * 60000; };
 // Sunucu modunda "sample" yerine Pusula sunucusundaki yapay zekâ (Gemini) kullanılır; arayüz aynı kalır.
 function serverSample() {
   const call = async (input, opts = {}, asJson = true) => {
@@ -604,6 +621,11 @@ function vProfil() {
     <div class="row"><h2>Bağlantılar</h2><span class="spacer"></span><button class="btn sm" id="connTest">Bağlantıları test et</button></div>
     <p class="small muted" style="margin:0">Yapay zekâ (Gemini) ve web araması (Tavily) Pusula sunucusunda çalışır; anahtarlar tarayıcıya hiç gelmez.</p>
     <div id="connOut" class="small"></div>
+    <div class="conn-ms">
+      <div class="row"><b>Outlook (Microsoft 365)</b><span class="spacer"></span>${posta?.bagli ? `<span class="pill st-meet">Bağlı</span>` : `<span class="pill st-new">Bağlı değil</span>`}</div>
+      ${posta?.bagli ? `<p class="small" style="margin:0">Gönderen: <b>${esc(posta.eposta)}</b> · bugün ${posta.bugunGonderilen}/${posta.gunlukSinir} mail</p>${posta.kilit ? `<p class="small muted" style="margin:0">🔒 Sunucu test kilidi açık: mailler yalnızca ${posta.testAlicilari.map(esc).join(", ")} adreslerine gidebilir.</p>` : ""}<div class="row"><button class="btn sm" id="msTest">Kendime test maili gönder</button><button class="btn ghost sm" id="msOff">Bağlantıyı kaldır</button></div>`
+        : `<p class="small muted" style="margin:0">Mailler sizin Outlook hesabınızdan, Microsoft'un resmî bağlantısıyla gönderilir; şifreniz Pusula'ya verilmez, izni istediğiniz an kaldırabilirsiniz.</p><div class="row"><a class="btn primary sm" href="/api/microsoft/baglan">Outlook ile bağlan</a></div>`}
+    </div>
   </div>` : ""}
   <div class="card grid" style="margin-top:14px" id="testmodu">
     <div class="row"><h2>Test modu</h2><span class="spacer"></span><span class="pill ${testOn() ? "st-reply" : "st-new"}">${testOn() ? "Açık" : "Kapalı"}</span></div>
@@ -802,7 +824,8 @@ function vMailler() {
   return head("Mailler", "Taslaklar kısa, kişisel ve düz metin. Teslim puanına bakın, gerekirse düzenleyin, gönderin.",
     `${dueSched.length ? `<button class="btn" id="sendDue">Zamanı gelenleri gönder (${dueSched.length})</button>` : ""}${ready.length ? `<button class="btn primary" id="sendAll">Tümünü güvenli hızda gönder (${ready.length})</button>` : ""}`) + `
   ${testOn() ? `<p class="note test"><b>Test modu açık.</b> Araştırma ve taslaklar gerçek firmalar için hazırlanıyor; gönderimde alıcı olarak yalnızca sizin adresleriniz (${state.test.addresses.map(esc).join(", ")}) kullanılır. "Outlook'ta aç" maili bu adrese yazılmış hâlde açar. <button class="btn ghost sm" data-nav="profil" data-anchor="testmodu">Değiştir</button></p>` : ""}
-  <p class="note"><b>Demo modu:</b> Bu sürüm mail göndermez; "Gönder" firmayı işaretler ve sıradaki adımı takvime koyar. Tam sürümde mailler Outlook veya Gmail hesabınızdan, ${state.profile.sending.minGap}–${state.profile.sending.maxGap} dk rastgele aralıklarla ve günde en fazla ${state.profile.sending.dailyLimit} adet gider. Bugün kalan hak: <b>${left}</b>.</p>
+  ${SERVER ? (realMail() ? `<p class="note"><b>Gerçek gönderim açık.</b> Mailler <b>${esc(posta.eposta)}</b> hesabınızdan gönderilir ve Outlook'taki "Gönderilmiş Öğeler" klasörünüze düşer. ${posta.kilit ? `Sunucudaki test kilidi açık: mailler yalnızca ${posta.testAlicilari.map(esc).join(", ")} adreslerine gidebilir.` : ""} Bugün ${posta.bugunGonderilen}/${posta.gunlukSinir}.</p>` : `<p class="note"><b>Outlook bağlı değil.</b> Gerçek gönderim için <button class="linkbtn" data-nav="profil" data-anchor="baglantilar">Ayarlar › Bağlantılar</button> bölümünden Outlook hesabınızı bağlayın. Bağlanana kadar "Gönder" yalnızca işaretleme yapar.</p>`) : ""}
+  ${SERVER ? "" : `<p class="note"><b>Demo modu:</b> Bu sürüm mail göndermez; "Gönder" firmayı işaretler ve sıradaki adımı takvime koyar. Tam sürümde mailler Outlook veya Gmail hesabınızdan, ${state.profile.sending.minGap}–${state.profile.sending.maxGap} dk rastgele aralıklarla ve günde en fazla ${state.profile.sending.dailyLimit} adet gider. Bugün kalan hak: <b>${left}</b>.</p>`}
   ${mailBusy ? `<div class="card" style="margin-top:14px"><div class="think"><span class="dots"><i></i><i></i><i></i></span>Taslaklar ${AI()} ile kişiselleştiriliyor…</div></div>` : ""}
   <div class="grid" style="margin-top:14px">
   ${ds.length ? ds.map(d => { const l = leadById(d.leadId) || {}; return `<div class="card draft">
@@ -1034,19 +1057,23 @@ function startQueue(ids) {
   if (!now.length) return;
   if (qTimer) { qTotal += now.length; drawQueue(); } else { qTotal = queue.length; tick(); }
 }
-function tick() {
+async function tick() {
+  qTimer = qTimer || true;
   const id = queue.shift();
   const d = state.drafts.find(x => x.id === id);
-  if (d) commit(() => markSent(d));
+  if (d) {
+    if (realMail() && !(await realSend(d))) { queue.length = 0; qTimer = null; $("#layer").querySelector(".queue")?.remove(); return; }
+    commit(() => markSent(d));
+  }
   drawQueue();
-  if (queue.length) qTimer = setTimeout(tick, 2200);
-  else { qTimer = null; setTimeout(() => $("#layer").querySelector(".queue")?.remove(), 1500); toast("Mailler gönderildi olarak işaretlendi; sıradaki adımlar takvimde."); }
+  if (queue.length) qTimer = setTimeout(tick, gapMs());
+  else { qTimer = null; setTimeout(() => $("#layer").querySelector(".queue")?.remove(), 1500); toast(realMail() ? `Mailler ${posta.eposta} hesabından gönderildi; sıradaki adımlar takvimde.` : "Mailler gönderildi olarak işaretlendi; sıradaki adımlar takvimde."); }
 }
 function drawQueue() {
   const done = qTotal - queue.length, sn = state.profile.sending;
   let el = $("#layer").querySelector(".queue");
   if (!el) { el = document.createElement("div"); el.className = "queue"; el.setAttribute("role", "status"); $("#layer").append(el); }
-  el.innerHTML = `<span>${done}/${qTotal} gönderildi</span><span class="bar"><i style="width:${done / qTotal * 100}%"></i></span><span class="small" style="opacity:.75">Demo hızı · gerçekte ${sn.minGap}–${sn.maxGap} dk aralık</span>`;
+  el.innerHTML = `<span>${done}/${qTotal} gönderildi</span><span class="bar"><i style="width:${done / qTotal * 100}%"></i></span><span class="small" style="opacity:.75">${realMail() ? (testOn() ? "Test: mailler arası 15–30 sn" : `Mailler arası ${sn.minGap}–${sn.maxGap} dk`) : "Demo hızı"} · gerçekte ${sn.minGap}–${sn.maxGap} dk aralık</span>`;
 }
 
 /* ---------- görsel imza ---------- */
@@ -1408,7 +1435,7 @@ document.addEventListener("click", e => {
     if (!l?.email) { toast("Bu firmanın e-posta adresi yok. Firma adına dokunup ekleyin."); return; }
     if (isSuppressed(l)) { toast("Bu adres 'bir daha yazma' listesinde."); return; }
     const q = quality(d);
-    confirmDlg("Maili gönder", testOn() ? `<b>${esc(l.name)}</b> için hazırlanan "${esc(d.subject)}" maili <b>test adresinize (${esc(recipientFor(d))})</b> gönderilecek; firmaya gitmeyecek.` : `<b>${esc(l.name)}</b> (${esc(l.email)}) adresine "${esc(d.subject)}" gönderilecek.${!l.verified ? `<br><br><b>Bu adres doğrulanmadı.</b> Yanlış adrese giden mailler gönderim itibarınızı düşürür; önce firmanın web sitesinden kontrol edin.` : ""}${q.s < 70 ? `<br><br><b>Teslim puanı ${q.s}.</b> Göndermeden önce Mailler ekranındaki önerilere bakmanızı öneririm.` : ""}<br><br>Demo modunda gerçek gönderim yapılmaz.`, "Gönder", () => startQueue([d.id])); return; }
+    confirmDlg("Maili gönder", testOn() ? `<b>${esc(l.name)}</b> için hazırlanan "${esc(d.subject)}" maili <b>test adresinize (${esc(recipientFor(d))})</b> gönderilecek; firmaya gitmeyecek.` : `<b>${esc(l.name)}</b> (${esc(l.email)}) adresine "${esc(d.subject)}" gönderilecek.${!l.verified ? `<br><br><b>Bu adres doğrulanmadı.</b> Yanlış adrese giden mailler gönderim itibarınızı düşürür; önce firmanın web sitesinden kontrol edin.` : ""}${q.s < 70 ? `<br><br><b>Teslim puanı ${q.s}.</b> Göndermeden önce Mailler ekranındaki önerilere bakmanızı öneririm.` : ""}<br><br>${realMail() ? `Mail <b>${esc(posta.eposta)}</b> hesabınızdan gerçekten gönderilecek.` : SERVER ? "Outlook bağlı olmadığı için yalnızca gönderildi olarak işaretlenecek." : "Demo modunda gerçek gönderim yapılmaz."}`, "Gönder", () => startQueue([d.id])); return; }
   if (t.id === "sendAll") { const ok = state.drafts.filter(d => !d.scheduledFor && leadById(d.leadId)?.email && !isSuppressed(leadById(d.leadId))).map(d => d.id);
     const left = Math.max(0, state.profile.sending.dailyLimit - sentToday());
     confirmDlg("Tümünü gönder", `${ok.length} mail sırayla, aralarında ${state.profile.sending.minGap}–${state.profile.sending.maxGap} dakika rastgele bekleme ile gönderilecek. Bugün ${Math.min(left, ok.length)} tanesi gider${ok.length > left ? `, kalan ${ok.length - left} tanesi sonraki iş günlerine planlanır` : ""}.`, "Gönderimi başlat", () => startQueue(ok)); return; }
@@ -1430,6 +1457,16 @@ document.addEventListener("click", e => {
     const out = $("#connOut"); out.textContent = "Test ediliyor…"; t.disabled = true;
     fetch("/api/baglanti").then(r => r.json()).then(j => { out.innerHTML = ["gemini", "tavily"].map(k => `<div>${j[k]?.ok ? "✅" : "❌"} ${esc(j[k]?.mesaj || "Yanıt yok")}</div>`).join(""); if (j.gemini?.ok && !sample) sample = serverSample(); })
       .catch(() => { out.textContent = "Sunucuya ulaşılamadı."; }).finally(() => { t.disabled = false; });
+    return;
+  }
+  if (t.id === "msOff") { confirmDlg("Outlook bağlantısını kaldır", "Pusula artık sizin adınıza mail gönderemez. İstediğiniz zaman yeniden bağlayabilirsiniz.", "Kaldır", () => fetch("/api/posta/kaldir", {method: "POST"}).then(() => { toast("Outlook bağlantısı kaldırıldı."); loadPosta(); })); return; }
+  if (t.id === "msTest") {
+    const to = (posta?.testAlicilari || [])[0] || state.test.addresses[0];
+    if (!to) { toast("Test adresi tanımlı değil."); return; }
+    t.disabled = true;
+    fetch("/api/posta/gonder", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({kime: to, konu: "Pusula test maili", metin: `Merhaba,\n\nBu mail Pusula'dan ${posta.eposta} hesabınız üzerinden gönderilen bir test mailidir.\n\nGönderim zamanı: ${new Date().toLocaleString("tr-TR")}\n\n${sigImgOn() ? (state.profile.signatureTr || "").split("\n")[0] : state.profile.signatureTr || ""}`, imza: sigImgOn() ? state.profile.sigImg : ""})})
+      .then(async r => { const j = await r.json().catch(() => ({})); toast(r.ok ? `Test maili ${to} adresine gönderildi. Gelen kutunuzu kontrol edin.` : (j.hata || "Gönderilemedi.")); if (r.ok) loadPosta(); })
+      .catch(() => toast("Sunucuya ulaşılamadı.")).finally(() => { t.disabled = false; });
     return;
   }
   if (t.id === "logout") { fetch("/api/cikis", {method: "POST"}).finally(() => { location.href = "/giris"; }); return; }
@@ -1483,6 +1520,9 @@ setInterval(() => autoRun(false), 60000); setTimeout(() => autoRun(false), 2500)
       if (r.status === 401) { location.href = "/giris"; return; }
       const j = await r.json();
       srvReady = true; sample = serverSample();
+      loadPosta();
+      const qp = new URLSearchParams(location.search);
+      if (qp.get("ms")) { view = "profil"; render(); setTimeout(() => document.getElementById("baglantilar")?.scrollIntoView({block: "start"}), 100); toast(qp.get("ms") === "baglandi" ? "Outlook hesabınız bağlandı." : "Outlook bağlanamadı: " + (qp.get("neden") || "bilinmeyen hata")); history.replaceState(null, "", "/"); }
       if (j.veri) { state = normalize(j.veri); srvVer = j.surum; render(); } else persist();
       setStoreNote();
     } catch (e) { setStoreNote("Sunucuya bağlanılamadı; değişiklikler kaydedilmeyebilir."); }
