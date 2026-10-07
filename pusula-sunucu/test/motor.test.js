@@ -10,10 +10,10 @@ const CARSAMBA_10 = new Date("2026-10-07T07:00:00Z");
 const PAZAR_10 = new Date("2026-10-11T07:00:00Z");
 const SEKANS = [{key: "intro", day: 0}, {key: "f1", day: 3}, {key: "f2", day: 7}, {key: "close", day: 14}];
 
-function kur({otonom = {}, adaylar, taslaklar = [], istatistik = {}, bugunGiden = 0}) {
+function kur({otonom = {}, adaylar, taslaklar = [], istatistik = {}, bugunGiden = 0, test}) {
   const kayit = {gonderilen: [], durdurma: null, hatalar: []};
   const depo = {
-    kullanici: async () => ({gonderim: {dailyLimit: 30}, otonom: {on: true, dailyMax: 3, ...otonom}, sekans: SEKANS, imza: "Onur"}),
+    kullanici: async () => ({gonderim: {dailyLimit: 30}, otonom: {on: true, dailyMax: 3, ...otonom}, sekans: SEKANS, imza: "Onur", test}),
     calismaAlani: async () => ({adaylar, taslaklar: [...taslaklar], engelliler: ["@engelli.com"]}),
     bugunGiden: async () => bugunGiden,
     istatistik: async () => ({bugunListedenCikan: 0, sonGonderilen: 0, sonGeriDonen: 0, ...istatistik}),
@@ -121,4 +121,12 @@ test("Gmail MIME: Türkçe konu ve tek tıkla listeden çıkma başlığı", () 
 test("engel nedenleri okunur Türkçe", () => {
   const n = engelNedeni(taslak("a"), aday("a", {verified: false}), {requireVerified: true, minQuality: 80}, {bugun: "2026-10-07", engelliler: new Set(), kalite: () => 90});
   assert.equal(n, "Adres doğrulanmadı");
+});
+
+test("test modu: mailler firmaya değil test adreslerine sırayla gider", async () => {
+  const {depo, kayit} = kur({adaylar: [aday("a"), aday("b")], taslaklar: [taslak("a"), taslak("b")], test: {on: true, addresses: ["onur@test1.com", "onur@test2.com"]}});
+  const gidenler = [];
+  await kullaniciTuru({kullaniciId: "u", depo, saglayici: {gonder: async m => { gidenler.push(m.kime); return {ok: true}; }}, ...temel});
+  assert.deepEqual(gidenler.sort(), ["onur@test1.com", "onur@test2.com"]);
+  assert.equal(kayit.gonderilen.length, 2);
 });

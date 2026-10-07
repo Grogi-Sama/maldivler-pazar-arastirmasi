@@ -183,6 +183,10 @@ textarea{resize:vertical;min-height:84px;line-height:1.5}
 .dot-live{width:9px;height:9px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 0 var(--accent);animation:pulse 2s infinite}
 @keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 60%,transparent)}70%{box-shadow:0 0 0 8px transparent}100%{box-shadow:0 0 0 0 transparent}}
 @media (prefers-reduced-motion:reduce){.dot-live{animation:none}}
+.test-tag{background:var(--blue-soft,#e3ecfa);color:var(--blue)}
+.note.test{background:var(--blue-soft);border-color:var(--blue);display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center}
+.draft .mailto{text-align:right;line-height:1.35}
+a.btn{text-decoration:none;color:var(--fg);display:inline-flex;align-items:center}
 </style>
 
 <div class="app" id="app">
@@ -237,6 +241,7 @@ const DEFAULT_SEQ = [
   {key: "close", label: "Kapanış",      day: 14},
 ];
 const DEFAULT_SENDING = {dailyLimit: 30, minGap: 3, maxGap: 8, startHour: 9, endHour: 17, weekdaysOnly: true};
+const DEFAULT_TEST = {on: true, addresses: ["onur.topuz@arsdef.com", "onur.topuz@ercsistem.com.tr"]};
 const DEFAULT_AUTO = {on: false, dailyMax: 20, followups: true, intros: false, requireVerified: true, minQuality: 80, since: "", lastRun: "", pausedReason: ""};
 const HEALTH = [
   ["spf",    "SPF kaydı tanımlı",                 "Alan adınızın DNS'inde mail sunucunuzu yetkilendirir."],
@@ -313,6 +318,7 @@ function normalize(s) {
   s.profile.sending = {...DEFAULT_SENDING, ...(s.profile.sending || {})};
   s.profile.health = s.profile.health || {};
   s.auto = {...DEFAULT_AUTO, ...(s.auto || {})};
+  s.test = {...DEFAULT_TEST, ...(s.test || {})};
   if (s.profile.productsMail === undefined) s.profile.productsMail = "";
   if (s.profile.signatureTr === undefined) s.profile.signatureTr = "";
   if (s.profile.productsShort === undefined) s.profile.productsShort = "";
@@ -350,6 +356,15 @@ const leadById = id => state.leads.find(l => l.id === id);
 const seq = () => state.profile.sequence;
 const stepLabel = key => (seq().find(s => s.key === key) || {label: key === "reply" ? "Yanıt" : key}).label;
 const isSuppressed = l => !!l.email && (state.suppress.includes(l.email.toLowerCase()) || state.suppress.includes("@" + domainOf(l.email)));
+// Test modu: araştırma ve taslaklar gerçek firmayla kalır; yalnızca gönderim anında alıcı kullanıcının kendi adresi olur.
+const testOn = () => state.test.on && state.test.addresses.length > 0;
+function recipientFor(d) {
+  const l = leadById(d.leadId) || {};
+  if (!testOn()) return l.email || "";
+  const a = state.test.addresses, i = state.leads.findIndex(x => x.id === d.leadId);
+  return a[Math.max(0, i) % a.length];
+}
+const mailtoFor = d => `mailto:${encodeURIComponent(recipientFor(d)).replace("%40", "@")}?subject=${encodeURIComponent(d.subject)}&body=${encodeURIComponent(d.body)}`;
 const sentToday = () => { const t = todayISO(); return state.log.filter(x => x.at.slice(0, 10) === t && /gönderildi$/.test(x.action)).length; };
 
 /* ---------- iskelet ---------- */
@@ -371,7 +386,7 @@ function renderNav() {
   $("#tabbar").innerHTML = VIEWS.map(v => `<button data-nav="${v.id}" ${v.id === view ? 'aria-current="page"' : ""}>${icon(v.i)}${v.t}</button>`).join("");
 }
 function head(title, sub, right = "") {
-  const tag = state.demo ? `<span class="demo-tag">Örnek çalışma alanı</span>` : "";
+  const tag = (state.demo ? `<span class="demo-tag">Örnek çalışma alanı</span>` : "") + (testOn() ? ` <span class="demo-tag test-tag" title="Mailler yalnızca sizin adreslerinize gider">Test modu</span>` : "");
   return `<div class="top"><div><div class="ws">${esc(state.profile.company || "Şirketiniz")} · ${esc(state.profile.regions || "Bölge seçilmedi")} ${tag}</div><h1>${title}</h1>${sub ? `<p class="sub">${sub}</p>` : ""}</div><div class="row">${right}</div></div>`;
 }
 function render() {
@@ -503,6 +518,12 @@ function vProfil() {
       <label class="f" for="s_hours">Gönderim saatleri<span class="row" id="s_hours"><input type="number" min="6" max="20" data-snd="startHour" value="${snd.startHour}" aria-label="Başlangıç saati" style="width:80px"> – <input type="number" min="7" max="22" data-snd="endHour" value="${snd.endHour}" aria-label="Bitiş saati" style="width:80px"></span></label>
       <label class="check full" for="s_wd"><input id="s_wd" type="checkbox" data-sndchk="weekdaysOnly" ${snd.weekdaysOnly ? "checked" : ""}><span>Yalnızca hafta içi gönder<small>Salı–Perşembe en yüksek yanıtı alır.</small></span></label>
     </div>
+  </div>
+  <div class="card grid" style="margin-top:14px" id="testmodu">
+    <div class="row"><h2>Test modu</h2><span class="spacer"></span><span class="pill ${testOn() ? "st-reply" : "st-new"}">${testOn() ? "Açık" : "Kapalı"}</span></div>
+    <p class="small muted" style="margin:0">Açıkken Pusula firmaları bulur, taslakları firmaya göre hazırlar; ama gönderimde alıcı olarak yalnızca aşağıdaki adresleri kullanır. Demo ve denemeler için.</p>
+    <label class="f" for="t_adr">Test adresleri (her satıra bir adres; firmalar bu adreslere sırayla dağıtılır)<textarea id="t_adr" data-testadr rows="2">${esc(state.test.addresses.join("\n"))}</textarea></label>
+    <div class="row">${testOn() ? `<button class="btn" id="testOff">Test modunu kapat (gerçek firmalara gönder)</button>` : `<button class="btn primary" id="testOn">Test modunu aç</button>`}</div>
   </div>
   <div class="card grid" style="margin-top:14px" id="otonom">
     <div class="row"><h2>Otonom gönderim</h2><span class="spacer"></span><span class="pill ${state.auto.on ? "st-meet" : "st-new"}">${state.auto.on ? "Açık" : "Kapalı"}</span></div>
@@ -686,15 +707,16 @@ function vMailler() {
   const dueSched = ds.filter(d => d.scheduledFor && d.scheduledFor <= todayISO());
   return head("Mailler", "Taslaklar kısa, kişisel ve düz metin. Teslim puanına bakın, gerekirse düzenleyin, gönderin.",
     `${dueSched.length ? `<button class="btn" id="sendDue">Zamanı gelenleri gönder (${dueSched.length})</button>` : ""}${ready.length ? `<button class="btn primary" id="sendAll">Tümünü güvenli hızda gönder (${ready.length})</button>` : ""}`) + `
+  ${testOn() ? `<p class="note test"><b>Test modu açık.</b> Araştırma ve taslaklar gerçek firmalar için hazırlanıyor; gönderimde alıcı olarak yalnızca sizin adresleriniz (${state.test.addresses.map(esc).join(", ")}) kullanılır. "Outlook'ta aç" maili bu adrese yazılmış hâlde açar. <button class="btn ghost sm" data-nav="profil" data-anchor="testmodu">Değiştir</button></p>` : ""}
   <p class="note"><b>Demo modu:</b> Bu sürüm mail göndermez; "Gönder" firmayı işaretler ve sıradaki adımı takvime koyar. Tam sürümde mailler Outlook veya Gmail hesabınızdan, ${state.profile.sending.minGap}–${state.profile.sending.maxGap} dk rastgele aralıklarla ve günde en fazla ${state.profile.sending.dailyLimit} adet gider. Bugün kalan hak: <b>${left}</b>.</p>
   ${mailBusy ? `<div class="card" style="margin-top:14px"><div class="think"><span class="dots"><i></i><i></i><i></i></span>Taslaklar Claude ile kişiselleştiriliyor…</div></div>` : ""}
   <div class="grid" style="margin-top:14px">
   ${ds.length ? ds.map(d => { const l = leadById(d.leadId) || {}; return `<div class="card draft">
-    <div class="hd"><span class="pill ${d.type === "intro" ? "st-draft" : d.type === "reply" ? "st-meet" : "st-reply"}">${esc(stepLabel(d.type))}</span><b>${esc(l.name || "—")}</b>${state.auto.on && d.type !== "reply" ? (autoCheck(d) ? `<span class="pill st-reply" title="Otonom gönderim bu maili göndermeyecek">Kontrol: ${esc(autoCheck(d))}</span>` : `<span class="pill st-sent">Otonom gidecek</span>`) : ""}${d.scheduledFor ? `<span class="sched">Planlandı: ${fmtDate(d.scheduledFor)} ${String(state.profile.sending.startHour).padStart(2, "0")}:00</span>` : ""}<span class="spacer"></span><span class="mailto">${esc(l.email || "e-posta yok")}</span></div>
+    <div class="hd"><span class="pill ${d.type === "intro" ? "st-draft" : d.type === "reply" ? "st-meet" : "st-reply"}">${esc(stepLabel(d.type))}</span><b>${esc(l.name || "—")}</b>${state.auto.on && d.type !== "reply" ? (autoCheck(d) ? `<span class="pill st-reply" title="Otonom gönderim bu maili göndermeyecek">Kontrol: ${esc(autoCheck(d))}</span>` : `<span class="pill st-sent">Otonom gidecek</span>`) : ""}${d.scheduledFor ? `<span class="sched">Planlandı: ${fmtDate(d.scheduledFor)} ${String(state.profile.sending.startHour).padStart(2, "0")}:00</span>` : ""}<span class="spacer"></span>${testOn() ? `<span class="mailto" title="Firmanın adresi: ${esc(l.email || "yok")}">Kime: <b>${esc(recipientFor(d))}</b> <span class="pill st-reply">test</span><br><span class="small muted">Firma: ${esc(l.email || "e-posta yok")}</span></span>` : `<span class="mailto">${esc(l.email || "e-posta yok")}</span>`}</div>
     <label class="f" for="s_${d.id}">Konu<input id="s_${d.id}" type="text" data-dsub="${d.id}" value="${esc(d.subject)}"></label>
     <label class="f" for="b_${d.id}">Metin<textarea id="b_${d.id}" data-dbody="${d.id}">${esc(d.body)}</textarea></label>
     <div id="q_${d.id}">${qualityHtml(d)}</div>
-    <div class="row"><button class="btn primary" data-send="${d.id}">Gönder</button><button class="btn" data-copy="${d.id}">Metni kopyala</button><span class="spacer"></span><button class="btn ghost sm" data-ai="${d.id}">Claude ile yeniden yaz</button><button class="btn ghost sm" data-del="${d.id}">Sil</button></div>
+    <div class="row"><button class="btn primary" data-send="${d.id}">Gönder</button><a class="btn" target="_blank" rel="noopener" href="${esc(mailtoFor(d))}" title="Outlook'ta yeni mail olarak açar">Outlook'ta aç</a><button class="btn" data-copy="${d.id}">Metni kopyala</button><span class="spacer"></span><button class="btn ghost sm" data-ai="${d.id}">Claude ile yeniden yaz</button><button class="btn ghost sm" data-del="${d.id}">Sil</button></div>
   </div>`; }).join("") : `<div class="card empty"><h3>Hazır taslak yok</h3><p>Adaylar ekranında firmaları seçip "Tanışma maili hazırla"ya basın; takip mailleri Takip ekranından hazırlanır.</p><button class="btn primary" data-nav="adaylar">Adaylara git</button></div>`}
   </div>`;
 }
@@ -886,7 +908,7 @@ function markSent(d) {
     const nx = seq()[l.step + 1];
     l.nextAt = nx ? addDays(l.sentAt, nx.day) : "";
     if (!["reply", "meet", "no", "optout"].includes(l.status)) l.status = "sent";
-    log(l.id, stepLabel(d.type) + " gönderildi");
+    log(l.id, stepLabel(d.type) + (testOn() ? ` test adresine (${recipientFor(d)})` : "") + " gönderildi");
   }
   state.drafts = state.drafts.filter(x => x.id !== d.id);
 }
@@ -1168,7 +1190,7 @@ document.addEventListener("click", e => {
     if (!l?.email) { toast("Bu firmanın e-posta adresi yok. Firma adına dokunup ekleyin."); return; }
     if (isSuppressed(l)) { toast("Bu adres 'bir daha yazma' listesinde."); return; }
     const q = quality(d);
-    confirmDlg("Maili gönder", `<b>${esc(l.name)}</b> (${esc(l.email)}) adresine "${esc(d.subject)}" gönderilecek.${!l.verified ? `<br><br><b>Bu adres doğrulanmadı.</b> Yanlış adrese giden mailler gönderim itibarınızı düşürür; önce firmanın web sitesinden kontrol edin.` : ""}${q.s < 70 ? `<br><br><b>Teslim puanı ${q.s}.</b> Göndermeden önce Mailler ekranındaki önerilere bakmanızı öneririm.` : ""}<br><br>Demo modunda gerçek gönderim yapılmaz.`, "Gönder", () => startQueue([d.id])); return; }
+    confirmDlg("Maili gönder", testOn() ? `<b>${esc(l.name)}</b> için hazırlanan "${esc(d.subject)}" maili <b>test adresinize (${esc(recipientFor(d))})</b> gönderilecek; firmaya gitmeyecek.` : `<b>${esc(l.name)}</b> (${esc(l.email)}) adresine "${esc(d.subject)}" gönderilecek.${!l.verified ? `<br><br><b>Bu adres doğrulanmadı.</b> Yanlış adrese giden mailler gönderim itibarınızı düşürür; önce firmanın web sitesinden kontrol edin.` : ""}${q.s < 70 ? `<br><br><b>Teslim puanı ${q.s}.</b> Göndermeden önce Mailler ekranındaki önerilere bakmanızı öneririm.` : ""}<br><br>Demo modunda gerçek gönderim yapılmaz.`, "Gönder", () => startQueue([d.id])); return; }
   if (t.id === "sendAll") { const ok = state.drafts.filter(d => !d.scheduledFor && leadById(d.leadId)?.email && !isSuppressed(leadById(d.leadId))).map(d => d.id);
     const left = Math.max(0, state.profile.sending.dailyLimit - sentToday());
     confirmDlg("Tümünü gönder", `${ok.length} mail sırayla, aralarında ${state.profile.sending.minGap}–${state.profile.sending.maxGap} dakika rastgele bekleme ile gönderilecek. Bugün ${Math.min(left, ok.length)} tanesi gider${ok.length > left ? `, kalan ${ok.length - left} tanesi sonraki iş günlerine planlanır` : ""}.`, "Gönderimi başlat", () => startQueue(ok)); return; }
@@ -1187,6 +1209,8 @@ document.addEventListener("click", e => {
   if (ds.sndchk) { state.profile.sending[ds.sndchk] = t.checked; persist(); return; }
   if (ds.autochk) { commit(() => { state.auto[ds.autochk] = t.checked; }); return; }
   if (t.id === "autoOn") { autoEnable(); return; }
+  if (t.id === "testOn") { commit(() => { state.test.on = true; log("", "Test modu açıldı"); }); toast("Test modu açık: mailler yalnızca sizin adreslerinize gider."); return; }
+  if (t.id === "testOff") { confirmDlg("Test modunu kapat", "Bundan sonra gönderilen mailler <b>gerçek firma adreslerine</b> gidecek. Emin misiniz?", "Kapat", () => commit(() => { state.test.on = false; log("", "Test modu kapatıldı"); })); return; }
   if (t.id === "autoOff") { commit(() => { state.auto.on = false; state.auto.pausedReason = ""; log("", "Otonom gönderim durduruldu"); }); toast("Otonom gönderim durduruldu. Sıradaki mail gönderilmeyecek."); queue.length = 0; return; }
   if (t.id === "autoNow") { if (!autoRun(true)) toast(qTimer ? "Gönderim zaten sürüyor." : autoQuota() ? "Kurallara uyan mail yok; Mailler ekranında nedenlerini görebilirsiniz." : "Bugünkü adet doldu; yarın devam edilecek."); return; }
 });
@@ -1197,6 +1221,7 @@ document.addEventListener("input", e => {
   if (ds.snd) { const v = Number(t.value); if (Number.isFinite(v) && v > 0) { state.profile.sending[ds.snd] = v; persist(); } return; }
   if (ds.seqday) { const v = Number(t.value); if (Number.isFinite(v) && v >= 0) { state.profile.sequence[Number(ds.seqday)].day = v; persist(); } return; }
   if (ds.tpl) { const [lang, key, fld] = ds.tpl.split("|"); const P = state.profile; P.templates[lang] = P.templates[lang] || JSON.parse(JSON.stringify(DEFAULT_TPL[lang])); P.templates[lang][key][fld] = t.value; persist(); return; }
+  if (t.matches("[data-testadr]")) { state.test.addresses = t.value.split(/[\n,;]/).map(x => x.trim().toLowerCase()).filter(x => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x)); persist(); return; }
   if (ds.supp) { state.suppress = t.value.split("\n").map(x => x.trim().toLowerCase()).filter(Boolean); persist(); return; }
   if (ds.lead) { const l = leadById(openLead); if (l) { l[ds.lead] = ds.lead === "email" ? t.value.trim() : t.value; persist(); } return; }
   if (ds.dsub || ds.dbody) {

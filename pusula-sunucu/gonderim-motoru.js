@@ -7,7 +7,7 @@ import {VARSAYILAN_GONDERIM, VARSAYILAN_OTONOM, yerelZaman, gonderimSaatinde, go
 
 /**
  * depo arayüzü (gerçek sürümde Postgres):
- *   kullanici(id) -> {gonderim, otonom, sekans: [{key, day}], imza}
+ *   kullanici(id) -> {gonderim, otonom, sekans: [{key, day}], imza, test: {on, addresses}}
  *   calismaAlani(id) -> {adaylar: [...], taslaklar: [...], engelliler: [...]}
  *   bugunGiden(id, tarih) -> sayı
  *   istatistik(id, tarih) -> {bugunListedenCikan, sonGonderilen, sonGeriDonen}
@@ -55,7 +55,7 @@ export async function kullaniciTuru({kullaniciId, depo, saglayici, kalite, simdi
     const aday = alan.adaylar.find(a => a.id === t.leadId);
     for (let deneme = 0; deneme < 2; deneme++) {
       try {
-        await saglayici.gonder({kime: aday.email, konu: t.subject, govdeMetin: t.body + (k.imza ? "\n\n" + k.imza : "")});
+        await saglayici.gonder({kime: aliciAdresi(k, aday, alan.adaylar), konu: t.subject, govdeMetin: t.body + (k.imza ? "\n\n" + k.imza : "")});
         await depo.gonderildi(kullaniciId, t, simdi());
         gonderilen++;
         break;
@@ -69,6 +69,13 @@ export async function kullaniciTuru({kullaniciId, depo, saglayici, kalite, simdi
     if (i < plan.length - 1) await bekle(rastgeleAralikMs(gonderim, rnd));
   }
   return {durum: "tamam", gonderilen, planlanan: plan.length};
+}
+
+// Test modu: kullanıcı test adresi verdiyse mail firmaya değil, bu adreslere sırayla gider.
+export function aliciAdresi(k, aday, adaylar) {
+  const test = k.test?.on ? (k.test.addresses || []) : [];
+  if (!test.length) return aday.email;
+  return test[Math.max(0, adaylar.findIndex(a => a.id === aday.id)) % test.length];
 }
 
 // Sonraki adım tarihi: ilk mail tarihine sekanstaki gün eklenir (demodaki markSent ile aynı)
