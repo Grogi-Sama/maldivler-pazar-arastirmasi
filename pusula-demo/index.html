@@ -638,7 +638,7 @@ function quality(d) {
   const hay = (subj + " " + main).toLowerCase();
   const names = [l.name, state.profile.company, state.profile.senderName].filter(Boolean).flatMap(n => String(n).split(/[\s()]+/)).filter(w => w.length > 1);
   const plain = names.reduce((t, w) => t.split(w).join(" "), subj + " " + main);
-  const hits = TRIGGERS.filter(w => hay.includes(w));
+  const hits = TRIGGERS.filter(w => new RegExp("(?<![\\p{L}\\p{N}])" + w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "u").test(hay));
   if (hits.length) { s -= Math.min(30, hits.length * 8); issues.push(["Spam kelimesi: " + hits.join(", "), false]); } else issues.push(["Spam tetikleyici kelime yok", true]);
   const links = (main.match(/https?:\/\/|www\./gi) || []).length;
   if (links > 1) { s -= 10; issues.push([links + " bağlantı var; en fazla 1", false]); } else if (links === 1 && d.type === "intro") { s -= 4; issues.push(["İlk mailde bağlantı yerine düz metin daha güvenli", false]); }
@@ -735,7 +735,11 @@ function fill(text, l) {
     degerler: String(val || "").split(/[,;]/).map(x => x.trim()).filter(Boolean).map(x => "- " + x.charAt(0).toLocaleUpperCase(tr ? "tr-TR" : "en") + x.slice(1)).join("\n"),
     gonderen: p.senderName, sirket: p.company, ilk_tarih: fmtDate(l.sentAt),
   };
-  return String(text || "").replace(/\{(\w+)\}/g, (m, k) => vars[k] ?? m);
+  return String(text || "").replace(/\{(\w+)\}/g, (m, k, off, str) => {
+    const v = vars[k]; if (v == null) return m;
+    const atStart = /(^|[.!?]\s+|\n\s*)$/.test(str.slice(0, off));
+    return atStart && typeof v === "string" ? v.charAt(0).toLocaleUpperCase(tr ? "tr-TR" : "en") + v.slice(1) : v;
+  });
 }
 function sigFor(l) { const p = state.profile; return isTr(leadLang(l)) ? (p.signatureTr || p.signature) : p.signature; }
 function renderTpl(l, key) {
@@ -905,6 +909,13 @@ const FALLBACK = [
   {name: "Sun Siyam Resorts", kind: "Resort grubu", segment: "Son kullanıcı – grup merkezi", region: "Malé, Maldivler", website: "sunsiyam.com", email: "sales@sunsiyam.com", priority: "A", score: 85, why: "2030 için %50 yenilenebilir hedefi var; 3 resortu ikinci faz adayı.", hook: "Congratulations on the hybrid solar systems at Siyam World and Olhuveli."},
   {name: "Atmosphere Core", kind: "Resort grubu", segment: "Son kullanıcı – grup merkezi", region: "Malé, Maldivler", website: "atmospherecore.com", email: "info@atmospherecore.com", priority: "A", score: 83, why: "Resortlarında 8.900 panel kurulu; batarya ve 2027'deki yeni resort fırsatı."},
 ];
+const FALLBACK_SUPPLIER = [
+  {name: "Prysmian Türkiye", kind: "Kablo üreticisi", segment: "Üretici", region: "Mudanya, Türkiye", website: "tr.prysmian.com", email: "", priority: "A", score: 84, why: "Güneş ve enerji depolama projeleri için DC/AC solar kablo üretiyor; yerli tedarik süresi kısa.", hook: "Güneş enerjisi projeleri için ürettiğiniz solar kablo serisini inceledik.", lang: "Türkçe"},
+  {name: "Schletter Group", kind: "Montaj sistemi üreticisi", segment: "Üretici", region: "Kirchdorf, Almanya", website: "schletter-group.com", email: "", priority: "A", score: 80, why: "Çatı ve arazi tipi GES montaj sistemleri üretiyor; tropik ve kıyı koşulları için korozyona dayanıklı seçenekler sunuyor.", hook: "Your mounting systems for rooftop and ground-mounted solar caught our attention."},
+  {name: "K2 Systems", kind: "Montaj sistemi üreticisi", segment: "Üretici", region: "Renningen, Almanya", website: "k2-systems.com", email: "", priority: "B", score: 72, why: "Çatı GES montaj çözümleri; resort çatıları gibi küçük ve orta ölçekli kurulumlara uygun.", hook: "We have been following your rooftop mounting solutions for commercial solar."},
+  {name: "Stäubli Electrical Connectors", kind: "Konnektör üreticisi", segment: "Üretici", region: "Allschwil, İsviçre", website: "staubli.com", email: "", priority: "B", score: 68, why: "MC4 tipi DC konnektörlerin üreticisi; inverter ve depolama projelerinde standart bileşen.", hook: "Your MC4 connectors are a standard component in the solar and storage projects we supply."},
+  {name: "Phoenix Contact", kind: "Elektrik bileşenleri üreticisi", segment: "Üretici", region: "Blomberg, Almanya", website: "phoenixcontact.com", email: "", priority: "C", score: 58, why: "Aşırı gerilim koruması ve pano bileşenleri; batarya sistemlerinin pano tarafında kullanılabilir.", hook: "We are looking at surge protection and cabinet components for our storage projects."},
+];
 async function runResearch() {
   const p = state.profile;
   const brief = $("#brief").value.trim(), region = $("#region").value.trim(), n = Number($("#howMany").value) || 10;
@@ -916,7 +927,7 @@ async function runResearch() {
   const dedupe = r => !known.includes(String(r.name).toLowerCase()) && !(r.email && (knownDom.has(domainOf(r.email)) || state.suppress.includes("@" + domainOf(r.email)) || state.suppress.includes(String(r.email).toLowerCase())));
   if (!sample) {
     await new Promise(r => setTimeout(r, 1400));
-    research.results = FALLBACK.filter(dedupe).map(r => ({...r, _sel: true}));
+    research.results = (p.mode === "supplier" ? FALLBACK_SUPPLIER : FALLBACK).filter(dedupe).map(r => ({...r, _sel: true}));
     research.note = "Bu görünümde Claude bağlantısı yok; örnek sonuçlar gösteriliyor.";
     if (!research.results.length) research.error = "Örnek sonuçların hepsi zaten listenizde.";
     research.running = false; render(); return;
