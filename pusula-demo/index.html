@@ -197,6 +197,23 @@ a.btn{text-decoration:none;color:var(--fg);display:inline-flex;align-items:cente
 .sigline{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
 label.btn{cursor:pointer}
 .src{display:block;margin-top:3px;font-size:12px;color:var(--muted)}.src a,.kv a{color:var(--accent)}
+/* iPhone taşma düzeltmesi: grid sütunu içeriğe göre genişlemesin; iOS yazıları kendiliğinden büyütmesin */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+.draft,.card.grid,.drawer{grid-template-columns:minmax(0,1fr)}
+.draft>*,.card.grid>*{min-width:0;max-width:100%}
+.draft input,.draft textarea,.draft select{max-width:100%;box-sizing:border-box}
+.draft .hd .mailto{max-width:100%}
+.sigprev,.sigprev.sm{max-width:100%}
+.sigline .small{flex:1 1 180px;min-width:0}
+@media (max-width:900px){
+  main{padding-top:max(16px,env(safe-area-inset-top,0px))}
+  .draft .hd .spacer{display:none}
+  .draft .hd .mailto{flex-basis:100%;text-align:left}
+  .draft .row{flex-wrap:wrap}
+  .sigprev.sm{max-width:200px}
+}
+.mailto.mto{display:grid;gap:3px;text-align:left}
+.mailto.mto .pill{vertical-align:middle;white-space:nowrap}
 </style>
 
 <div class="app" id="app">
@@ -334,7 +351,9 @@ function normalize(s) {
   if (s.profile.signatureTr === undefined) s.profile.signatureTr = "";
   if (!["text", "image", "both"].includes(s.profile.sigMode)) { s.profile.sigMode = s.demo ? "image" : "text"; if (s.demo && !s.profile.sigImg) s.profile.sigImg = SIG_IMG_DEMO; }
   if (typeof s.profile.sigImg !== "string") s.profile.sigImg = "";
-  if (!["live", "ai"].includes(s.profile.resSource)) s.profile.resSource = "live";
+  if (!["live", "ai", "web"].includes(s.profile.resSource)) s.profile.resSource = SERVER ? "web" : "live";
+  if (SERVER && s.profile.resSource === "ai") s.profile.resSource = "web";
+  if (!SERVER && s.profile.resSource === "web") s.profile.resSource = "live";
   if (s.profile.resCountry === undefined) s.profile.resCountry = s.demo ? "Maldives" : "";
   if (s.profile.resType === undefined) s.profile.resType = "otel-resort";
   if (s.profile.resSector === undefined) s.profile.resSector = "";
@@ -362,6 +381,24 @@ try { const v = localStorage.getItem("pusula.view"); if (v && VIEWS.some(x => x.
 // Sunucu modu: uygulama kendi adresinde (Cloudflare) çalışıyorsa veriler Pusula sunucusunda saklanır.
 const SERVER = /^https?:$/.test(location.protocol) && !window.claude;
 let srvVer = 0, srvConflict = false, srvReady = false;
+const AI = () => SERVER ? "yapay zekâ" : "Claude";
+// Sunucu modunda "sample" yerine Pusula sunucusundaki yapay zekâ (Gemini) kullanılır; arayüz aynı kalır.
+function serverSample() {
+  const call = async (input, opts = {}, asJson = true) => {
+    const istem = typeof input === "string" ? input : (input || []).map(t => t.content).join("\n\n");
+    let r;
+    try { r = await fetch("/api/ai", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({istem, json: asJson}), signal: opts.signal}); }
+    catch (e) { const x = new Error(e.name === "AbortError" ? "İptal edildi" : "Bağlantı kurulamadı"); x.code = e.name === "AbortError" ? "cancelled" : "network"; throw x; }
+    if (r.status === 401) { location.href = "/giris"; throw Object.assign(new Error("Oturum kapandı"), {code: "not_granted"}); }
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw Object.assign(new Error(j.hata || "Yapay zekâ yanıt vermedi"), {code: r.status === 429 ? "rate_limited" : r.status === 503 ? "not_granted" : "error"});
+    if (!asJson) return {text: j.metin, truncated: false};
+    try { return JSON.parse(j.metin); } catch (e) { const m = String(j.metin).match(/[\[{][\s\S]*[\]}]/); if (m) return JSON.parse(m[0]); throw Object.assign(new Error("Yanıt okunamadı"), {code: "error"}); }
+  };
+  const f = (input, opts) => call(input, opts, false);
+  f.json = (input, opts) => call(input, opts, true);
+  return f;
+}
 async function serverSave(body) {
   if (srvConflict || !srvReady) return; // sunucudaki veri yüklenmeden kaydetme (üzerine yazmayı önler)
   try {
@@ -544,7 +581,7 @@ function vProfil() {
   </div>
   <div class="card grid" style="margin-top:14px" id="sablonlar">
     <div class="row"><h2>Mail şablonları</h2><span class="spacer"></span><div class="seg" role="group" aria-label="Şablon dili">${LANGS.map(x => `<button data-tpllang="${x}" aria-pressed="${tplLang === x}">${x}</button>`).join("")}</div></div>
-    <p class="small muted" style="margin:0">Kendi üslubunuzla yazın; süslü parantezli alanlar her firmaya göre dolar: <span class="mono">${VARS_HELP}</span>. İmza otomatik eklenir. Claude ile kişiselleştirme bu şablonu temel alır.</p>
+    <p class="small muted" style="margin:0">Kendi üslubunuzla yazın; süslü parantezli alanlar her firmaya göre dolar: <span class="mono">${VARS_HELP}</span>. İmza otomatik eklenir. ${SERVER ? "Yapay zekâ" : "Claude"} ile kişiselleştirme bu şablonu temel alır.</p>
     ${["intro", "f1", "f2", "close"].concat(p.mode === "supplier" ? ["intro_supplier"] : []).map(k => { const t = tplFor(tplLang, k); const nm = k === "intro_supplier" ? "Tanışma (tedarikçi arama)" : stepLabel(k); return `<details ${k === "intro" ? "open" : ""}><summary style="cursor:pointer;font-weight:600;padding:6px 0">${esc(nm)}</summary><div class="grid" style="gap:8px;padding:6px 0 10px">
       <label class="f" for="t_${k}_s">Konu<input id="t_${k}_s" type="text" data-tpl="${tplLang}|${k}|subject" value="${esc(t.subject)}"></label>
       <label class="f" for="t_${k}_b">Metin<textarea id="t_${k}_b" rows="9" data-tpl="${tplLang}|${k}|body">${esc(t.body)}</textarea></label></div></details>`; }).join("")}
@@ -563,6 +600,11 @@ function vProfil() {
       <label class="check full" for="s_wd"><input id="s_wd" type="checkbox" data-sndchk="weekdaysOnly" ${snd.weekdaysOnly ? "checked" : ""}><span>Yalnızca hafta içi gönder<small>Salı–Perşembe en yüksek yanıtı alır.</small></span></label>
     </div>
   </div>
+  ${SERVER ? `<div class="card grid" style="margin-top:14px" id="baglantilar">
+    <div class="row"><h2>Bağlantılar</h2><span class="spacer"></span><button class="btn sm" id="connTest">Bağlantıları test et</button></div>
+    <p class="small muted" style="margin:0">Yapay zekâ (Gemini) ve web araması (Tavily) Pusula sunucusunda çalışır; anahtarlar tarayıcıya hiç gelmez.</p>
+    <div id="connOut" class="small"></div>
+  </div>` : ""}
   <div class="card grid" style="margin-top:14px" id="testmodu">
     <div class="row"><h2>Test modu</h2><span class="spacer"></span><span class="pill ${testOn() ? "st-reply" : "st-new"}">${testOn() ? "Açık" : "Kapalı"}</span></div>
     <p class="small muted" style="margin:0">Açıkken Pusula firmaları bulur, taslakları firmaya göre hazırlar; ama gönderimde alıcı olarak yalnızca aşağıdaki adresleri kullanır. Demo ve denemeler için.</p>
@@ -620,8 +662,8 @@ function vArastir() {
     `<button class="btn" data-import="1">CSV içe aktar</button>`) + `
   <div class="card grid">
     <div class="row"><div class="seg" role="group" aria-label="Arama türü"><button data-mode="customer" aria-pressed="${p.mode === "customer"}">Müşteri bul</button><button data-mode="supplier" aria-pressed="${p.mode === "supplier"}">Tedarikçi bul</button></div></div>
-    <div class="row"><b class="small">Kaynak</b><div class="seg" role="group" aria-label="Araştırma kaynağı"><button data-ressrc="live" aria-pressed="${p.resSource === "live"}">Canlı açık veri</button><button data-ressrc="ai" aria-pressed="${p.resSource === "ai"}">Yapay zekâ bilgisi</button></div>
-      <span class="small muted">${p.resSource === "live" ? "OpenStreetMap ve Wikidata'dan gerçek kayıtlar; her adayın kaynağı gösterilir." : "Claude'un kendi bilgisi; adresler doğrulanmalı."}</span></div>
+    <div class="row"><b class="small">Kaynak</b><div class="seg" role="group" aria-label="Araştırma kaynağı">${SERVER ? `<button data-ressrc="web" aria-pressed="${p.resSource === "web"}">Web araması</button>` : ""}<button data-ressrc="live" aria-pressed="${p.resSource === "live"}">Canlı açık veri</button>${SERVER ? "" : `<button data-ressrc="ai" aria-pressed="${p.resSource === "ai"}">Yapay zekâ bilgisi</button>`}</div>
+      <span class="small muted">${p.resSource === "web" ? "Güncel web sonuçlarından firmalar; e-posta yalnızca firmanın kendi sitesinden alınır, her adayın kaynağı gösterilir." : p.resSource === "live" ? "OpenStreetMap ve Wikidata'dan gerçek kayıtlar; her adayın kaynağı gösterilir." : "Claude'un kendi bilgisi; adresler doğrulanmalı."}</span></div>
     ${p.resSource === "live" ? `<div class="form">
       <label class="f" for="resCountry">Ülke (İngilizce adı)<input id="resCountry" type="text" data-prof="resCountry" placeholder="Örn. Maldives, Turkey, Germany" value="${esc(p.resCountry)}"></label>
       <label class="f" for="resType">Firma türü (harita kaydına göre)<select id="resType" data-prof="resType">${Object.entries(OSM_TYPES).map(([k, v]) => `<option value="${k}" ${p.resType === k ? "selected" : ""}>${v.label}</option>`).join("")}</select></label>
@@ -761,15 +803,15 @@ function vMailler() {
     `${dueSched.length ? `<button class="btn" id="sendDue">Zamanı gelenleri gönder (${dueSched.length})</button>` : ""}${ready.length ? `<button class="btn primary" id="sendAll">Tümünü güvenli hızda gönder (${ready.length})</button>` : ""}`) + `
   ${testOn() ? `<p class="note test"><b>Test modu açık.</b> Araştırma ve taslaklar gerçek firmalar için hazırlanıyor; gönderimde alıcı olarak yalnızca sizin adresleriniz (${state.test.addresses.map(esc).join(", ")}) kullanılır. "Outlook'ta aç" maili bu adrese yazılmış hâlde açar. <button class="btn ghost sm" data-nav="profil" data-anchor="testmodu">Değiştir</button></p>` : ""}
   <p class="note"><b>Demo modu:</b> Bu sürüm mail göndermez; "Gönder" firmayı işaretler ve sıradaki adımı takvime koyar. Tam sürümde mailler Outlook veya Gmail hesabınızdan, ${state.profile.sending.minGap}–${state.profile.sending.maxGap} dk rastgele aralıklarla ve günde en fazla ${state.profile.sending.dailyLimit} adet gider. Bugün kalan hak: <b>${left}</b>.</p>
-  ${mailBusy ? `<div class="card" style="margin-top:14px"><div class="think"><span class="dots"><i></i><i></i><i></i></span>Taslaklar Claude ile kişiselleştiriliyor…</div></div>` : ""}
+  ${mailBusy ? `<div class="card" style="margin-top:14px"><div class="think"><span class="dots"><i></i><i></i><i></i></span>Taslaklar ${AI()} ile kişiselleştiriliyor…</div></div>` : ""}
   <div class="grid" style="margin-top:14px">
   ${ds.length ? ds.map(d => { const l = leadById(d.leadId) || {}; return `<div class="card draft">
-    <div class="hd"><span class="pill ${d.type === "intro" ? "st-draft" : d.type === "reply" ? "st-meet" : "st-reply"}">${esc(stepLabel(d.type))}</span><b>${esc(l.name || "—")}</b>${state.auto.on && d.type !== "reply" ? (autoCheck(d) ? `<span class="pill st-reply" title="Otonom gönderim bu maili göndermeyecek">Kontrol: ${esc(autoCheck(d))}</span>` : `<span class="pill st-sent">Otonom gidecek</span>`) : ""}${d.scheduledFor ? `<span class="sched">Planlandı: ${fmtDate(d.scheduledFor)} ${String(state.profile.sending.startHour).padStart(2, "0")}:00</span>` : ""}<span class="spacer"></span>${testOn() ? `<span class="mailto" title="Firmanın adresi: ${esc(l.email || "yok")}">Kime: <b>${esc(recipientFor(d))}</b> <span class="pill st-reply">test</span><br><span class="small muted">Firma: ${esc(l.email || "e-posta yok")}</span></span>` : `<span class="mailto">${esc(l.email || "e-posta yok")}</span>`}</div>
+    <div class="hd"><span class="pill ${d.type === "intro" ? "st-draft" : d.type === "reply" ? "st-meet" : "st-reply"}">${esc(stepLabel(d.type))}</span><b>${esc(l.name || "—")}</b>${state.auto.on && d.type !== "reply" ? (autoCheck(d) ? `<span class="pill st-reply" title="Otonom gönderim bu maili göndermeyecek">Kontrol: ${esc(autoCheck(d))}</span>` : `<span class="pill st-sent">Otonom gidecek</span>`) : ""}${d.scheduledFor ? `<span class="sched">Planlandı: ${fmtDate(d.scheduledFor)} ${String(state.profile.sending.startHour).padStart(2, "0")}:00</span>` : ""}<span class="spacer"></span>${testOn() ? `<span class="mailto mto" title="Firmanın adresi: ${esc(l.email || "yok")}"><span>Kime: <b>${esc(recipientFor(d))}</b> <span class="pill st-reply">test</span></span><span class="small muted">Firma: ${esc(l.email || "e-posta yok")}</span></span>` : `<span class="mailto">${esc(l.email || "e-posta yok")}</span>`}</div>
     <label class="f" for="s_${d.id}">Konu<input id="s_${d.id}" type="text" data-dsub="${d.id}" value="${esc(d.subject)}"></label>
     <label class="f" for="b_${d.id}">Metin<textarea id="b_${d.id}" data-dbody="${d.id}">${esc(d.body)}</textarea></label>
     ${sigImgOn() && d.type !== "reply" ? `<div class="sigline"><img class="sigprev sm" src="${state.profile.sigImg}" alt=""><span class="small muted">Görsel imza bu maile eklenecek. ("Outlook'ta aç" ile açılan maile görsel taşınmaz; orada Outlook imzanızı seçin.)</span></div>` : ""}
     <div id="q_${d.id}">${qualityHtml(d)}</div>
-    <div class="row"><button class="btn primary" data-send="${d.id}">Gönder</button><a class="btn" target="_blank" rel="noopener" href="${esc(mailtoFor(d))}" title="Outlook'ta yeni mail olarak açar">Outlook'ta aç</a><button class="btn" data-copy="${d.id}">Metni kopyala</button><span class="spacer"></span><button class="btn ghost sm" data-ai="${d.id}">Claude ile yeniden yaz</button><button class="btn ghost sm" data-del="${d.id}">Sil</button></div>
+    <div class="row"><button class="btn primary" data-send="${d.id}">Gönder</button><a class="btn" target="_blank" rel="noopener" href="${esc(mailtoFor(d))}" title="Outlook'ta yeni mail olarak açar">Outlook'ta aç</a><button class="btn" data-copy="${d.id}">Metni kopyala</button><span class="spacer"></span><button class="btn ghost sm" data-ai="${d.id}">${SERVER ? "Yapay zekâ" : "Claude"} ile yeniden yaz</button><button class="btn ghost sm" data-del="${d.id}">Sil</button></div>
   </div>`; }).join("") : `<div class="card empty"><h3>Hazır taslak yok</h3><p>Adaylar ekranında firmaları seçip "Tanışma maili hazırla"ya basın; takip mailleri Takip ekranından hazırlanır.</p><button class="btn primary" data-nav="adaylar">Adaylara git</button></div>`}
   </div>`;
 }
@@ -907,7 +949,7 @@ Rules: write each email entirely in its "language" field (translate notes given 
 Reply with only a JSON array of {"draftId": string, "subject": string, "body": string}.
 Drafts: ${JSON.stringify(items)}`, {modelTier: "default"});
     if (Array.isArray(out)) commit(() => { for (const o of out) { const d = state.drafts.find(x => x.id === String(o.draftId)); if (d && o.subject && o.body) { d.subject = String(o.subject); d.body = String(o.body).trim() + "\n\n" + sigFor(leadById(d.leadId)); } } });
-    toast("Taslaklar Claude ile kişiselleştirildi.");
+    toast(`Taslaklar ${AI()} ile kişiselleştirildi.`);
   } catch (e) {
     if (["not_granted", "sampling_disabled", "capability_disabled", "not_declared"].includes(e.code)) sample = null;
     if (e.code !== "cancelled") toast("Kişiselleştirme yapılamadı; şablon metin duruyor.");
@@ -1193,6 +1235,20 @@ ${res.map((r, i) => `${i}. ${r.name} | ${r.kind} | ${r.region} | web: ${r.websit
   research.note = `Canlı açık veriden ${res.length} kayıt (${["OpenStreetMap", "Wikidata"].filter(x => !fails.includes(x)).join(" + ")}). ${res.filter(r => r.email).length} firmanın kurumsal adresi kayıtta yayımlanmış; diğerlerinin adresi tam sürümde firmanın kendi sitesinden okunacak.${fails.length ? ` ${fails.join(", ")} şu an yanıt vermedi.` : ""}`;
   research.running = false; render();
 }
+async function runWeb(n, dedupe, brief, region) {
+  const p = state.profile;
+  try {
+    const r = await fetch("/api/arastir-web", {method: "POST", headers: {"Content-Type": "application/json"}, signal: research.ctl.signal,
+      body: JSON.stringify({tarif: brief, bolge: region, mod: p.mode, adet: n, sirket: {ad: p.company, sektor: p.sector, urunler: p.productsMail || p.products}, haric: [...state.leads.map(l => l.name), ...state.suppress]})});
+    if (r.status === 401) { location.href = "/giris"; return; }
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.hata || "Araştırma tamamlanamadı.");
+    research.results = (j.adaylar || []).filter(dedupe).map(a => ({...a, _sel: !!a.email && a.priority !== "C"}));
+    research.note = j.not + " E-posta adresleri yapay zekâdan değil, yalnızca firmaların kendi sitelerinden alındı.";
+    if (!research.results.length) research.error = "Yeni aday bulunamadı. Tarifi ya da bölgeyi değiştirip tekrar deneyin.";
+  } catch (e) { research.error = e.name === "AbortError" ? "" : e.message; }
+  research.running = false; render();
+}
 async function runResearch() {
   const p = state.profile;
   const brief = $("#brief").value.trim(), region = $("#region").value.trim(), n = Number($("#howMany").value) || 10;
@@ -1203,6 +1259,7 @@ async function runResearch() {
   const knownDom = new Set(state.leads.map(l => domainOf(l.email)).filter(Boolean));
   const dedupe = r => !known.includes(String(r.name).toLowerCase()) && !(r.email && (knownDom.has(domainOf(r.email)) || state.suppress.includes("@" + domainOf(r.email)) || state.suppress.includes(String(r.email).toLowerCase())));
   if (p.resSource === "live") return runLive(n, dedupe);
+  if (p.resSource === "web" && SERVER) return runWeb(n, dedupe, brief, region);
   if (!sample) {
     await new Promise(r => setTimeout(r, 1400));
     research.results = (p.mode === "supplier" ? FALLBACK_SUPPLIER : FALLBACK).filter(dedupe).map(r => ({...r, _sel: true}));
@@ -1359,7 +1416,7 @@ document.addEventListener("click", e => {
   if (ds.copy) { const d = state.drafts.find(x => x.id === ds.copy); const txt = `${d.subject}\n\n${d.body}`;
     navigator.clipboard?.writeText(txt).then(() => toast("Konu ve metin kopyalandı."), () => { const ta = document.getElementById("b_" + d.id); ta.select(); toast("Metni seçtim; Ctrl+C ile kopyalayın."); }); return; }
   if (ds.del) { commit(() => { const d = state.drafts.find(x => x.id === ds.del); state.drafts = state.drafts.filter(x => x.id !== ds.del); const l = d && leadById(d.leadId); if (l && ["draft", "scheduled"].includes(l.status) && l.step < 0) l.status = "new"; }); return; }
-  if (ds.ai) { if (!sample) { toast("Claude bu görünümde kullanılamıyor."); return; } aiPolish([ds.ai]); return; }
+  if (ds.ai) { if (!sample) { toast(SERVER ? "Yapay zekâ bağlantısı yok; Ayarlar > Bağlantılar'dan test edin." : "Claude bu görünümde kullanılamıyor."); return; } aiPolish([ds.ai]); return; }
   if (ds.handlereply) { handleReply(ds.handlereply); return; }
   if (ds.block) { commit(() => { const l = leadById(ds.block); const e = (l.email || "").toLowerCase(); if (!e) return; if (state.suppress.includes(e)) state.suppress = state.suppress.filter(x => x !== e); else { state.suppress.push(e); l.status = "optout"; l.nextAt = ""; state.drafts = state.drafts.filter(d => d.leadId !== l.id); log(l.id, "Bir daha yazılmayacaklar listesine eklendi"); } }); return; }
   if (ds.dellead) { const id = ds.dellead; confirmDlg("Adayı sil", "Aday, taslakları ve geçmişi silinir.", "Sil", () => commit(() => { state.leads = state.leads.filter(l => l.id !== id); state.drafts = state.drafts.filter(d => d.leadId !== id); state.log = state.log.filter(x => x.leadId !== id); closeLead(); })); return; }
@@ -1369,6 +1426,12 @@ document.addEventListener("click", e => {
   if (ds.tpllang) { tplLang = ds.tpllang; render(); return; }
   if (ds.sndchk) { state.profile.sending[ds.sndchk] = t.checked; persist(); return; }
   if (ds.autochk) { commit(() => { state.auto[ds.autochk] = t.checked; }); return; }
+  if (t.id === "connTest") {
+    const out = $("#connOut"); out.textContent = "Test ediliyor…"; t.disabled = true;
+    fetch("/api/baglanti").then(r => r.json()).then(j => { out.innerHTML = ["gemini", "tavily"].map(k => `<div>${j[k]?.ok ? "✅" : "❌"} ${esc(j[k]?.mesaj || "Yanıt yok")}</div>`).join(""); if (j.gemini?.ok && !sample) sample = serverSample(); })
+      .catch(() => { out.textContent = "Sunucuya ulaşılamadı."; }).finally(() => { t.disabled = false; });
+    return;
+  }
   if (t.id === "logout") { fetch("/api/cikis", {method: "POST"}).finally(() => { location.href = "/giris"; }); return; }
   if (ds.ressrc) { commit(() => { state.profile.resSource = ds.ressrc; }); return; }
   if (ds.sigmode) { commit(() => { state.profile.sigMode = ds.sigmode; }); return; }
@@ -1419,7 +1482,7 @@ setInterval(() => autoRun(false), 60000); setTimeout(() => autoRun(false), 2500)
       const r = await fetch("/api/alan");
       if (r.status === 401) { location.href = "/giris"; return; }
       const j = await r.json();
-      srvReady = true;
+      srvReady = true; sample = serverSample();
       if (j.veri) { state = normalize(j.veri); srvVer = j.surum; render(); } else persist();
       setStoreNote();
     } catch (e) { setStoreNote("Sunucuya bağlanılamadı; değişiklikler kaydedilmeyebilir."); }

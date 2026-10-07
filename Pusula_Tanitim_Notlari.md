@@ -27,6 +27,8 @@ Firmanızı ve hedefinizi anlatırsınız. Pusula müşteri veya tedarikçi aday
 | Hızlı takip hazırlama | Takip ekranından sayfadan ayrılmadan tek tıkla taslak; hepsi Mailler'de toplu gönderilir |
 | Görsel veya yazılı imza | Kendi imza kartınızı yükleyin ya da yazın; ikisi birlikte de olur |
 | Canlı açık veriyle araştırma | OpenStreetMap ve Wikidata'dan gerçek firma kayıtları; her adayın kaynak bağlantısı görünür |
+| Web araştırması | Güncel haber ve proje sonuçlarından firmalar; e-posta yalnızca firmanın kendi sitesinden, yalnızca kurumsal (info@, sales@) adresler |
+| Kendi adresinde çalışan uygulama | Giriş ekranı, Avrupa'da saklanan veriler, telefona logolu kurulum |
 | Bugünkü işler | Panel her sabah ne yapılacağını söyler |
 | Yanıt asistanı | Gelen cevabı sınıflandırır (ilgili, görüşme, sonra, ilgisiz, listeden çık) ve cevap taslağı yazar |
 | Otonom gönderim | Açın, günlük adedi seçin, onaylayın; Pusula kurallara uyan mailleri kendisi gönderir |

@@ -3,6 +3,7 @@
 // Giriş yapılmadan uygulamanın hiçbir sayfası ve verisi açılmaz.
 
 import UYGULAMA from "../public/index.html";
+import {gemini, tavily, webArastir, ServisHatasi} from "./arastirma.js";
 import IKON_192 from "../marka/ikon-192.png";
 import IKON_512 from "../marka/ikon-512.png";
 import IKON_MASKABLE from "../marka/ikon-maskable-512.png";
@@ -72,6 +73,16 @@ async function api(req, env, yol) {
   const kullaniciSayisi = (await env.DB.prepare("SELECT COUNT(*) AS n FROM kullanici").first()).n;
 
   if (yol === "/api/durum") return json({kurulu: kullaniciSayisi > 0});
+  // Geçici teşhis: yalnızca TESHIS_KODU gizli değişkeni tanımlıyken ve doğru kodla çalışır; anahtar değerlerini asla göstermez.
+  if (yol === "/api/teshis" && env.TESHIS_KODU && esitMi(new URL(req.url).searchParams.get("kod") || "", env.TESHIS_KODU)) {
+    const sonuc = {};
+    try { sonuc.gemini = await gemini(env, 'Reply with the JSON {"ok":true}'); } catch (e) { sonuc.gemini = "HATA: " + e.message; }
+    try { sonuc.tavily = (await tavily(env, "Maldives resort solar battery storage", 2)).map(x => x.baslik); } catch (e) { sonuc.tavily = "HATA: " + e.message; }
+    if (new URL(req.url).searchParams.get("modeller")) { try { const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models?pageSize=200", {headers: {"x-goog-api-key": env.GEMINI_API_KEY}}); const j = await r.json(); sonuc.modeller = (j.models || []).filter(m => (m.supportedGenerationMethods || []).includes("generateContent")).map(m => m.name.replace("models/", "")); } catch (e) { sonuc.modeller = "HATA: " + e.message; } }
+    const g = new URL(req.url).searchParams.get("arastir");
+    if (g) { try { sonuc.arastir = await webArastir(env, {tarif: g, bolge: "Maldives", mod: "customer", adet: 6, sirket: {ad: "Karea Enerji", sektor: "solar inverters and battery energy storage distributor", urunler: "Huawei and HYXI inverters and ESS"}}); } catch (e) { sonuc.arastir = "HATA: " + e.message; } }
+    return json(sonuc);
+  }
 
   if (yol === "/api/kurulum" && req.method === "POST") {
     if (kullaniciSayisi > 0) return hata("Kurulum zaten yapılmış.", 409);
@@ -120,6 +131,28 @@ async function api(req, env, yol) {
       : await env.DB.prepare("INSERT OR IGNORE INTO calisma_alani (kullanici_id, veri, surum, guncelleme) VALUES (?, ?, 1, ?)").bind(k.id, JSON.stringify(veri), simdi).run();
     if (!r.meta.changes) return hata("Çalışma alanı başka bir cihazda değişti. Sayfayı yenileyin.", 409);
     return json({surum: yeni, guncelleme: simdi});
+  }
+  // Yapay zekâ ve web araştırması (anahtarlar sunucuda kalır)
+  try {
+    if (yol === "/api/ai" && req.method === "POST") {
+      const {istem = "", json: jsonIste = true} = await req.json().catch(() => ({}));
+      if (!istem || String(istem).length > 60000) return hata("Geçersiz istek.");
+      return json({metin: await gemini(env, String(istem), {json: jsonIste !== false})});
+    }
+    if (yol === "/api/arastir-web" && req.method === "POST") {
+      const g = await req.json().catch(() => ({}));
+      if (!g.tarif || String(g.tarif).length < 5) return hata("Kimi aradığınızı birkaç kelimeyle yazın.");
+      return json(await webArastir(env, g));
+    }
+    if (yol === "/api/baglanti") {
+      const sonuc = {};
+      try { const m = await gemini(env, 'Reply with the JSON {"ok":true}'); sonuc.gemini = {ok: /true/.test(m), mesaj: "Yapay zekâ (Gemini) bağlı."}; } catch (e) { sonuc.gemini = {ok: false, mesaj: e.message}; }
+      try { await tavily(env, "solar energy news", 1); sonuc.tavily = {ok: true, mesaj: "Web araması (Tavily) bağlı."}; } catch (e) { sonuc.tavily = {ok: false, mesaj: e.message}; }
+      return json(sonuc);
+    }
+  } catch (e) {
+    if (e instanceof ServisHatasi) return hata(e.message, e.durum);
+    throw e;
   }
   return hata("Bulunamadı.", 404);
 }
