@@ -24,6 +24,7 @@ Firmanızı ve hedefinizi anlatırsınız. Pusula müşteri veya tedarikçi aday
 | Türkçe / İngilizce mail | Türk firmalara Türkçe, yabancılara İngilizce otomatik |
 | Düzenlenebilir şablonlar | {firma}, {urunler} gibi değişkenlerle kendi üslubunuz |
 | Takip dizisi | Tanışma → 3. gün → 7. gün → 14. gün; yanıt gelince durur |
+| Hızlı takip hazırlama | Takip ekranından sayfadan ayrılmadan tek tıkla taslak; hepsi Mailler'de toplu gönderilir |
 | Bugünkü işler | Panel her sabah ne yapılacağını söyler |
 | Yanıt asistanı | Gelen cevabı sınıflandırır (ilgili, görüşme, sonra, ilgisiz, listeden çık) ve cevap taslağı yazar |
 | Otonom gönderim | Açın, günlük adedi seçin, onaylayın; Pusula kurallara uyan mailleri kendisi gönderir |

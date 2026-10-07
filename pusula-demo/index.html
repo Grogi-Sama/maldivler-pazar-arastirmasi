@@ -188,6 +188,7 @@ textarea{resize:vertical;min-height:84px;line-height:1.5}
 .draft .mailto{text-align:right;line-height:1.35}
 a.btn{text-decoration:none;color:var(--fg);display:inline-flex;align-items:center}
 .linkbtn{background:none;border:0;padding:0;color:var(--accent);font:inherit;font-weight:600;text-decoration:underline;cursor:pointer}
+.done-chip{display:inline-block;flex:none;font:600 12px var(--body);color:var(--accent);background:var(--accent-soft);padding:5px 9px;border-radius:8px;width:150px;line-height:1.3}
 </style>
 
 <div class="app" id="app">
@@ -409,7 +410,7 @@ function vPanel() {
   const top = state.leads.filter(l => l.status === "new" && !isSuppressed(l)).sort((a, b) => b.score - a.score).slice(0, 4);
   const segs = [...new Set(state.leads.map(l => l.segment))].map(s => { const ls = state.leads.filter(l => l.segment === s); const sent = ls.filter(l => CONTACTED.includes(l.status)).length; const rep = ls.filter(l => ["reply", "meet"].includes(l.status)).length; return {s, sent, rep, rate: sent ? rep / sent : 0}; }).filter(x => x.sent);
   const h = state.profile.health, hs = HEALTH.filter(([k]) => h[k]).length;
-  const dueNow = state.leads.filter(l => l.status === "sent" && l.nextAt && l.nextAt <= t);
+  const dueNow = state.leads.filter(l => l.status === "sent" && l.nextAt && l.nextAt <= t && !hasNextDraft(l));
   const replyDrafts = state.drafts.filter(d => d.type === "reply");
   const readyDrafts = state.drafts.filter(d => !d.scheduledFor && d.type !== "reply");
   const schedDue = state.drafts.filter(d => d.scheduledFor && d.scheduledFor <= t);
@@ -438,7 +439,7 @@ function vPanel() {
   <div class="two">
     <div class="card grid">
       <div class="row"><h2>Yaklaşan takipler</h2><span class="spacer"></span><button class="btn ghost sm" data-nav="takip">Tümü</button></div>
-      ${due.length ? due.map(l => { const nx = seq()[l.step + 1]; return `<div class="tl-item ${l.nextAt < t ? "over" : ""}"><span class="d">${fmtDate(l.nextAt)}</span><span style="flex:1;min-width:0"><b>${esc(l.name)}</b><br><span class="small muted">${esc(nx?.label || "")} · ilk mail ${fmtDate(l.sentAt)}</span></span><button class="btn sm" data-next="${l.id}">${esc(nx?.label || "Takip")} hazırla</button></div>`; }).join("") : `<p class="muted small">Önümüzdeki 7 günde takip yok.</p>`}
+      ${due.length ? due.map(l => { const nx = seq()[l.step + 1]; return `<div class="tl-item ${l.nextAt < t ? "over" : ""}"><span class="d">${fmtDate(l.nextAt)}</span><span style="flex:1;min-width:0"><b>${esc(l.name)}</b><br><span class="small muted">${esc(nx?.label || "")} · ilk mail ${fmtDate(l.sentAt)}</span></span>${nextBtn(l)}</div>`; }).join("") : `<p class="muted small">Önümüzdeki 7 günde takip yok.</p>`}
     </div>
     <div class="card grid">
       <h2>Satış hunisi</h2>
@@ -641,7 +642,7 @@ function drawLead() {
     <div class="row"><span class="prio p-${l.priority}">${l.priority}</span><h2 style="flex:1;min-width:0">${esc(l.name)}</h2><span class="pill ${STATUS[l.status].c}">${STATUS[l.status].t}</span></div>
     <div class="row">${stepsBar(l)}<span class="small muted">${l.step >= 0 ? `${l.step + 1}/${seq().length} adım gönderildi` : "Henüz mail gönderilmedi"}${nx && l.status === "sent" ? ` · sıradaki ${esc(nx.label)} ${fmtDate(l.nextAt)}` : ""}</span></div>
     <div class="row">
-      ${l.step < 0 ? `<button class="btn primary sm" data-intro1="${l.id}" ${isSuppressed(l) ? "disabled" : ""}>Tanışma maili hazırla</button>` : nx && l.status === "sent" ? `<button class="btn primary sm" data-next="${l.id}">${esc(nx.label)} hazırla</button>` : ""}
+      ${l.step < 0 ? `<button class="btn primary sm" data-intro1="${l.id}" ${isSuppressed(l) ? "disabled" : ""}>Tanışma maili hazırla</button>` : nx && l.status === "sent" ? `${nextBtn(l, "primary")}` : ""}
       <select data-status="${l.id}" aria-label="Durum" style="width:auto">${Object.entries(STATUS).map(([k, v]) => `<option value="${k}" ${l.status === k ? "selected" : ""}>${v.t}</option>`).join("")}</select>
     </div>
     <div class="form">${fld("name", "Firma")}${fld("email", "E-posta")}${fld("website", "Web sitesi")}${fld("region", "Bölge")}${fld("kind", "Tür")}${fld("segment", "Segment")}</div>
@@ -730,9 +731,9 @@ function vTakip() {
   const sched = state.drafts.filter(d => d.scheduledFor).sort((a, b) => a.scheduledFor.localeCompare(b.scheduledFor));
   const g = [["Gecikmiş", active.filter(l => l.nextAt < t)], ["Bugün", active.filter(l => l.nextAt === t)], ["Bu hafta", active.filter(l => l.nextAt > t && l.nextAt <= w)], ["Daha sonra", active.filter(l => l.nextAt > w)]];
   const hot = state.leads.filter(l => ["reply", "meet"].includes(l.status));
-  const item = l => { const nx = seq()[l.step + 1]; return `<div class="tl-item ${l.nextAt < t ? "over" : ""}"><span class="d">${fmtDate(l.nextAt)}</span><span style="flex:1;min-width:0"><button class="nmbtn" data-open="${l.id}" style="background:none;border:0;padding:0;font-weight:600;cursor:pointer;color:var(--fg)">${esc(l.name)}</button> ${stepsBar(l)}<br><span class="small muted">Sıradaki: ${esc(nx?.label || "")} · ilk mail ${fmtDate(l.sentAt)}</span></span><button class="btn sm" data-next="${l.id}">${esc(nx?.label || "Takip")} hazırla</button><button class="btn ghost sm" data-setst="${l.id}:reply">Yanıt geldi</button></div>`; };
+  const item = l => { const nx = seq()[l.step + 1]; return `<div class="tl-item ${l.nextAt < t ? "over" : ""}"><span class="d">${fmtDate(l.nextAt)}</span><span style="flex:1;min-width:0"><button class="nmbtn" data-open="${l.id}" style="background:none;border:0;padding:0;font-weight:600;cursor:pointer;color:var(--fg)">${esc(l.name)}</button> ${stepsBar(l)}<br><span class="small muted">Sıradaki: ${esc(nx?.label || "")} · ilk mail ${fmtDate(l.sentAt)}</span></span>${nextBtn(l)}<button class="btn ghost sm" data-setst="${l.id}:reply">Yanıt geldi</button></div>`; };
   return head("Takip takvimi", `Her firma ${seq().map(s => s.label + (s.day ? ` (+${s.day} gün)` : "")).join(" → ")} dizisiyle izlenir. Yanıt gelen firmada dizi durur.`,
-    active.filter(l => l.nextAt <= t).length ? `<button class="btn primary" id="prepDue">Zamanı gelen takipleri hazırla (${active.filter(l => l.nextAt <= t).length})</button>` : "") + `
+    active.filter(l => l.nextAt <= t && !hasNextDraft(l)).length ? `<button class="btn primary" id="prepDue">Zamanı gelen takipleri hazırla (${active.filter(l => l.nextAt <= t && !hasNextDraft(l)).length})</button>` : "") + `
   <div class="two">
     <div class="tl">
       ${sched.length ? `<div class="tl-group"><h3>Gönderim planı · ${sched.length}</h3>${sched.map(d => { const l = leadById(d.leadId) || {}; return `<div class="tl-item"><span class="d" style="color:var(--blue)">${fmtDate(d.scheduledFor)}</span><span style="flex:1;min-width:0"><b>${esc(l.name)}</b><br><span class="small muted">${esc(stepLabel(d.type))} · günlük limit dolduğu için ertelendi</span></span></div>`; }).join("")}</div>` : ""}
@@ -819,6 +820,13 @@ function makeIntros(ids) {
   toast(n ? `${n} taslak hazırlandı${blocked ? `, ${blocked} engelli firma atlandı` : ""}.` : blocked ? "Seçilen firmalar engelli listesinde." : "Bu firmalar için taslak zaten var ya da mail gönderilmiş.");
   if (made.length && sample) aiPolish(made);
 }
+// Takip düğmesi: taslak hazırlandıysa düğme yerine durum yazısı (kullanıcı sayfadan ayrılmaz)
+const hasNextDraft = l => { const nx = seq()[l.step + 1]; return !!nx && state.drafts.some(d => d.leadId === l.id && d.type === nx.key); };
+function nextBtn(l, cls = "") {
+  const nx = seq()[l.step + 1]; if (!nx) return "";
+  if (hasNextDraft(l)) return `<span class="done-chip" role="status">✓ Mailler klasörüne taslak olarak aktarıldı.</span>`;
+  return `<button class="btn ${cls} sm" data-next="${l.id}">${esc(nx.label)} hazırla</button>`;
+}
 function makeNext(ids) {
   let n = 0;
   commit(() => {
@@ -827,9 +835,8 @@ function makeNext(ids) {
       if (!l || !nx || l.status !== "sent" || isSuppressed(l)) continue;
       if (addDraft(l, nx.key)) n++;
     }
-    view = "mailler";
   });
-  toast(n ? `${n} takip taslağı hazırlandı.` : "Bu firmalar için takip taslağı zaten var.");
+  toast(n ? (n === 1 ? "Mailler klasörüne taslak olarak aktarıldı." : `${n} takip taslağı Mailler klasörüne aktarıldı.`) : "Bu firmalar için takip taslağı zaten var.");
 }
 
 async function aiPolish(draftIds) {
@@ -1175,7 +1182,7 @@ document.addEventListener("click", e => {
   if (t.id === "introSel") { makeIntros([...selected]); return; }
   if (ds.bulkintro) { makeIntros(ds.bulkintro.split(",").filter(Boolean)); return; }
   if (ds.intro1) { closeLead(); makeIntros([ds.intro1]); return; }
-  if (ds.next) { closeLead(); makeNext([ds.next]); return; }
+  if (ds.next) { makeNext([ds.next]); if (openLead) drawLead(); return; }
   if (t.id === "prepDue") { const t0 = todayISO(); makeNext(state.leads.filter(l => l.status === "sent" && l.nextAt && l.nextAt <= t0).map(l => l.id)); return; }
   if (ds.setst) { const [id, st] = ds.setst.split(":"); commit(() => { const l = leadById(id); if (l) { l.status = st; l.nextAt = ""; log(id, STATUS[st].t); } }); return; }
   if (ds.ri !== undefined) { research.results[Number(ds.ri)]._sel = t.checked; return; }
