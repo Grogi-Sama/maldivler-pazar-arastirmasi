@@ -46,6 +46,7 @@ STATUS_FILL = {
     "Yanıt geldi": PatternFill("solid", fgColor="FFF2CC"),       # açık sarı
     "Görüşme planlandı": PatternFill("solid", fgColor="E2EFDA"), # açık yeşil
     "İlgilenmiyor": PatternFill("solid", fgColor="EDEDED"),      # gri
+    "Gönderilemedi – tekrar gönderilecek": PatternFill("solid", fgColor="F8CBAD"),  # açık kırmızı
 }
 
 # Puan formülünün dışında kalan özel durumlar: (ek puan, gerekçe)
