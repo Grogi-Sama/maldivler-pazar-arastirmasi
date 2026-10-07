@@ -187,6 +187,7 @@ textarea{resize:vertical;min-height:84px;line-height:1.5}
 .note.test{background:var(--blue-soft);border-color:var(--blue);display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center}
 .draft .mailto{text-align:right;line-height:1.35}
 a.btn{text-decoration:none;color:var(--fg);display:inline-flex;align-items:center}
+.linkbtn{background:none;border:0;padding:0;color:var(--accent);font:inherit;font-weight:600;text-decoration:underline;cursor:pointer}
 </style>
 
 <div class="app" id="app">
@@ -1004,7 +1005,11 @@ function autoEnable() {
     `Pusula ${sn.weekdaysOnly ? "her iş günü" : "her gün"} ${String(sn.startHour).padStart(2, "0")}:00–${String(sn.endHour).padStart(2, "0")}:00 arasında <b>günde en fazla ${cap} mail</b> gönderecek; mailler arasında ${sn.minGap}–${sn.maxGap} dakika rastgele bekleyecek.<br><br>
     Gönderilecekler: ${[a.followups && "zamanı gelen takip mailleri", a.intros && "A/B öncelikli yeni adaylara tanışma maili", "hazır taslaklarınız"].filter(Boolean).join(", ")}. Şu an ${ready} taslak kurallara uyuyor${held ? `, ${held} taslak kontrolünüzü bekleyecek` : ""}.<br><br>
     Cevap mailleri, doğrulanmamış adresler ve teslim puanı ${a.minQuality}'in altındaki mailler hiçbir zaman otomatik gitmez. Firma yanıt verince ya da listeden çıkınca dizi kendiliğinden durur; aynı gün 2 firma listeden çıkarsa otonom gönderim kendini kapatır.
-    ${hs < HEALTH.length ? `<br><br><b>Gönderim sağlığı ${hs}/${HEALTH.length}.</b> SPF, DKIM ve DMARC tamamlanmadan otomatik gönderim spam riskini artırır.` : ""}<br><br>Demo modunda gerçek mail gönderilmez.`,
+    ${hs < HEALTH.length ? `<br><br><b>Gönderim sağlığı ${hs}/${HEALTH.length}.</b> SPF, DKIM ve DMARC tamamlanmadan otomatik gönderim spam riskini artırır:<br>
+    • <b>SPF:</b> Alan adınız adına hangi sunucuların mail gönderebileceğini gösteren liste.<br>
+    • <b>DKIM:</b> Her maile eklenen dijital imza; mailin gerçekten sizden geldiğini ve yolda değişmediğini kanıtlar.<br>
+    • <b>DMARC:</b> Bu iki kontrolden geçemeyen, sizin adınıza gönderilmiş sahte maillere ne yapılacağını söyleyen kural.<br>
+    Bu konu için Ayarlar sekmesindeki <button class="linkbtn" data-x data-nav="profil" data-anchor="saglik">Gönderim sağlığı</button> kısmını kontrol edebilirsiniz.` : ""}<br><br>Demo modunda gerçek mail gönderilmez.`,
     "Onayla ve başlat", () => { commit(() => { a.on = true; a.since = new Date().toISOString(); a.pausedReason = ""; log("", `Otonom gönderim açıldı (günde en fazla ${cap})`); }); if (!autoRun(false)) toast(inWindow() ? "Otonom gönderim açık; şu an kurallara uyan mail yok." : `Otonom gönderim açık; ilk çalışma ${nextWindow()}.`); });
 }
 function autoBanner() {

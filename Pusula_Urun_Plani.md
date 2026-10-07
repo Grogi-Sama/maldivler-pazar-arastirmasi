@@ -105,6 +105,36 @@
 - Kurumsal müşteriler isterse kendi API anahtarlarını bağlayabilir.
 - Tek bir arama sağlayıcısına bağımlı kalmamak için arama katmanı değiştirilebilir yazılır.
 
+### Başlangıç: ücretsiz kaynaklarla ilk sürüm
+
+Gelir başlayana kadar ücretli servis kullanmadan ilerlenir. Kaliteyi korumanın yolu, yapay zekâya veri **uydurtmamak** ve her bilgiyi bir kaynağa dayandırmaktır.
+
+| İhtiyaç | Ücretsiz çözüm | Sınır / dikkat |
+|---|---|---|
+| Firma listesi (konum bazlı: otel, resort, fabrika, mağaza) | OpenStreetMap verisi (Overpass). Ticari kullanım için Private.coffee'nin ücretsiz ve sınırsız sunucusu ya da kendi kopyamız | OSM'nin genel sunucusu ticari düzenli kullanım için değil; uygulama kendini tanıtan bir User-Agent göndermeli |
+| Firma listesi (büyük şirketler) | Wikidata (sektör, merkez, web sitesi) | Küçük firmalar eksik olabilir |
+| Güncel haber ve projeler | Tavily: ayda 1.000 arama ücretsiz, kredi kartı gerekmez. Yedek: Brave'in her ay verdiği 5 $ kredi (~1.000 arama) | Önbellekle aynı arama tekrarlanmaz |
+| Kurumsal e-posta | Firmanın kendi "iletişim" sayfasını sunucumuz okur | Ücretsiz; yalnızca sitede yayımlanmış adres alınır |
+| Adres kontrolü | Alan adının mail sunucusu (MX) kaydını kontrol etmek | Ücretsiz; adresin varlığını %100 kanıtlamaz, ama yanlış alan adlarını eler |
+| Yapay zekâ (sınıflandırma, giriş cümlesi) | Google Gemini Flash-Lite ücretsiz katmanı | Dakikada 5–15, günde 100–1.000 istek; ücretsiz katmanda gönderilen veri Google'ın ürün geliştirmesinde kullanılabilir. Bu yüzden yalnızca kamuya açık firma bilgisi gönderilir, kullanıcıya özel veri gönderilmez |
+| Sunucu ve zamanlayıcı | Cloudflare Workers ücretsiz: günde 100.000 istek ve zamanlanmış görevler | Pilot için fazlasıyla yeterli |
+| Veritabanı | Supabase ücretsiz (500 MB) | Bir hafta hiç kullanılmazsa durur; günlük zamanlanmış görev bunu engeller |
+
+**Yanlış veriyi önleyen kurallar:**
+1. E-posta adresini yapay zekâ **önermez**; adres yalnızca firmanın kendi sitesinden alınır. Bulunamazsa alan boş kalır.
+2. Her aday için kaynak bağlantısı saklanır ve kullanıcıya gösterilir.
+3. Firma, bir açık veri kaynağında ya da kendi sitesinde görülmeden listeye girmez. Web sitesi açılmayan firma elenir.
+4. Yapay zekâ yalnızca bulunan metinden çıkarım yapar: sınıflandırma, puan, giriş cümlesi. Kaynakta olmayan rakam veya proje yazmaz; giriş cümlesi kaynaktaki bir bilgiye dayanmak zorundadır.
+5. MX kontrolünü geçemeyen adres "doğrulanmadı" olur ve otonom gönderime girmez.
+6. Test modu varsayılan olarak açıktır.
+
+**Ne zaman ücretliye geçilir:**
+- Ücretsiz kotalar dolduğunda ya da ilk ödeme yapan müşteriler geldiğinde.
+- Yapay zekâ Claude Haiku'ya geçer. 20 adaylık bir araştırma yaklaşık 0,05 $ tutar ve ücretli kullanımda veriler eğitimde kullanılmaz.
+- Arama ve adres doğrulama da ücretli paketlere geçer.
+
+Sistem sağlayıcıdan bağımsız yazılacağı için bu geçişler kod değişikliği değil, ayar değişikliği olur.
+
 **Demo ile farkı:** Demodaki "Araştır" düğmesi, sayfayı açan kişinin claude.ai hesabı üzerinden Claude'a soruyor ve cevap modelin kendi bilgisinden geliyor; canlı web araması yok. Gerçek üründe bu çağrı Pusula sunucusuna gider ve yukarıdaki katmanlar çalışır. Kullanıcı yalnızca sonucu görür.
 
 ## 5. Kullanıcı başı tahmini değişken maliyet (aylık)
@@ -161,4 +191,4 @@ Varsayım: Aktif bir kullanıcı ayda 20 araştırma (200 aday), 600 mail (tanı
 
 ---
 
-*Kaynaklar: Gmail/Yahoo/Microsoft toplu gönderen kuralları (powerdmarc.com, redsift.com); soğuk mail teslim edilebilirliği (clay.com, mailreach.co, instantly.ai); takip ve yanıt oranları (woodpecker.co, apollo.io, unifygtm.com); konu satırı ve spam kelimeleri (instantly.ai, mixmax.com, litemail.ai); rakip fiyatları (apollo.io, marketbetter.ai, formanorden.com); Türkiye platformları (bilvio.com, kobimatik.com, internationaltradeai.com); 6563 sayılı Kanun (cenuta.com, verimor.com.tr); GDPR (gdprlocal.com, overloop.com); API limitleri (unipile.com); web araması ve adres doğrulama fiyatları (brave.com, buildmvpfast.com, exa.ai, cleanlist.ai); Claude API fiyatları (Anthropic); Google Custom Search kapanışı (brave.com/learn/google-api-shutdown); Brave ve Tavily fiyatları (costbench.com, docs.tavily.com). Bu belge hukuki görüş değildir.*
+*Kaynaklar: Gmail/Yahoo/Microsoft toplu gönderen kuralları (powerdmarc.com, redsift.com); soğuk mail teslim edilebilirliği (clay.com, mailreach.co, instantly.ai); takip ve yanıt oranları (woodpecker.co, apollo.io, unifygtm.com); konu satırı ve spam kelimeleri (instantly.ai, mixmax.com, litemail.ai); rakip fiyatları (apollo.io, marketbetter.ai, formanorden.com); Türkiye platformları (bilvio.com, kobimatik.com, internationaltradeai.com); 6563 sayılı Kanun (cenuta.com, verimor.com.tr); GDPR (gdprlocal.com, overloop.com); API limitleri (unipile.com); web araması ve adres doğrulama fiyatları (brave.com, buildmvpfast.com, exa.ai, cleanlist.ai); Claude API fiyatları (Anthropic); Google Custom Search kapanışı (brave.com/learn/google-api-shutdown); Brave ve Tavily fiyatları (costbench.com, docs.tavily.com); Gemini ücretsiz katmanı (flo2.com, costbench.com); Supabase ve Cloudflare ücretsiz planları (automationatlas.io, developers.cloudflare.com); Overpass kullanım kuralları (wiki.openstreetmap.org). Bu belge hukuki görüş değildir.*
