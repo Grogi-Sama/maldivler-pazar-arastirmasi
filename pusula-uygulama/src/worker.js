@@ -110,6 +110,12 @@ async function api(req, env, yol) {
 
   if (yol === "/api/cikis" && req.method === "POST") return json({tamam: true}, 200, {"Set-Cookie": `${CEREZ}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`});
 
+  // Microsoft yönetici onayı dönüşü (BT yöneticisi Pusula'ya giriş yapmadan onay verir)
+  if (yol === "/api/microsoft/geri" && new URL(req.url).searchParams.has("admin_consent")) {
+    const p = new URL(req.url).searchParams, ok = p.get("admin_consent") === "True";
+    return new Response(`<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Pusula – Yönetici onayı</title></head><body style="font:16px/1.5 system-ui,sans-serif;max-width:560px;margin:60px auto;padding:0 16px;color:#16211F">${LOGO_SVG.replace("<svg ", '<svg width="48" height="48" ')}<h1 style="font-size:22px">${ok ? "Onay verildi, teşekkürler." : "Onay verilmedi."}</h1><p>${ok ? "Pusula uygulaması kuruluşunuzda yalnızca kullanıcının kendi adına mail göndermesi (Mail.Send) ve profilini okuması (User.Read) için yetkilendirildi. Bu pencereyi kapatabilirsiniz." : String(p.get("error_description") || "İşlem iptal edildi.").replace(/[<>&]/g, "").slice(0, 300)}</p></body></html>`, {headers: {"Content-Type": "text/html; charset=utf-8", ...GUVENLIK}});
+  }
+
   // Buradan sonrası giriş gerektirir
   const k = await oturum(req, env);
   if (!k) return hata("Oturum açılmamış.", 401);
