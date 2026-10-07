@@ -244,10 +244,11 @@ const OPTOUT_RE = /(won't follow up|will not follow up|reply and let me know|jus
 
 /* ---------- örnek çalışma alanı ---------- */
 const SIG = "With my best regards,\n\nOnur Topuz\nSales & Business Development Director\nKarea Enerji\n+90 505 228 03 72 | onur.topuz@karea.com.tr\nkareaenerji.com.tr";
+const SIG_TR = "En iyi dileklerimle,\n\nOnur Topuz\nSatış ve İş Geliştirme Direktörü\nKarea Enerji\n+90 505 228 03 72 | onur.topuz@karea.com.tr\nkareaenerji.com.tr";
 function demoState() {
   const S = "2026-10-06";
   const L = (name, kind, segment, region, email, website, priority, score, why, status, step, hook) => ({
-    id: uid(), name, kind, segment, region, email, website, hook: hook || "", emailSource: "Kurumsal genel adres (kamuya açık)", legal: "B2B – meşru menfaat / tacir istisnası",
+    id: uid(), name, kind, segment, region, email, website, hook: hook || "", lang: "", campaign: "Maldivler – enerji", verified: true, emailSource: "Kurumsal genel adres (kamuya açık)", legal: "B2B – meşru menfaat / tacir istisnası",
     priority, score, why, status, step: step ?? -1, sentAt: step >= 0 ? S : "", lastSentAt: step >= 0 ? S : "", nextAt: step >= 0 && status === "sent" ? addDays(S, DEFAULT_SEQ[step + 1].day) : "", notes: ""});
   const st = {
     demo: true, version: 2,
@@ -255,12 +256,13 @@ function demoState() {
       company: "Karea Enerji", website: "kareaenerji.com.tr", country: "Türkiye", sector: "Güneş enerjisi ve enerji depolama distribütörü",
       products: "Huawei ve HYXI güneş enerjisi inverterleri; ticari, endüstriyel ve şebeke ölçekli batarya depolama sistemleri (ESS)",
       value: "Rekabetçi proje fiyatı, proje bazlı üretici garantisi teyidi, sistem boyutlandırma ve teknik destek",
+      productsShort: "Solar inverters and battery storage", productsShortTr: "güneş inverteri ve batarya depolama",
       productsMail: "Huawei and HYXI solar inverters and battery energy storage systems for commercial, industrial and utility-scale projects",
       valueMail: "Competitive project pricing, Manufacturer warranty confirmed in writing for each project, System sizing and technical support from our engineering team",
       mode: "customer", regions: "Maldivler",
       segmentBrief: "Maldivler'deki yerel EPC/kurulum firmaları (tedarik ortağı olarak) ve dizel jeneratörle elektrik üreten resort adaları ile resort grupları (son kullanıcı).",
       senderName: "Onur Topuz", senderTitle: "Sales & Business Development Director", senderEmail: "onur.topuz@karea.com.tr",
-      signature: SIG, language: "English",
+      signature: SIG, signatureTr: SIG_TR, language: "English",
       sequence: JSON.parse(JSON.stringify(DEFAULT_SEQ)), sending: {...DEFAULT_SENDING},
       health: {spf: true, dkim: true, dmarc: false, unsub: true, warmup: true, domain: false},
     },
@@ -280,6 +282,9 @@ function demoState() {
     ],
     drafts: [], log: [], suppress: [],
   };
+  for (const [n, h] of [["Aydeniz", "Ayada Maldives, Maldivler'deki çoğu resort gibi elektriğini dizel jeneratörlerle üretiyor ve 2026'daki yakıt fiyatı artışı bu maliyeti belirgin şekilde yükseltti."], ["Astaş", "Maldivler'de planladığınız yaklaşık 120 villalık resort projesiyle ilgili haberleri ilgiyle okuduk."], ["Gürok", "JOALI Maldives ve JOALI BEING, misafir deneyiminin merkezine sürdürülebilirliği koyan iki özel resort."]]) {
+    const l = st.leads.find(x => x.name.startsWith(n)); l.lang = "Türkçe"; l.hook = h;
+  }
   st.log = st.leads.filter(l => l.step >= 0).map(l => ({at: "2026-10-06T09:00:00Z", leadId: l.id, action: "Tanışma maili gönderildi"}));
   const a = st.leads.find(l => l.name.startsWith("Atoll")); st.log.unshift({at: "2026-10-08T10:20:00Z", leadId: a.id, action: "Yanıt geldi: ürün kataloğu ve fiyat istedi"});
   const ay = st.leads.find(l => l.name.startsWith("Aydeniz")); st.log.unshift({at: "2026-10-09T11:00:00Z", leadId: ay.id, action: "Görüşme planlandı (Ankara)"});
@@ -289,10 +294,10 @@ function demoState() {
 /* ---------- durum, göç ve kayıt ---------- */
 let state = demoState();
 let view = "panel";
-let filters = {segment: "Tümü", status: "Tümü", prio: "Tümü", q: ""};
+let filters = {segment: "Tümü", status: "Tümü", prio: "Tümü", q: "", campaign: "Tümü"};
 let selected = new Set();
 let research = {running: false, results: [], error: "", ctl: null, note: ""};
-let mailBusy = false, replyBusy = false, openLead = null;
+let mailBusy = false, replyBusy = false, openLead = null, tplLang = "English";
 let sample = null, downloads = null, docRef = null, saveTimer = null, saving = Promise.resolve();
 
 function normalize(s) {
@@ -301,6 +306,10 @@ function normalize(s) {
   s.profile.sending = {...DEFAULT_SENDING, ...(s.profile.sending || {})};
   s.profile.health = s.profile.health || {};
   if (s.profile.productsMail === undefined) s.profile.productsMail = "";
+  if (s.profile.signatureTr === undefined) s.profile.signatureTr = "";
+  if (s.profile.productsShort === undefined) s.profile.productsShort = "";
+  if (s.profile.productsShortTr === undefined) s.profile.productsShortTr = "";
+  if (!s.profile.templates) s.profile.templates = {};
   if (s.profile.valueMail === undefined) s.profile.valueMail = "";
   s.leads = s.leads || []; s.drafts = s.drafts || []; s.log = s.log || []; s.suppress = s.suppress || [];
   for (const l of s.leads) {
@@ -308,6 +317,9 @@ function normalize(s) {
     if (l.nextAt === undefined) l.nextAt = l.followUpAt || "";
     if (!l.legal) l.legal = "B2B – meşru menfaat / tacir istisnası";
     if (l.hook === undefined) l.hook = "";
+    if (l.lang === undefined) l.lang = "";
+    if (l.campaign === undefined) l.campaign = s.profile.regions || "Genel";
+    if (l.verified === undefined) l.verified = !/doğrulanmalı/i.test(l.emailSource || "");
   }
   for (const d of s.drafts) if (d.type === "reminder") d.type = "f1";
   s.version = 2;
@@ -373,7 +385,25 @@ function vPanel() {
   const top = state.leads.filter(l => l.status === "new" && !isSuppressed(l)).sort((a, b) => b.score - a.score).slice(0, 4);
   const segs = [...new Set(state.leads.map(l => l.segment))].map(s => { const ls = state.leads.filter(l => l.segment === s); const sent = ls.filter(l => CONTACTED.includes(l.status)).length; const rep = ls.filter(l => ["reply", "meet"].includes(l.status)).length; return {s, sent, rep, rate: sent ? rep / sent : 0}; }).filter(x => x.sent);
   const h = state.profile.health, hs = HEALTH.filter(([k]) => h[k]).length;
+  const dueNow = state.leads.filter(l => l.status === "sent" && l.nextAt && l.nextAt <= t);
+  const replyDrafts = state.drafts.filter(d => d.type === "reply");
+  const readyDrafts = state.drafts.filter(d => !d.scheduledFor && d.type !== "reply");
+  const schedDue = state.drafts.filter(d => d.scheduledFor && d.scheduledFor <= t);
+  const unverified = state.leads.filter(l => l.status === "new" && l.email && !l.verified);
+  const newA = state.leads.filter(l => l.status === "new" && l.priority === "A" && !isSuppressed(l));
+  const tasks = [
+    replyDrafts.length && [`${replyDrafts.length} yanıta cevap taslağı hazır`, "Sıcak fırsatlar; en önce bunları yanıtlayın.", `<button class="btn sm primary" data-nav="mailler">Cevapları aç</button>`],
+    dueNow.length && [`${dueNow.length} firmanın takip zamanı geldi`, "Takip mailleri yanıtların üçte birini getirir.", `<button class="btn sm primary" id="prepDue">Takipleri hazırla</button>`],
+    schedDue.length && [`${schedDue.length} planlı mailin zamanı geldi`, "Günlük limit nedeniyle ertelenmişti.", `<button class="btn sm" data-nav="mailler">Gönder</button>`],
+    readyDrafts.length && [`${readyDrafts.length} taslak gönderilmeyi bekliyor`, "Teslim puanına bakıp gönderin.", `<button class="btn sm" data-nav="mailler">Taslaklara git</button>`],
+    newA.length && [`${newA.length} A öncelikli firmaya henüz yazılmadı`, newA.slice(0, 3).map(l => l.name).join(", "), `<button class="btn sm" data-bulkintro="${newA.map(l => l.id).join(",")}">Tanışma hazırla</button>`],
+    unverified.length && [`${unverified.length} adresin doğrulanması gerekiyor`, "Yapay zekânın önerdiği adresleri web sitesinden kontrol edin.", `<button class="btn sm" data-f="status" data-v="new" data-nav="adaylar">Adaylara git</button>`],
+  ].filter(Boolean);
   return head("Bugün ne yapalım?", "Araştırma, mail ve takip işlerinizin özeti.", `<button class="btn primary" data-nav="arastir">Yeni araştırma</button>`) + `
+  <div class="card grid" style="margin-bottom:14px">
+    <h2>Bugünkü işler</h2>
+    ${tasks.length ? tasks.map(([a, b, c]) => `<div class="tl-item"><span style="flex:1;min-width:0"><b>${a}</b><br><span class="small muted">${esc(b)}</span></span>${c}</div>`).join("") : `<p class="small muted" style="margin:0">Bugün için bekleyen iş yok. Yeni aday bulmak için araştırma başlatabilirsiniz.</p>`}
+  </div>
   <div class="kpis">
     <div class="kpi"><span>Aday</span><b>${c.total}</b></div>
     <div class="kpi"><span>Hazır taslak</span><b>${c.drafts}</b></div>
@@ -436,13 +466,22 @@ function vProfil() {
       ${ta("value", "Size neden çalışılmalı? (virgülle ayırın; mailde madde olarak geçer)", p.value, 2)}
       ${ta("productsMail", "Ürünler – mail dilinde (" + esc(p.language || "English") + ")", p.productsMail, 2)}
       ${ta("valueMail", "Neden siz – mail dilinde (virgülle ayırın)", p.valueMail, 2)}
+      ${f("productsShort", "Kısa ürün adı – konu satırı için (" + esc(p.language || "English") + ")", p.productsShort)}${f("productsShortTr", "Kısa ürün adı – Türkçe konu satırı için", p.productsShortTr)}
       ${f("regions", "Hedef ülke / bölge", p.regions)}${f("language", "Mail dili", p.language)}
       ${ta("segmentBrief", "Hedef müşteri / segment tarifi", p.segmentBrief, 3)}
     </div>
   </div>
   <div class="card grid" style="margin-top:14px">
     <h2>Gönderen ve imza</h2>
-    <div class="form">${f("senderName", "Ad soyad", p.senderName)}${f("senderTitle", "Unvan", p.senderTitle)}${f("senderEmail", "Gönderen e-posta", p.senderEmail, "email")}<span></span>${ta("signature", "İmza (mailin sonuna eklenir)", p.signature, 6)}</div>
+    <div class="form">${f("senderName", "Ad soyad", p.senderName)}${f("senderTitle", "Unvan", p.senderTitle)}${f("senderEmail", "Gönderen e-posta", p.senderEmail, "email")}<span></span>${ta("signature", "İmza – yabancı dildeki mailler için", p.signature, 8)}${ta("signatureTr", "İmza – Türkçe mailler için", p.signatureTr, 8)}</div>
+  </div>
+  <div class="card grid" style="margin-top:14px" id="sablonlar">
+    <div class="row"><h2>Mail şablonları</h2><span class="spacer"></span><div class="seg" role="group" aria-label="Şablon dili">${LANGS.map(x => `<button data-tpllang="${x}" aria-pressed="${tplLang === x}">${x}</button>`).join("")}</div></div>
+    <p class="small muted" style="margin:0">Kendi üslubunuzla yazın; süslü parantezli alanlar her firmaya göre dolar: <span class="mono">${VARS_HELP}</span>. İmza otomatik eklenir. Claude ile kişiselleştirme bu şablonu temel alır.</p>
+    ${["intro", "f1", "f2", "close"].concat(p.mode === "supplier" ? ["intro_supplier"] : []).map(k => { const t = tplFor(tplLang, k); const nm = k === "intro_supplier" ? "Tanışma (tedarikçi arama)" : stepLabel(k); return `<details ${k === "intro" ? "open" : ""}><summary style="cursor:pointer;font-weight:600;padding:6px 0">${esc(nm)}</summary><div class="grid" style="gap:8px;padding:6px 0 10px">
+      <label class="f" for="t_${k}_s">Konu<input id="t_${k}_s" type="text" data-tpl="${tplLang}|${k}|subject" value="${esc(t.subject)}"></label>
+      <label class="f" for="t_${k}_b">Metin<textarea id="t_${k}_b" rows="9" data-tpl="${tplLang}|${k}|body">${esc(t.body)}</textarea></label></div></details>`; }).join("")}
+    <div class="row"><button class="btn sm" data-tplreset="${tplLang}">${tplLang} şablonlarını varsayılana döndür</button></div>
   </div>
   <div class="card grid" style="margin-top:14px">
     <h2>Takip dizisi</h2>
@@ -497,6 +536,7 @@ function vArastir() {
     <label class="f" for="brief">Kimi arıyoruz?<textarea id="brief" rows="4">${esc(p.segmentBrief)}</textarea></label>
     <div class="form">
       <label class="f" for="region">Bölge<input id="region" type="text" value="${esc(p.regions)}"></label>
+      <label class="f" for="campaign">Kampanya adı (adayları gruplar)<input id="campaign" type="text" placeholder="Örn. ${esc(p.regions || "Bölge")} – 2026 Q4" value=""></label>
       <label class="f" for="howMany">Kaç aday?<select id="howMany">${[5, 10, 15, 20].map(n => `<option ${n === 10 ? "selected" : ""}>${n}</option>`).join("")}</select></label>
     </div>
     <div class="row"><button class="btn primary" id="runRes" ${research.running ? "disabled" : ""}>Araştırmayı başlat</button><span class="small muted">Listenizdeki ve engellediğiniz firmalar tekrar önerilmez.</span></div>
@@ -512,6 +552,7 @@ function filteredLeads() {
     (filters.segment === "Tümü" || l.segment === filters.segment) &&
     (filters.status === "Tümü" || l.status === filters.status) &&
     (filters.prio === "Tümü" || l.priority === filters.prio) &&
+    (!filters.campaign || filters.campaign === "Tümü" || l.campaign === filters.campaign) &&
     (!q || (l.name + l.region + l.email + l.kind).toLowerCase().includes(q))
   ).sort((a, b) => a.priority.localeCompare(b.priority) || b.score - a.score);
 }
@@ -522,7 +563,8 @@ function vAdaylar() {
   return head("Adaylar", "Firmalar segmente ve önceliğe göre sınıflandırıldı. Ayrıntı için firma adına dokunun.",
     `<button class="btn" data-import="1">İçe aktar</button><button class="btn" id="exportCsv">Dışa aktar</button><button class="btn primary" id="introSel" ${selected.size ? "" : "disabled"}>Tanışma maili hazırla (${selected.size})</button>`) + `
   <div class="card grid">
-    <div class="row"><input type="search" id="q" placeholder="Firma, bölge veya e-posta ara" value="${esc(filters.q)}" style="max-width:320px"><span class="spacer"></span>
+    <div class="row"><input type="search" id="q" placeholder="Firma, bölge veya e-posta ara" value="${esc(filters.q)}" style="max-width:320px">
+      <select id="campSel" aria-label="Kampanya" style="width:auto">${["Tümü", ...new Set(state.leads.map(l => l.campaign || "Genel"))].map(c => `<option value="${esc(c)}" ${filters.campaign === c ? "selected" : ""}>${c === "Tümü" ? "Tüm kampanyalar" : esc(c)}</option>`).join("")}</select><span class="spacer"></span>
       <div class="chips">${["Tümü", "A", "B", "C"].map(v => chip("prio", v, v === "Tümü" ? "Tüm öncelikler" : "Öncelik " + v)).join("")}</div></div>
     <div class="chips">${segs.map(s => chip("segment", s)).join("")}</div>
     <div class="chips">${chip("status", "Tümü", "Tüm durumlar")}${Object.entries(STATUS).map(([k, v]) => chip("status", k, v.t)).join("")}</div>
@@ -534,7 +576,7 @@ function vAdaylar() {
       <span class="prio p-${l.priority}" title="Uyum puanı ${l.score}">${l.priority}</span>
       <div><button class="nmbtn" data-open="${l.id}">${esc(l.name)}</button><div class="meta">${esc(l.kind)} · ${esc(l.region)}</div></div>
       <div class="meta c-seg">${esc(l.segment)}</div>
-      <div class="em c-em">${esc(l.email || "e-posta yok")}${isSuppressed(l) ? ` <span class="pill st-no">engelli</span>` : ""}</div>
+      <div class="em c-em">${esc(l.email || "e-posta yok")}${l.email && !l.verified ? ` <span class="pill st-reply" title="Göndermeden önce web sitesinden kontrol edin">doğrulanmadı</span>` : ""}${isSuppressed(l) ? ` <span class="pill st-no">engelli</span>` : ""}${isTr(l.lang) ? ` <span class="pill st-new">TR</span>` : ""}</div>
       <span class="row c-st" style="gap:6px;flex-wrap:nowrap">${stepsBar(l)}<span class="pill ${STATUS[l.status].c}">${STATUS[l.status].t}</span></span>
       <div class="why">${esc(l.why)}${l.nextAt && l.status === "sent" ? ` · <span class="mono">Sıradaki: ${esc(seq()[l.step + 1]?.label || "")} ${fmtDate(l.nextAt)}</span>` : ""}</div></div>`).join("")}</div>`
     : `<div class="empty"><h3>${state.leads.length ? "Bu filtreye uyan aday yok" : "Henüz aday yok"}</h3><p>${state.leads.length ? "Filtreleri temizleyin ya da yeni bir araştırma başlatın." : "Araştır ekranından aday bulun ya da elinizdeki listeyi içe aktarın."}</p><div class="row" style="justify-content:center"><button class="btn primary" data-nav="arastir">Araştır</button><button class="btn" data-import="1">CSV içe aktar</button></div></div>`}
@@ -560,7 +602,12 @@ function drawLead() {
     </div>
     <div class="form">${fld("name", "Firma")}${fld("email", "E-posta")}${fld("website", "Web sitesi")}${fld("region", "Bölge")}${fld("kind", "Tür")}${fld("segment", "Segment")}</div>
     <label class="f" for="ld_why">Neden bu firma? (iç not)<textarea id="ld_why" rows="2" data-lead="why">${esc(l.why)}</textarea></label>
-    <label class="f" for="ld_hook">Mailin ilk cümlesi (${esc(state.profile.language || "English")})<textarea id="ld_hook" rows="2" data-lead="hook" placeholder="Örn. Your solar systems now run on more than 50 resort islands.">${esc(l.hook)}</textarea></label>
+    <div class="form">
+      <label class="f" for="ld_lang">Mail dili<select id="ld_lang" data-leadsel="lang"><option value="" ${!l.lang ? "selected" : ""}>Varsayılan (${esc(state.profile.language || "English")})</option>${LANGS.map(x => `<option ${l.lang === x ? "selected" : ""}>${x}</option>`).join("")}</select></label>
+      ${fld("campaign", "Kampanya")}
+      <label class="check full" for="ld_ver"><input id="ld_ver" type="checkbox" data-verify="${l.id}" ${l.verified ? "checked" : ""}><span>E-posta adresi doğrulandı<small>Firmanın kendi web sitesinde veya resmi bir kaynakta gördüm.</small></span></label>
+    </div>
+    <label class="f" for="ld_hook">Mailin ilk cümlesi (${esc(leadLang(l))})<textarea id="ld_hook" rows="2" data-lead="hook" placeholder="Örn. Your solar systems now run on more than 50 resort islands.">${esc(l.hook)}</textarea></label>
     <label class="f" for="ld_notes">Notlar<textarea id="ld_notes" rows="2" data-lead="notes">${esc(l.notes)}</textarea></label>
     <dl class="kv"><dt>Bilgi kaynağı</dt><dd>${esc(l.emailSource || "—")}</dd><dt>Yasal dayanak</dt><dd>${esc(l.legal || "—")}</dd><dt>Uyum puanı</dt><dd class="mono">${l.score}/100</dd></dl>
     <div class="card grid" style="padding:14px">
@@ -579,7 +626,8 @@ function closeLead() { openLead = null; $("#layer").querySelector(".drawer-back"
 function quality(d) {
   const l = leadById(d.leadId) || {};
   const body = d.body || "", subj = d.subject || "";
-  const main = body.split(state.profile.signature?.split("\n")[0] || "\u0000")[0];
+  const sig = sigFor(l);
+  const main = sig && body.includes(sig) ? body.slice(0, body.indexOf(sig)) : body.split((sig || "").split("\n")[0] || "\u0000")[0];
   const words = (main.match(/\S+/g) || []).length;
   const issues = []; let s = 100;
   const lim = ["f1", "f2", "close"].includes(d.type) ? [30, 120] : [60, 200];
@@ -599,7 +647,9 @@ function quality(d) {
   if (l.name && !hay.includes(String(l.name).split(/[ (]/)[0].toLowerCase())) { s -= 10; issues.push(["Firmaya özel bir ifade yok", false]); } else issues.push(["Kişiselleştirilmiş", true]);
   if (!OPTOUT_RE.test(body)) { s -= 15; issues.push(["Listeden çıkma cümlesi yok", false]); } else issues.push(["Listeden çıkma cümlesi var", true]);
   if (state.profile.senderName && !body.includes(state.profile.senderName)) { s -= 5; issues.push(["İmza eksik", false]); }
-  if (!/^t(r|ürkçe|urkish)/i.test(state.profile.language || "") && /[ğşıİ]|\b(ve|için|bir|ile)\b/.test(plain)) { s -= 20; issues.push(["Dil karışık: " + (state.profile.language || "English") + " mailde Türkçe ifade var", false]); }
+  if (!isTr(leadLang(l)) && /[ğşıİ]|\b(ve|için|bir|ile)\b/.test(plain)) { s -= 20; issues.push(["Dil karışık: " + leadLang(l) + " mailde Türkçe ifade var", false]); }
+  if (isTr(leadLang(l)) && /\b(the|and|we|our|your|with)\b/i.test(plain)) { s -= 20; issues.push(["Dil karışık: Türkçe mailde İngilizce ifade var", false]); }
+  if (l.email && !l.verified) { s -= 10; issues.push(["E-posta adresi doğrulanmadı", false]); }
   s = Math.max(0, Math.min(100, s));
   return {s, issues, cls: s >= 80 ? "sc-good" : s >= 60 ? "sc-mid" : "sc-bad"};
 }
@@ -649,36 +699,59 @@ function vTakip() {
 }
 
 /* ---------- mail şablonları ---------- */
-function shortSubj(s) { const w = String(s || "").split(/\s+/); return w.slice(0, Math.min(w.length, 5)).join(" ").replace(/[,;:]$/, ""); }
 function short(s) { s = String(s || ""); const i = s.search(/[;(]/); return (i > 0 ? s.slice(0, i) : s).trim().slice(0, 60); }
 const OPT_EN = "If this isn't relevant for you, just reply and let me know – I won't follow up.";
-function tIntro(l) {
-  const p = state.profile, supplier = p.mode === "supplier";
-  const route = supplier ? "Could you kindly forward this to your export or sales team?" : `Could you kindly forward this to the person responsible for ${/EPC|kurulum|distrib/i.test(l.kind + l.segment) ? "purchasing" : "engineering"}?`;
-  const prod = p.productsMail || p.products;
-  const hook = l.hook || `I'm reaching out regarding ${l.name}'s work in ${l.region}.`;
-  const intro = supplier ? `I'm ${p.senderName} from ${p.company}. We are looking for a reliable supplier of ${short(prod)}.`
-                         : `I'm ${p.senderName} from ${p.company}. We supply ${prod}.`;
-  const offer = supplier ? `What we would like to learn:\n- Your product range and specifications\n- Pricing for project and repeat volumes\n- Warranty, lead time and after-sales terms`
-                         : `What we can offer:\n- ${String(p.valueMail || p.value || "").split(/[,;]/).map(s => s.trim()).filter(Boolean).join("\n- ")}`;
-  return {subject: supplier ? `Supply enquiry from ${p.company}` : `${shortSubj(prod)} for ${l.name}`,
-    body: [`Dear ${l.name} team,`, route, hook, intro, offer, "Would you be open to a short call or video meeting in the coming weeks?", OPT_EN, p.signature].join("\n\n")};
+const LANGS = ["English", "Türkçe"];
+const DEFAULT_TPL = {
+  "English": {
+    intro: {subject: "{urunler_kisa} for {firma}", body: "Dear {firma} team,\n\nCould you kindly forward this to the person responsible for purchasing or engineering?\n\n{giris}\n\nI'm {gonderen} from {sirket}. We supply {urunler}.\n\nWhat we can offer:\n{degerler}\n\nWould you be open to a short call or video meeting in the coming weeks?\n\nIf this isn't relevant for you, just reply and let me know – I won't follow up."},
+    intro_supplier: {subject: "Supply enquiry from {sirket}", body: "Dear {firma} team,\n\nCould you kindly forward this to your export or sales team?\n\n{giris}\n\nI'm {gonderen} from {sirket}. We are looking for a reliable supplier of {urunler_kisa}.\n\nWhat we would like to learn:\n- Your product range and specifications\n- Pricing for project and repeat volumes\n- Warranty, lead time and after-sales terms\n\nWould you be open to a short call or video meeting in the coming weeks?\n\nIf this isn't relevant for you, just reply and let me know – I won't follow up."},
+    f1: {subject: "Following up – {urunler_kisa}", body: "Dear {firma} team,\n\nI wanted to follow up on my email from {ilk_tarih}. I know inboxes get busy.\n\nTo make it easy: if you share one current or upcoming project, I can send an indicative offer and a short technical summary within two working days.\n\nWho would be the right person to speak with?\n\nIf this isn't relevant for you, just reply and let me know – I won't follow up."},
+    f2: {subject: "An idea for {firma}", body: "Dear {firma} team,\n\nOne more thought since my last note. Many companies in your market start with a single small project to compare price, delivery and support before committing to more.\n\nIf that approach suits {firma}, we would be glad to support a first project on those terms.\n\nWould a 15-minute call next week work?\n\nIf this isn't relevant for you, just reply and let me know – I won't follow up."},
+    close: {subject: "Closing the loop", body: "Dear {firma} team,\n\nI haven't heard back, so I'll assume the timing isn't right and won't follow up further.\n\nIf anything changes, just reply to this email and I'll pick it up from here.\n\nThank you for your time."},
+  },
+  "Türkçe": {
+    intro: {subject: "{firma} için {urunler_kisa}", body: "Sayın {firma} yetkilileri,\n\n{giris}\n\nBen {sirket}'den {gonderen}. {urunler} alanında hizmet veriyoruz.\n\nÖnerebileceklerimiz:\n{degerler}\n\nUygun görürseniz önümüzdeki haftalarda kısa bir telefon veya çevrim içi görüşme yapabilir miyiz?\n\nİlginizi çekmiyorsa yanıt vermeniz yeterli, tekrar rahatsız etmeyeceğim."},
+    intro_supplier: {subject: "{sirket} tedarik talebi", body: "Sayın {firma} yetkilileri,\n\n{giris}\n\nBen {sirket}'den {gonderen}. {urunler_kisa} için güvenilir bir tedarikçi arıyoruz.\n\nÖğrenmek istediklerimiz:\n- Ürün yelpazeniz ve teknik özellikler\n- Proje ve tekrarlayan alımlar için fiyatlar\n- Garanti, teslim süresi ve satış sonrası koşullar\n\nKısa bir görüşme yapabilir miyiz?\n\nİlginizi çekmiyorsa yanıt vermeniz yeterli, tekrar rahatsız etmeyeceğim."},
+    f1: {subject: "Önceki mailim hakkında – {urunler_kisa}", body: "Sayın {firma} yetkilileri,\n\n{ilk_tarih} tarihli mailimi hatırlatmak istedim; yoğunluğunuzu anlıyorum.\n\nKolaylık olması için: güncel veya yakın bir projenizi paylaşırsanız iki iş günü içinde ön teklif ve kısa bir teknik özet gönderebilirim.\n\nBu konuyu kiminle görüşmem doğru olur?\n\nİlginizi çekmiyorsa yanıt vermeniz yeterli, tekrar rahatsız etmeyeceğim."},
+    f2: {subject: "{firma} için bir öneri", body: "Sayın {firma} yetkilileri,\n\nSon mailimden sonra bir öneri daha paylaşmak istedim. Birçok firma, daha büyük kararlardan önce fiyat, teslimat ve desteği görmek için tek ve küçük bir projeyle başlıyor.\n\nBu yaklaşım {firma} için uygunsa ilk projede bu şekilde destek olmaktan memnuniyet duyarız.\n\nGelecek hafta 15 dakikalık bir görüşme mümkün mü?\n\nİlginizi çekmiyorsa yanıt vermeniz yeterli, tekrar rahatsız etmeyeceğim."},
+    close: {subject: "Son mesajım", body: "Sayın {firma} yetkilileri,\n\nYanıt alamadığım için zamanlamanın uygun olmadığını düşünüyor ve tekrar yazmayacağım.\n\nİleride bir değişiklik olursa bu maile yanıt vermeniz yeterli, oradan devam ederiz.\n\nZaman ayırdığınız için teşekkür ederim."},
+  },
+};
+const VARS_HELP = "{firma} · {giris} · {urunler} · {urunler_kisa} · {degerler} · {gonderen} · {sirket} · {ilk_tarih}";
+function leadLang(l) { return (l && l.lang) || state.profile.language || "English"; }
+function isTr(lang) { return /^t(r|ürkçe|urkish)/i.test(lang || ""); }
+function tplFor(lang, key) {
+  const set = state.profile.templates?.[lang] || DEFAULT_TPL[lang] || DEFAULT_TPL[isTr(lang) ? "Türkçe" : "English"];
+  return set[key] || DEFAULT_TPL[isTr(lang) ? "Türkçe" : "English"][key];
 }
-function tStep(l, key) {
-  const p = state.profile;
-  const first = fmtDate(l.sentAt);
-  const map = {
-    f1: [`Following up – ${shortSubj(p.productsMail || p.products)}`, [`Dear ${l.name} team,`, `I wanted to follow up on my email from ${first}. I know inboxes get busy.`, `To make it easy: if you share one current or upcoming project, I can send an indicative offer and a short technical summary within two working days.`, "Who would be the right person to speak with?", OPT_EN]],
-    f2: [`An idea for ${l.name}`, [`Dear ${l.name} team,`, `One more thought since my last note. Many companies in your market start with a single small project to compare price, delivery and support before committing to more.`, `If that approach suits ${l.name}, we would be glad to support a first project on those terms.`, "Would a 15-minute call next week work?", OPT_EN]],
-    close: [`Closing the loop`, [`Dear ${l.name} team,`, `I haven't heard back, so I'll assume the timing isn't right and won't follow up further.`, `If anything changes, just reply to this email and I'll pick it up from here.`, "Thank you for your time."]],
+function fill(text, l) {
+  const p = state.profile, tr = isTr(leadLang(l));
+  const prod = tr ? (p.products || p.productsMail) : (p.productsMail || p.products);
+  const val = tr ? (p.value || p.valueMail) : (p.valueMail || p.value);
+  const vars = {
+    firma: l.name, giris: l.hook || (tr ? `${l.name} ile ${l.region || "bölgenizdeki"} çalışmalarınız hakkında yazıyorum.` : `I'm reaching out regarding ${l.name}'s work in ${l.region}.`),
+    urunler: prod, urunler_kisa: (tr ? p.productsShortTr : p.productsShort) || shortSubj(prod),
+    degerler: String(val || "").split(/[,;]/).map(x => x.trim()).filter(Boolean).map(x => "- " + x.charAt(0).toLocaleUpperCase(tr ? "tr-TR" : "en") + x.slice(1)).join("\n"),
+    gonderen: p.senderName, sirket: p.company, ilk_tarih: fmtDate(l.sentAt),
   };
-  const m = map[key] || map.f1;
-  return {subject: m[0], body: [...m[1], p.signature].join("\n\n")};
+  return String(text || "").replace(/\{(\w+)\}/g, (m, k) => vars[k] ?? m);
+}
+function sigFor(l) { const p = state.profile; return isTr(leadLang(l)) ? (p.signatureTr || p.signature) : p.signature; }
+function renderTpl(l, key) {
+  const k = key === "intro" && state.profile.mode === "supplier" ? "intro_supplier" : key;
+  const t = tplFor(leadLang(l), k);
+  return {subject: fill(t.subject, l), body: fill(t.body, l) + "\n\n" + sigFor(l)};
+}
+function shortSubj(s) {
+  let t = String(s || "").split(/[;(,]| for | için /)[0].trim();
+  const w = t.split(/\s+/); if (w.length > 6) t = w.slice(0, 6).join(" ");
+  return t.replace(/\s+(and|ve|&)$/i, "");
 }
 
 function addDraft(l, type) {
   if (state.drafts.some(d => d.leadId === l.id && d.type === type)) return false;
-  const t = type === "intro" ? tIntro(l) : tStep(l, type);
+  const t = renderTpl(l, type);
   state.drafts.push({id: uid(), leadId: l.id, type, subject: t.subject, body: t.body, createdAt: todayISO()});
   if (type === "intro" && l.status === "new") l.status = "draft";
   return true;
@@ -713,17 +786,17 @@ function makeNext(ids) {
 async function aiPolish(draftIds) {
   if (!sample || !draftIds.length) return;
   const p = state.profile;
-  const items = draftIds.map(id => { const d = state.drafts.find(x => x.id === id); const l = leadById(d.leadId); return {draftId: id, step: stepLabel(d.type), stepKey: d.type, company: l.name, kind: l.kind, region: l.region, segment: l.segment, notes: [l.hook, l.why, l.notes].filter(Boolean).join(" "), firstEmailDate: l.sentAt, currentDraft: d.body.slice(0, 1500)}; });
+  const items = draftIds.map(id => { const d = state.drafts.find(x => x.id === id); const l = leadById(d.leadId); return {draftId: id, step: stepLabel(d.type), stepKey: d.type, language: leadLang(l), company: l.name, kind: l.kind, region: l.region, segment: l.segment, notes: [l.hook, l.why, l.notes].filter(Boolean).join(" "), firstEmailDate: l.sentAt, currentDraft: d.body.slice(0, 1500)}; });
   mailBusy = true; render();
   try {
     const out = await sample.json(
 `You improve short B2B outreach emails so they reach the inbox and get replies.
 Sender: ${p.senderName}, ${p.senderTitle}, ${p.company} (${p.country}). Sector: ${p.sector}. Products: ${p.productsMail || p.products}. Value: ${p.valueMail || p.value}.
 Goal: ${p.mode === "supplier" ? "find suppliers for these products" : "find customers or EPC/distribution partners"}. Target region: ${p.regions}.
-Rules: write entirely in ${p.language} (translate any notes given in another language); plain text; first email 120-180 words, follow-ups 50-90 words, closing email under 60 words; open with ONE specific factual sentence about the recipient using ONLY the notes (never invent facts, numbers or projects); follow-ups must bring a new angle, not repeat the first email; at most one short bullet list; one clear question as call to action; keep an opt-out sentence such as "If this isn't relevant, just reply and I won't follow up."; never use: free, guaranteed, urgent, limited time, no obligation, click here; no links; subject under 50 characters, no "Re:"; do NOT include a signature or sign-off.
+Rules: write each email entirely in its "language" field (translate notes given in another language; for Türkçe write natural business Turkish with "Sayın … yetkilileri," greeting); plain text; first email 120-180 words, follow-ups 50-90 words, closing email under 60 words; open with ONE specific factual sentence about the recipient using ONLY the notes (never invent facts, numbers or projects); follow-ups must bring a new angle, not repeat the first email; at most one short bullet list; one clear question as call to action; keep an opt-out sentence such as "If this isn't relevant, just reply and I won't follow up."; never use: free, guaranteed, urgent, limited time, no obligation, click here; no links; subject under 50 characters, no "Re:"; do NOT include a signature or sign-off.
 Reply with only a JSON array of {"draftId": string, "subject": string, "body": string}.
 Drafts: ${JSON.stringify(items)}`, {modelTier: "default"});
-    if (Array.isArray(out)) commit(() => { for (const o of out) { const d = state.drafts.find(x => x.id === String(o.draftId)); if (d && o.subject && o.body) { d.subject = String(o.subject); d.body = String(o.body).trim() + "\n\n" + p.signature; } } });
+    if (Array.isArray(out)) commit(() => { for (const o of out) { const d = state.drafts.find(x => x.id === String(o.draftId)); if (d && o.subject && o.body) { d.subject = String(o.subject); d.body = String(o.body).trim() + "\n\n" + sigFor(leadById(d.leadId)); } } });
     toast("Taslaklar Claude ile kişiselleştirildi.");
   } catch (e) {
     if (["not_granted", "sampling_disabled", "capability_disabled", "not_declared"].includes(e.code)) sample = null;
@@ -767,8 +840,8 @@ Reply with only JSON: {"category": string, "summary": string, "answer": {"subjec
     if (r.category === "optout" && l.email) { const e = l.email.toLowerCase(); if (!state.suppress.includes(e)) state.suppress.push(e); }
     if (r.category === "later") l.notes = (l.notes ? l.notes + "\n" : "") + `Ertelendi (${fmtDate(todayISO())}): ${r.summary}`;
     log(l.id, "Yanıt geldi: " + r.summary);
-    if (draft) state.drafts.push({id: uid(), leadId: l.id, type: "reply", subject: String(draft.subject || "Re: " + l.name), body: String(draft.body).trim() + "\n\n" + state.profile.signature, createdAt: todayISO()});
-    else if (["reply", "meet", "later"].includes(r.category)) state.drafts.push({id: uid(), leadId: l.id, type: "reply", subject: "Re: your reply", body: [`Dear ${l.name} team,`, "Thank you for your reply.", "[Sorulan bilgiyi buraya yazın: fiyat listesi, katalog, uygun görüşme saatleri…]", "Best regards,", state.profile.signature].join("\n\n"), createdAt: todayISO()});
+    if (draft) state.drafts.push({id: uid(), leadId: l.id, type: "reply", subject: String(draft.subject || "Re: " + l.name), body: String(draft.body).trim() + "\n\n" + sigFor(l), createdAt: todayISO()});
+    else if (["reply", "meet", "later"].includes(r.category)) state.drafts.push({id: uid(), leadId: l.id, type: "reply", subject: "Re: your reply", body: [`Dear ${l.name} team,`, "Thank you for your reply.", "[Sorulan bilgiyi buraya yazın: fiyat listesi, katalog, uygun görüşme saatleri…]", sigFor(l)].join("\n\n"), createdAt: todayISO()});
   });
   replyBusy = false; drawLead();
   toast(`Durum: ${STATUS[leadById(id).status].t}. ${r.summary}${["reply", "meet", "later"].includes(r.category) ? " Cevap taslağı Mailler'de." : ""}`);
@@ -836,7 +909,7 @@ async function runResearch() {
   const p = state.profile;
   const brief = $("#brief").value.trim(), region = $("#region").value.trim(), n = Number($("#howMany").value) || 10;
   commit(() => { p.segmentBrief = brief; p.regions = region; });
-  research = {running: true, results: [], error: "", ctl: new AbortController(), note: ""};
+  research = {running: true, results: [], error: "", ctl: new AbortController(), note: "", campaign: ($("#campaign")?.value || "").trim() || region};
   render();
   const known = state.leads.map(l => l.name.toLowerCase());
   const knownDom = new Set(state.leads.map(l => domainOf(l.email)).filter(Boolean));
@@ -857,12 +930,12 @@ Target region: ${region}. Target description: ${brief}
 Exclude these organisations (already in our list): ${state.leads.map(l => l.name).join("; ").slice(0, 3000)}.
 Return up to ${n} real organisations you are confident exist and are active. Prefer decision centres (head offices, groups) over branches.
 For each give a general corporate contact email ONLY if you are confident it is the organisation's real published address, otherwise "". Never give personal emails.
-Classify each into a short Turkish segment label (reuse "EPC – tedarik ortağı", "Son kullanıcı – grup merkezi", "Son kullanıcı – resort", "Son kullanıcı – yeni proje", "Distribütör", "Üretici" when they fit), priority A/B/C and a 0-100 fit score, and one Turkish sentence "why" with a concrete, checkable reason for the fit (no invented numbers), plus "hook": one factual opening sentence for an outreach email to them, written in ${p.language}.
-Reply with only a JSON array of {"name","kind","segment","region","website","email","priority","score","why","hook"} (kind, segment, region and why in Turkish).`,
+Classify each into a short Turkish segment label (reuse "EPC – tedarik ortağı", "Son kullanıcı – grup merkezi", "Son kullanıcı – resort", "Son kullanıcı – yeni proje", "Distribütör", "Üretici" when they fit), priority A/B/C and a 0-100 fit score, and one Turkish sentence "why" with a concrete, checkable reason for the fit (no invented numbers), plus "lang": "Türkçe" if the organisation is Turkish-owned or based in Türkiye, otherwise "${p.language}", and "hook": one factual opening sentence for an outreach email to them, written in that lang.
+Reply with only a JSON array of {"name","kind","segment","region","website","email","priority","score","why","lang","hook"} (kind, segment, region and why in Turkish).`,
       {signal: research.ctl.signal, modelTier: "default"});
     research.results = (Array.isArray(out) ? out : []).filter(r => r && r.name).map(r => ({
       name: String(r.name), kind: String(r.kind || ""), segment: String(r.segment || "Diğer"), region: String(r.region || region), website: String(r.website || ""),
-      email: String(r.email || ""), priority: ["A", "B", "C"].includes(r.priority) ? r.priority : "B", score: Math.max(0, Math.min(100, Number(r.score) || 50)), why: String(r.why || ""), hook: String(r.hook || ""), _sel: r.priority !== "C"})).filter(dedupe);
+      email: String(r.email || ""), priority: ["A", "B", "C"].includes(r.priority) ? r.priority : "B", score: Math.max(0, Math.min(100, Number(r.score) || 50)), why: String(r.why || ""), hook: String(r.hook || ""), lang: isTr(r.lang) ? "Türkçe" : "", _sel: r.priority !== "C"})).filter(dedupe);
     research.note = "Sonuçlar Claude'un bilgisinden üretildi. E-posta adreslerini göndermeden önce firmanın web sitesinden doğrulayın; tam sürümde canlı web araması ve adres doğrulaması yapılır.";
     if (!research.results.length) research.error = "Yeni aday bulunamadı. Tarifi genişletmeyi deneyin.";
   } catch (e) {
@@ -873,13 +946,14 @@ Reply with only a JSON array of {"name","kind","segment","region","website","ema
   } finally { research.running = false; render(); }
 }
 function addResults() {
+  const p = state.profile;
   const pick = research.results.filter(r => r._sel);
   commit(() => {
     for (const r of pick) state.leads.push({id: uid(), name: r.name, kind: r.kind, segment: r.segment, region: r.region, website: r.website || "", email: r.email,
       emailSource: r.email ? (sample ? "Yapay zekâ önerisi – doğrulanmalı" : "Kurumsal genel adres (kamuya açık)") : "", legal: "B2B – meşru menfaat / tacir istisnası",
-      priority: r.priority, score: r.score, why: r.why, hook: r.hook || "", status: "new", step: -1, sentAt: "", lastSentAt: "", nextAt: "", notes: ""});
+      priority: r.priority, score: r.score, why: r.why, hook: r.hook || "", lang: r.lang || "", campaign: research.campaign || p.regions || "Genel", verified: !sample && !!r.email, status: "new", step: -1, sentAt: "", lastSentAt: "", nextAt: "", notes: ""});
     research.results = research.results.filter(r => !r._sel);
-    view = "adaylar"; filters = {segment: "Tümü", status: "new", prio: "Tümü", q: ""};
+    view = "adaylar"; filters = {segment: "Tümü", status: "new", prio: "Tümü", q: "", campaign: "Tümü"};
   });
   toast(`${pick.length} aday listeye eklendi.`);
 }
@@ -896,7 +970,7 @@ function parseCSV(text) {
   if (cur || row.length) { row.push(cur); rows.push(row); }
   return rows.filter(r => r.some(c => c.trim()));
 }
-const COLS = {name: ["firma", "name", "company", "şirket", "kurum", "resort"], email: ["e-posta", "eposta", "email", "mail", "e-mail"], website: ["web", "website", "site", "web sitesi"], region: ["bölge", "region", "ülke", "country", "atoll", "şehir", "city"], kind: ["tür", "type", "kind", "kategori"], segment: ["segment"], priority: ["öncelik", "priority"], why: ["neden", "why", "not", "notes", "açıklama"], hook: ["giriş", "hook", "ilk cümle", "opening"]};
+const COLS = {name: ["firma", "name", "company", "şirket", "kurum", "resort"], email: ["e-posta", "eposta", "email", "mail", "e-mail"], website: ["web", "website", "site", "web sitesi"], region: ["bölge", "region", "ülke", "country", "atoll", "şehir", "city"], kind: ["tür", "type", "kind", "kategori"], segment: ["segment"], priority: ["öncelik", "priority"], why: ["neden", "why", "not", "notes", "açıklama"], hook: ["giriş", "hook", "ilk cümle", "opening"], campaign: ["kampanya", "campaign"], lang: ["dil", "language", "lang"]};
 function importCSV(text) {
   const rows = parseCSV(text.trim()); if (rows.length < 2) return {n: 0, skip: 0};
   const hdr = rows[0].map(h => h.trim().toLowerCase());
@@ -912,15 +986,15 @@ function importCSV(text) {
       if (known.has(name.toLowerCase()) || (email && knownMail.has(email))) { skip++; continue; }
       const pr = g("priority").toUpperCase();
       state.leads.push({id: uid(), name, kind: g("kind") || "Firma", segment: g("segment") || "İçe aktarılan", region: g("region"), website: g("website"), email,
-        emailSource: "Kullanıcının içe aktardığı liste", legal: "B2B – meşru menfaat / tacir istisnası", priority: ["A", "B", "C"].includes(pr) ? pr : "B", score: 60, why: g("why"), hook: g("hook"), status: "new", step: -1, sentAt: "", lastSentAt: "", nextAt: "", notes: ""});
+        emailSource: "Kullanıcının içe aktardığı liste", legal: "B2B – meşru menfaat / tacir istisnası", priority: ["A", "B", "C"].includes(pr) ? pr : "B", score: 60, why: g("why"), hook: g("hook"), lang: isTr(g("lang")) ? "Türkçe" : "", campaign: g("campaign") || "İçe aktarılan", verified: !!email, status: "new", step: -1, sentAt: "", lastSentAt: "", nextAt: "", notes: ""});
       known.add(name.toLowerCase()); if (email) knownMail.add(email); n++;
     }
-    view = "adaylar"; filters = {segment: "Tümü", status: "Tümü", prio: "Tümü", q: ""};
+    view = "adaylar"; filters = {segment: "Tümü", status: "Tümü", prio: "Tümü", q: "", campaign: "Tümü"};
   });
   return {n, skip};
 }
 function exportCSV() {
-  const cols = [["Firma", "name"], ["E-posta", "email"], ["Web", "website"], ["Bölge", "region"], ["Tür", "kind"], ["Segment", "segment"], ["Öncelik", "priority"], ["Puan", "score"], ["Durum", l => STATUS[l.status].t], ["Dizi adımı", l => l.step + 1], ["İlk mail", "sentAt"], ["Sıradaki", "nextAt"], ["Neden", "why"], ["Notlar", "notes"]];
+  const cols = [["Firma", "name"], ["E-posta", "email"], ["Web", "website"], ["Bölge", "region"], ["Tür", "kind"], ["Segment", "segment"], ["Öncelik", "priority"], ["Puan", "score"], ["Durum", l => STATUS[l.status].t], ["Dizi adımı", l => l.step + 1], ["İlk mail", "sentAt"], ["Sıradaki", "nextAt"], ["Neden", "why"], ["Kampanya", "campaign"], ["Dil", l => leadLang(l)], ["E-posta doğrulandı", l => l.verified ? "Evet" : "Hayır"], ["Notlar", "notes"]];
   const cell = v => { v = String(v ?? ""); return /[;"\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v; };
   return "﻿" + [cols.map(c => c[0]).join(";"), ...state.leads.map(l => cols.map(([, k]) => cell(typeof k === "function" ? k(l) : l[k])).join(";"))].join("\n");
 }
@@ -958,7 +1032,7 @@ function go(v, anchor) { view = v; closeLead(); try { localStorage.setItem("pusu
 document.addEventListener("click", e => {
   const t = e.target.closest("button, input[type=checkbox]"); if (!t) return;
   const ds = t.dataset;
-  if (ds.nav) { go(ds.nav, ds.anchor); return; }
+  if (ds.nav) { if (ds.f) filters[ds.f] = ds.v; go(ds.nav, ds.anchor); return; }
   if (ds.mode) { commit(() => state.profile.mode = ds.mode); return; }
   if (ds.f) { filters[ds.f] = ds.v; render(); return; }
   if (ds.open) { openLead = ds.open; drawLead(); return; }
@@ -988,7 +1062,7 @@ document.addEventListener("click", e => {
     if (!l?.email) { toast("Bu firmanın e-posta adresi yok. Firma adına dokunup ekleyin."); return; }
     if (isSuppressed(l)) { toast("Bu adres 'bir daha yazma' listesinde."); return; }
     const q = quality(d);
-    confirmDlg("Maili gönder", `<b>${esc(l.name)}</b> (${esc(l.email)}) adresine "${esc(d.subject)}" gönderilecek.${q.s < 70 ? `<br><br><b>Teslim puanı ${q.s}.</b> Göndermeden önce Mailler ekranındaki önerilere bakmanızı öneririm.` : ""}<br><br>Demo modunda gerçek gönderim yapılmaz.`, "Gönder", () => startQueue([d.id])); return; }
+    confirmDlg("Maili gönder", `<b>${esc(l.name)}</b> (${esc(l.email)}) adresine "${esc(d.subject)}" gönderilecek.${!l.verified ? `<br><br><b>Bu adres doğrulanmadı.</b> Yanlış adrese giden mailler gönderim itibarınızı düşürür; önce firmanın web sitesinden kontrol edin.` : ""}${q.s < 70 ? `<br><br><b>Teslim puanı ${q.s}.</b> Göndermeden önce Mailler ekranındaki önerilere bakmanızı öneririm.` : ""}<br><br>Demo modunda gerçek gönderim yapılmaz.`, "Gönder", () => startQueue([d.id])); return; }
   if (t.id === "sendAll") { const ok = state.drafts.filter(d => !d.scheduledFor && leadById(d.leadId)?.email && !isSuppressed(leadById(d.leadId))).map(d => d.id);
     const left = Math.max(0, state.profile.sending.dailyLimit - sentToday());
     confirmDlg("Tümünü gönder", `${ok.length} mail sırayla, aralarında ${state.profile.sending.minGap}–${state.profile.sending.maxGap} dakika rastgele bekleme ile gönderilecek. Bugün ${Math.min(left, ok.length)} tanesi gider${ok.length > left ? `, kalan ${ok.length - left} tanesi sonraki iş günlerine planlanır` : ""}.`, "Gönderimi başlat", () => startQueue(ok)); return; }
@@ -1001,6 +1075,9 @@ document.addEventListener("click", e => {
   if (ds.block) { commit(() => { const l = leadById(ds.block); const e = (l.email || "").toLowerCase(); if (!e) return; if (state.suppress.includes(e)) state.suppress = state.suppress.filter(x => x !== e); else { state.suppress.push(e); l.status = "optout"; l.nextAt = ""; state.drafts = state.drafts.filter(d => d.leadId !== l.id); log(l.id, "Bir daha yazılmayacaklar listesine eklendi"); } }); return; }
   if (ds.dellead) { const id = ds.dellead; confirmDlg("Adayı sil", "Aday, taslakları ve geçmişi silinir.", "Sil", () => commit(() => { state.leads = state.leads.filter(l => l.id !== id); state.drafts = state.drafts.filter(d => d.leadId !== id); state.log = state.log.filter(x => x.leadId !== id); closeLead(); })); return; }
   if (ds.health) { state.profile.health[ds.health] = t.checked; persist(); return; }
+  if (ds.verify) { commit(() => { const l = leadById(ds.verify); l.verified = t.checked; if (t.checked) log(l.id, "E-posta doğrulandı"); }); return; }
+  if (ds.tplreset) { commit(() => { delete state.profile.templates[ds.tplreset]; }); toast("Şablonlar varsayılana döndü."); return; }
+  if (ds.tpllang) { tplLang = ds.tpllang; render(); return; }
   if (ds.sndchk) { state.profile.sending[ds.sndchk] = t.checked; persist(); return; }
 });
 let qTimerUI;
@@ -1009,6 +1086,7 @@ document.addEventListener("input", e => {
   if (ds.prof) { state.profile[ds.prof] = t.value; persist(); return; }
   if (ds.snd) { const v = Number(t.value); if (Number.isFinite(v) && v > 0) { state.profile.sending[ds.snd] = v; persist(); } return; }
   if (ds.seqday) { const v = Number(t.value); if (Number.isFinite(v) && v >= 0) { state.profile.sequence[Number(ds.seqday)].day = v; persist(); } return; }
+  if (ds.tpl) { const [lang, key, fld] = ds.tpl.split("|"); const P = state.profile; P.templates[lang] = P.templates[lang] || JSON.parse(JSON.stringify(DEFAULT_TPL[lang])); P.templates[lang][key][fld] = t.value; persist(); return; }
   if (ds.supp) { state.suppress = t.value.split("\n").map(x => x.trim().toLowerCase()).filter(Boolean); persist(); return; }
   if (ds.lead) { const l = leadById(openLead); if (l) { l[ds.lead] = ds.lead === "email" ? t.value.trim() : t.value; persist(); } return; }
   if (ds.dsub || ds.dbody) {
@@ -1022,6 +1100,8 @@ document.addEventListener("input", e => {
 document.addEventListener("change", e => {
   const ds = e.target.dataset;
   if (ds.status) { commit(() => { const l = leadById(ds.status); if (l) { l.status = e.target.value; if (["reply", "meet", "no", "optout"].includes(l.status)) l.nextAt = ""; if (l.status === "optout" && l.email && !state.suppress.includes(l.email.toLowerCase())) state.suppress.push(l.email.toLowerCase()); log(l.id, STATUS[l.status].t); } }); }
+  if (e.target.id === "campSel") { filters.campaign = e.target.value; render(); return; }
+  if (ds.leadsel) { commit(() => { const l = leadById(openLead); if (l) l[ds.leadsel] = e.target.value; }); return; }
   if (ds.lead || ds.prof) render();
 });
 document.addEventListener("keydown", e => { if (e.key === "Escape") { const dlg = $("#layer").querySelector(".dlg-back"); if (dlg) dlg.remove(); else if (openLead) closeLead(); } });
