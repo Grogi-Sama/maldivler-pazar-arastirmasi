@@ -2,7 +2,8 @@
 // Güvenlik: yenileme anahtarı AES-GCM ile şifreli saklanır; ALICI KİLİDİ açıkken sunucu yalnızca
 // TEST_ALICILAR listesindeki adreslere gönderir (uygulamadan kapatılamaz, yalnızca sunucu ayarından).
 
-const MS_YETKI = "https://login.microsoftonline.com/common/oauth2/v2.0";
+// Yalnızca iş / okul hesapları (Microsoft 365). Aynı adresle açılmış kişisel Microsoft hesabına yönlenmeyi önler.
+const MS_YETKI = "https://login.microsoftonline.com/organizations/oauth2/v2.0";
 const KAPSAM = "offline_access User.Read Mail.Send";
 const GUNLUK_SERT_SINIR = 50; // uygulama ayarından bağımsız, sunucudaki üst sınır
 const enc = new TextEncoder(), dec = new TextDecoder();
