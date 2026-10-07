@@ -12,7 +12,7 @@
   // Microsoft uygulama kimliği gizli değildir; gizli anahtar (MS_CLIENT_SECRET) Cloudflare'de "Secret" olarak tutulur.
   // ALICI_KILIDI "acik" iken mailler yalnızca TEST_ALICILAR adreslerine gidebilir.
   "vars": {
-    "MS_CLIENT_ID": "92634a77-ed52-4bf3-8c5b-a6bd0876a1e2",
+    "MS_CLIENT_ID": "fd4ffe9b-7e27-4ffe-aa12-ec9666687993",
     "ALICI_KILIDI": "acik",
     "TEST_ALICILAR": "onur.topuz@arsdef.com,onur.topuz@ercsistem.com.tr"
   },
