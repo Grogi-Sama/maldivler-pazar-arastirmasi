@@ -30,7 +30,8 @@ button,input,textarea,select{font:inherit;color:inherit}
 .app{display:grid;grid-template-columns:232px minmax(0,1fr);min-height:100%}
 .side{position:sticky;top:env(safe-area-inset-top,0px);height:100vh;padding:20px 14px;border-right:1px solid var(--line);background:var(--surface);display:flex;flex-direction:column;gap:18px}
 .brand{display:flex;align-items:center;gap:10px;padding:0 6px}
-.brand svg{flex:none}
+.brand svg{flex:none;border-radius:9px}
+.mbrand{display:none}
 .brand b{font:700 22px/1 var(--display);letter-spacing:-.01em}
 .brand small{display:block;color:var(--muted);font-size:12px;margin-top:3px}
 nav.menu{display:flex;flex-direction:column;gap:2px}
@@ -127,6 +128,7 @@ textarea{resize:vertical;min-height:84px;line-height:1.5}
 @media (max-width:900px){
   .app{grid-template-columns:minmax(0,1fr)}
   .side{display:none}
+  .mbrand{display:flex;align-items:center;gap:9px;font:700 19px/1 var(--display);margin:0 0 12px}.mbrand svg{border-radius:8px;flex:none}
   .tabbar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--surface);border-top:1px solid var(--line);padding:6px 6px calc(6px + env(safe-area-inset-bottom,0px))}
   .tabbar button{flex:1;border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;color:var(--muted);padding:4px 0;cursor:pointer;font-weight:600}
   .tabbar button[aria-current="page"]{color:var(--accent)}
@@ -200,7 +202,7 @@ label.btn{cursor:pointer}
 <div class="app" id="app">
   <aside class="side">
     <div class="brand">
-      <svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><circle cx="15" cy="15" r="13" fill="none" stroke="var(--fg)" stroke-width="2"/><path d="M15 5 L19 15 L15 25 L11 15 Z" fill="var(--accent)"/><circle cx="15" cy="15" r="2" fill="var(--surface)"/></svg>
+      <svg width="34" height="34" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" aria-hidden="true">  <defs>    <linearGradient id="pz-g1" x1="0" y1="0" x2="1" y2="1">      <stop offset="0" stop-color="#14947F"/>      <stop offset="1" stop-color="#0A5A4F"/>    </linearGradient>  </defs>  <rect width="64" height="64" rx="15" fill="url(#pz-g1)"/>  <circle cx="32" cy="32" r="20.5" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="2"/>  <g stroke="#fff" stroke-opacity=".55" stroke-width="2" stroke-linecap="round">    <path d="M32 9.5v4M32 50.5v4M9.5 32h4M50.5 32h4"/>  </g>  <g transform="rotate(35 32 32)">    <path d="M32 13 L38 32 L26 32 Z" fill="#fff"/>    <path d="M32 51 L38 32 L26 32 Z" fill="#fff" fill-opacity=".42"/>  </g>  <circle cx="32" cy="32" r="3.2" fill="#0A5A4F" stroke="#fff" stroke-width="1.6"/></svg>
       <div><b>Pusula</b><small>İş geliştirme asistanı</small></div>
     </div>
     <nav class="menu" id="menu"></nav>
@@ -420,9 +422,10 @@ function renderNav() {
   $("#menu").innerHTML = VIEWS.map(v => `<button class="navbtn" data-nav="${v.id}" ${v.id === view ? 'aria-current="page"' : ""}>${icon(v.i)}<span>${v.t}</span><span class="cnt">${badge[v.id] ?? ""}</span></button>`).join("");
   $("#tabbar").innerHTML = VIEWS.map(v => `<button data-nav="${v.id}" ${v.id === view ? 'aria-current="page"' : ""}>${icon(v.i)}${v.t}</button>`).join("");
 }
+const MBRAND = `<div class="mbrand"><svg width="30" height="30" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" aria-hidden="true">  <defs>    <linearGradient id="pz-g2" x1="0" y1="0" x2="1" y2="1">      <stop offset="0" stop-color="#14947F"/>      <stop offset="1" stop-color="#0A5A4F"/>    </linearGradient>  </defs>  <rect width="64" height="64" rx="15" fill="url(#pz-g2)"/>  <circle cx="32" cy="32" r="20.5" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="2"/>  <g stroke="#fff" stroke-opacity=".55" stroke-width="2" stroke-linecap="round">    <path d="M32 9.5v4M32 50.5v4M9.5 32h4M50.5 32h4"/>  </g>  <g transform="rotate(35 32 32)">    <path d="M32 13 L38 32 L26 32 Z" fill="#fff"/>    <path d="M32 51 L38 32 L26 32 Z" fill="#fff" fill-opacity=".42"/>  </g>  <circle cx="32" cy="32" r="3.2" fill="#0A5A4F" stroke="#fff" stroke-width="1.6"/></svg>Pusula</div>`;
 function head(title, sub, right = "") {
   const tag = (state.demo ? `<span class="demo-tag">Örnek çalışma alanı</span>` : "") + (testOn() ? ` <span class="demo-tag test-tag" title="Mailler yalnızca sizin adreslerinize gider">Test modu</span>` : "");
-  return `<div class="top"><div><div class="ws">${esc(state.profile.company || "Şirketiniz")} · ${esc(state.profile.regions || "Bölge seçilmedi")} ${tag}</div><h1>${title}</h1>${sub ? `<p class="sub">${sub}</p>` : ""}</div><div class="row">${right}</div></div>`;
+  return MBRAND + `<div class="top"><div><div class="ws">${esc(state.profile.company || "Şirketiniz")} · ${esc(state.profile.regions || "Bölge seçilmedi")} ${tag}</div><h1>${title}</h1>${sub ? `<p class="sub">${sub}</p>` : ""}</div><div class="row">${right}</div></div>`;
 }
 function render() {
   renderNav();

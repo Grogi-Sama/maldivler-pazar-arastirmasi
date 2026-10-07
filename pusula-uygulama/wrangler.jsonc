@@ -7,7 +7,7 @@
   "workers_dev": true,
   "preview_urls": false,
   // Uygulama sayfası sunucu koduna gömülür (ayrı dosya yüklemesi gerekmez)
-  "rules": [{"type": "Text", "globs": ["**/*.html"], "fallthrough": false}],
+  "rules": [{"type": "Text", "globs": ["**/*.html"], "fallthrough": false}, {"type": "Data", "globs": ["**/*.png"], "fallthrough": false}],
   "d1_databases": [{"binding": "DB", "database_name": "pusula-db", "database_id": "49b818c5-bb62-48df-b22c-fc76d2f6e501", "migrations_dir": "migrations"}],
   "observability": {"enabled": true}
 }
