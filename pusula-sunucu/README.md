@@ -1,4 +1,4 @@
-# Pusula sunucu – otonom gönderim motoru
+# Pusula sunucu – otonom gönderim ve canlı araştırma
 
 Demo uygulamadaki "Otonom gönderim" düğmesinin gerçek karşılığıdır. Tarayıcı kapalıyken de çalışır.
 Mailler kullanıcının **kendi** Outlook (Microsoft 365) veya Gmail hesabından gider; Pusula ayrı bir gönderim sunucusu kullanmaz.
@@ -33,9 +33,27 @@ Her 5 dakikada bir, otonom gönderimi açık her kullanıcı için `kullaniciTur
 | `gonderim-motoru.js` | Kullanıcı başına bir gönderim turu; veritabanı (`depo`) ve sağlayıcı dışarıdan verilir |
 | `saglayicilar/microsoft.js` | Microsoft Graph `sendMail` |
 | `saglayicilar/gmail.js` | Gmail API; tek tıkla listeden çıkma başlığını da ekler |
-| `test/motor.test.js` | 13 test: kota, hafta sonu, fren, hata türleri, bekleme süresi, istek biçimi |
+| `test/motor.test.js` | Gönderim testleri: kota, hafta sonu, fren, hata türleri, bekleme süresi, istek biçimi, test modu, görsel imza |
+| `arastirma/osm.js` | OpenStreetMap (Overpass): ülke + firma türüne göre ücretsiz firma listesi |
+| `arastirma/wikidata.js` | Wikidata: ülke + sektöre göre şirketler (web sitesiyle) |
+| `arastirma/site-oku.js` | Firmanın kendi sitesinden kurumsal e-posta ve tanıtım metni (yalnızca sitedeki adres, tahmin yok) |
+| `arastirma/mx.js` | Alan adının mail kabul edip etmediği (MX) – ücretsiz |
+| `arastirma/tavily.js` | Güncel haber/proje araması (ayda 1.000 ücretsiz) |
+| `arastirma/yapay-zeka.js` | Sınıflandırma istemi ve Gemini (ücretsiz katman) sağlayıcısı; yalnızca kaynak metinden çıkarım |
+| `arastirma/arastir.js` | Hepsini birleştiren hat: açık veri → tekrar ayıklama → site okuma → MX → yapay zekâ |
+| `test/arastirma.test.js` | Araştırma testleri (ağ yerine örnek yanıtlarla) |
 
-Testleri çalıştırmak için: `npm test` (Node 20 veya üstü; dış paket gerekmez).
+Testleri çalıştırmak için: `npm test` (Node 20 veya üstü; dış paket gerekmez). Şu an 26 test var ve hepsi geçiyor.
+
+## Canlı araştırma için gereken anahtarlar (ücretsiz)
+
+| Ortam değişkeni | Nereden | Not |
+|---|---|---|
+| `TAVILY_API_KEY` | tavily.com → ücretsiz hesap | Ayda 1.000 arama, kredi kartı gerekmez |
+| `GEMINI_API_KEY` | Google AI Studio → API anahtarı | Ücretsiz katman; yalnızca kamuya açık firma bilgisi gönderilir |
+| `GEMINI_MODEL` | İsteğe bağlı | Varsayılan `gemini-2.5-flash-lite` |
+
+OpenStreetMap, Wikidata ve MX kontrolü anahtar gerektirmez.
 
 ## Gerçek kullanıma geçmek için gerekenler
 

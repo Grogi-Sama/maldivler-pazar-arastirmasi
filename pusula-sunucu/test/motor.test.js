@@ -1,6 +1,6 @@
 import {test} from "node:test";
 import assert from "node:assert/strict";
-import {kullaniciTuru} from "../gonderim-motoru.js";
+import {kullaniciTuru, mailGovdesi} from "../gonderim-motoru.js";
 import {gonderimSaatinde, gunlukKota, engelNedeni} from "../kurallar.js";
 import {microsoftSaglayici, GonderimHatasi} from "../saglayicilar/microsoft.js";
 import {mimeOlustur} from "../saglayicilar/gmail.js";
@@ -129,4 +129,19 @@ test("test modu: mailler firmaya değil test adreslerine sırayla gider", async 
   await kullaniciTuru({kullaniciId: "u", depo, saglayici: {gonder: async m => { gidenler.push(m.kime); return {ok: true}; }}, ...temel});
   assert.deepEqual(gidenler.sort(), ["onur@test1.com", "onur@test2.com"]);
   assert.equal(kayit.gonderilen.length, 2);
+});
+
+test("görsel imza: HTML sürüme gömülür, metinde yazılı imza tekrar edilmez", () => {
+  const g = mailGovdesi("Merhaba\n\nEn iyi dileklerimle,", {imzaTuru: "image", imza: "Onur Topuz\nKarea", imzaGorsel: {base64: "AAAA", tur: "image/jpeg"}});
+  assert.ok(!g.govdeMetin.includes("Karea"));
+  assert.match(g.govdeHtml, /cid:imza/);
+  assert.equal(g.ekler[0].cid, "imza");
+  const y = mailGovdesi("Merhaba", {imzaTuru: "text", imza: "Onur"});
+  assert.equal(y.govdeMetin, "Merhaba\n\nOnur"); assert.equal(y.govdeHtml, undefined);
+});
+
+test("Gmail MIME: görsel imza multipart/related ve Content-ID ile gömülür", () => {
+  const m = mimeOlustur({kimden: "a@b.com", kime: "c@d.com", konu: "x", govdeMetin: "y", govdeHtml: "<img src=cid:imza>", ekler: [{ad: "imza.jpg", tur: "image/jpeg", base64: "AAAA", cid: "imza"}]});
+  assert.match(m, /multipart\/related/);
+  assert.match(m, /Content-ID: <imza>/);
 });

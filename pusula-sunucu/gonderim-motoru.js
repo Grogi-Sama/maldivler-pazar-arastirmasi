@@ -7,7 +7,7 @@ import {VARSAYILAN_GONDERIM, VARSAYILAN_OTONOM, yerelZaman, gonderimSaatinde, go
 
 /**
  * depo arayüzü (gerçek sürümde Postgres):
- *   kullanici(id) -> {gonderim, otonom, sekans: [{key, day}], imza, test: {on, addresses}}
+ *   kullanici(id) -> {gonderim, otonom, sekans: [{key, day}], imza, imzaTuru, imzaGorsel: {base64, tur}, test: {on, addresses}}
  *   calismaAlani(id) -> {adaylar: [...], taslaklar: [...], engelliler: [...]}
  *   bugunGiden(id, tarih) -> sayı
  *   istatistik(id, tarih) -> {bugunListedenCikan, sonGonderilen, sonGeriDonen}
@@ -55,7 +55,7 @@ export async function kullaniciTuru({kullaniciId, depo, saglayici, kalite, simdi
     const aday = alan.adaylar.find(a => a.id === t.leadId);
     for (let deneme = 0; deneme < 2; deneme++) {
       try {
-        await saglayici.gonder({kime: aliciAdresi(k, aday, alan.adaylar), konu: t.subject, govdeMetin: t.body + (k.imza ? "\n\n" + k.imza : "")});
+        await saglayici.gonder({kime: aliciAdresi(k, aday, alan.adaylar), konu: t.subject, ...mailGovdesi(t.body, k)});
         await depo.gonderildi(kullaniciId, t, simdi());
         gonderilen++;
         break;
@@ -69,6 +69,17 @@ export async function kullaniciTuru({kullaniciId, depo, saglayici, kalite, simdi
     if (i < plan.length - 1) await bekle(rastgeleAralikMs(gonderim, rnd));
   }
   return {durum: "tamam", gonderilen, planlanan: plan.length};
+}
+
+// Mail gövdesi: yazılı imza metne eklenir; görsel imza (k.imzaGorsel = {base64, tur}) HTML sürüme gömülür.
+// k.imzaTuru: "text" | "image" | "both". Görsel modda taslak metni zaten kapanış satırıyla biter.
+export function mailGovdesi(govde, k) {
+  const tur = k.imzaTuru || "text";
+  const metin = govde + (tur !== "image" && k.imza && !govde.includes(k.imza) ? "\n\n" + k.imza : "");
+  if (tur === "text" || !k.imzaGorsel?.base64) return {govdeMetin: metin};
+  const kac = x => x.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const html = `<div style="font-family:Calibri,Arial,sans-serif;font-size:11pt">${metin.split(/\n{2,}/).map(p => `<p style="margin:0 0 12px">${kac(p).replace(/\n/g, "<br>")}</p>`).join("")}<img src="cid:imza" alt="${kac(k.imzaAlt || "İmza")}" style="max-width:480px"></div>`;
+  return {govdeMetin: metin, govdeHtml: html, ekler: [{ad: "imza.jpg", tur: k.imzaGorsel.tur || "image/jpeg", base64: k.imzaGorsel.base64, cid: "imza"}]};
 }
 
 // Test modu: kullanıcı test adresi verdiyse mail firmaya değil, bu adreslere sırayla gider.

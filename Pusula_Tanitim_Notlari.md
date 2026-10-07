@@ -25,6 +25,8 @@ Firmanızı ve hedefinizi anlatırsınız. Pusula müşteri veya tedarikçi aday
 | Düzenlenebilir şablonlar | {firma}, {urunler} gibi değişkenlerle kendi üslubunuz |
 | Takip dizisi | Tanışma → 3. gün → 7. gün → 14. gün; yanıt gelince durur |
 | Hızlı takip hazırlama | Takip ekranından sayfadan ayrılmadan tek tıkla taslak; hepsi Mailler'de toplu gönderilir |
+| Görsel veya yazılı imza | Kendi imza kartınızı yükleyin ya da yazın; ikisi birlikte de olur |
+| Canlı açık veriyle araştırma | OpenStreetMap ve Wikidata'dan gerçek firma kayıtları; her adayın kaynak bağlantısı görünür |
 | Bugünkü işler | Panel her sabah ne yapılacağını söyler |
 | Yanıt asistanı | Gelen cevabı sınıflandırır (ilgili, görüşme, sonra, ilgisiz, listeden çık) ve cevap taslağı yazar |
 | Otonom gönderim | Açın, günlük adedi seçin, onaylayın; Pusula kurallara uyan mailleri kendisi gönderir |
@@ -77,6 +79,7 @@ Firmanızı ve hedefinizi anlatırsınız. Pusula müşteri veya tedarikçi aday
 
 ## 6. Veri doğruluğu ve uyum
 
+- **Kaynak gösterimi:** Canlı araştırmada her firmanın hangi açık kayıttan geldiği tıklanabilir bağlantıyla gösterilir; adresin alan adı mail kabul ediyor mu (MX) ücretsiz kontrol edilir.
 - **E-posta adresleri uydurulmaz:** Yalnızca firmanın kendi sitesinde yayımladığı kurumsal adresler alınır. Kişisel adres tahmini yapılmaz.
 - **Her aday için kaynak bağlantısı saklanır.** Doğrulanmamış bilgi "doğrulanmadı" etiketiyle gösterilir.
 - **Tekrar önleme:** Aynı firma veya alan adı listeye ikinci kez eklenmez.
