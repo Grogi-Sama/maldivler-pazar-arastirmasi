@@ -38,7 +38,7 @@
   - AB: GDPR'da B2B için "meşru menfaat" dayanağı geçerli; dayanak belgelenmeli ve ret talebi hemen uygulanmalı.
   - ABD: CAN-SPAM fiziksel adres ve listeden çıkma yolu istiyor.
 
-## 3. Demoda olanlar (v3)
+## 3. Demoda olanlar (v5)
 
 - Panel: bugünkü işler, göstergeler, takipler, satış hunisi, segmente göre yanıt oranı, gönderim sağlığı
 - Ayarlar:
@@ -54,6 +54,12 @@
   - Güvenli gönderim kuyruğu; günlük limit dolunca sonraki iş gününe planlama
 - Takip: dizi takvimi, gecikenler, tamamlanan diziler, sıcak fırsatlar
 - Yanıt asistanı: gelen yanıtı sınıflandırma (ilgili / görüşme / sonra / ilgisiz / listeden çık) ve cevap taslağı
+- **Otonom gönderim (v5):**
+  - Kullanıcı Ayarlar'dan açar, günlük en fazla adedi seçer ve onaylar.
+  - Pusula gönderim saatlerinde zamanı gelen takipleri hazırlar ve kurallara uyan mailleri kendisi gönderir.
+  - Cevaplar, doğrulanmamış adresler ve düşük puanlı mailler her zaman kullanıcıya kalır.
+  - Aynı gün 2 firma listeden çıkarsa kendini kapatır.
+  - Sunucu karşılığı `pusula-sunucu/` klasöründe; Microsoft 365 ve Gmail için yazıldı, 13 testle denendi.
 
 **Demonun sınırları:** Gerçek mail göndermez; araştırma canlı web araması değil, Claude'un kendi bilgisinden yapılır; veriler tek kullanıcılık.
 
@@ -73,6 +79,34 @@
 
 **Yapay zekâ modeli seçimi:** Araştırma ve kişiselleştirme için Claude Opus 5.5 (girdi 4 $ / çıktı 20 $, milyon token başına) ya da maliyet için Claude Sonnet 5.5 (2 $ / 10 $). Toplu ve basit işler (yanıt sınıflandırma) için Claude Haiku 4.5 (1 $ / 5 $). Seçim, kaliteyi gerçek örnekler üzerinde ölçerek yapılmalı.
 
+## 4a. Canlı araştırma altyapısı: kimin hesabından, ne kullanarak?
+
+**Kısa cevap:** Kendi yapay zekâmızı veya kendi arama motorumuzu yapmamıza gerek yok. Pusula, şirketin (Pusula'nın) kendi API hesaplarını kullanır. Faturası kullanım kadardır ve abonelik fiyatının içindedir. Kullanıcının ya da sizin kişisel Claude hesabınız hiç kullanılmaz.
+
+**Neden kendi arama motorumuz olmaz:** Google veya Bing gibi bir dizin kurmak milyarlarca sayfa taramak demek; milyonlarca dolarlık bir iştir. Arama motoru sonuçlarını izinsiz kazımak da kullanım şartlarına aykırıdır ve sürekli engellenir. Google'ın ucuz arama API'si (Custom Search JSON API) yeni müşterilere kapandı ve 1 Ocak 2027'de tamamen kapanıyor.
+
+**Neden kendi yapay zekâmız olmaz:** Pahalı olan kısım aramanın kendisidir, yapay zekâ değil. Açık kaynak bir modeli kendi GPU sunucumuzda çalıştırmak az kullanıcıyla API'den daha pahalıya gelir. Kalitesi de daha düşük olur ve bakım yükü getirir. Kullanıcı sayısı çok büyürse bu karar yeniden değerlendirilir.
+
+**Önerilen yapı: katmanlı ve ucuzdan pahalıya**
+
+| Katman | Kaynak | Maliyet | Ne için |
+|---|---|---|---|
+| 1. Açık veri | OpenStreetMap (otel, fabrika, mağaza; konum ve web sitesi), Wikidata (şirket, sektör, merkez, web sitesi), resmî listeler (ticaret sicili, ihracatçı birlikleri, fuar katılımcı listeleri, İSO 500 gibi) | Ücretsiz | Bölge ve sektöre göre ham firma listesi |
+| 2. Arama API'si | Brave Search API (1.000 sorgu 5 $, her ay 5 $ kredi) veya Tavily (ayda 1.000 sorgu ücretsiz, sonra ~0,008 $). Yedek: Serper, Exa | 1.000 sorguda ~1–8 $ | Haber, proje, yeni yatırım gibi güncel bilgi; açık veride olmayan firmalar |
+| 3. Firma sitesini okuma | Kendi sunucumuz firmanın "iletişim / hakkımızda" sayfasını indirir | Ücretsiz | Gerçek kurumsal e-posta, ürünler, giriş cümlesi için kaynak |
+| 4. Yapay zekâ | Claude API (Haiku 4.5: 1 $ / 5 $; zor işler için Sonnet 5.5). Gerekirse Claude'un yerleşik web araması (1.000 aramada 10 $) | 20 adaylık araştırma başına ~0,05–0,15 $ | Sınıflandırma, puanlama, gerekçe, kişisel giriş cümlesi |
+| 5. Adres doğrulama | Kendi MX kontrolümüz (ücretsiz) + gerekirse NeverBounce/ZeroBounce | Adres başına ~0,008 $ | Geri dönen mail oranını %2'nin altında tutmak |
+| 6. Önbellek | Bulunan firma ve siteler 30 gün saklanır | Ücretsiz | Aynı bölgeyi arayan ikinci kullanıcıya maliyet sıfıra yakın |
+
+**20 adaylık bir araştırmanın tahmini maliyeti:** ~10 arama (0,01–0,05 $), site okuma (0), yapay zekâ (~0,05–0,15 $) ve doğrulama (~0,16 $) ile toplam **yaklaşık 0,2–0,35 $ (8–15 TL)**. Profesyonel pakette ayda 50 araştırma ≈ 10–18 $. Bu tutar 3.490 TL'lik paket fiyatının içinde rahatça kalır.
+
+**Kontrol mekanizmaları:**
+- Her pakete aylık araştırma kotası konur; fazlası "ek kredi" olarak satılır.
+- Kurumsal müşteriler isterse kendi API anahtarlarını bağlayabilir.
+- Tek bir arama sağlayıcısına bağımlı kalmamak için arama katmanı değiştirilebilir yazılır.
+
+**Demo ile farkı:** Demodaki "Araştır" düğmesi, sayfayı açan kişinin claude.ai hesabı üzerinden Claude'a soruyor ve cevap modelin kendi bilgisinden geliyor; canlı web araması yok. Gerçek üründe bu çağrı Pusula sunucusuna gider ve yukarıdaki katmanlar çalışır. Kullanıcı yalnızca sonucu görür.
+
 ## 5. Kullanıcı başı tahmini değişken maliyet (aylık)
 
 Varsayım: Aktif bir kullanıcı ayda 20 araştırma (200 aday), 600 mail (tanışma + takip) ve 60 yanıt işliyor. Model Claude Sonnet 5.5.
@@ -86,7 +120,7 @@ Varsayım: Aktif bir kullanıcı ayda 20 araştırma (200 aday), 600 mail (tanı
 | Sunucu, depolama, e-posta API | | ~1–2 $ |
 | **Toplam** | | **~9–11 $** |
 
-*Web araması ücretleri sağlayıcıya göre değişir (Serper ~0,3–1 $, Brave ~5 $, Exa ~4–7 $ / 1.000 sorgu). Rakamlar kaba tahmindir; pilot kullanıcı verisiyle güncellenmeli.*
+*Web araması ücretleri sağlayıcıya göre değişir (Serper ~0,3–1 $, Brave 5 $, Tavily ~5–8 $, Exa ~4–7 $, Claude web araması 10 $ / 1.000 sorgu; Brave'in ücretsiz paketi 2026'da yeni kullanıcılara kapandı). Rakamlar kaba tahmindir; pilot kullanıcı verisiyle güncellenmeli.*
 
 ## 6. Fiyatlandırma önerisi
 
@@ -127,4 +161,4 @@ Varsayım: Aktif bir kullanıcı ayda 20 araştırma (200 aday), 600 mail (tanı
 
 ---
 
-*Kaynaklar: Gmail/Yahoo/Microsoft toplu gönderen kuralları (powerdmarc.com, redsift.com); soğuk mail teslim edilebilirliği (clay.com, mailreach.co, instantly.ai); takip ve yanıt oranları (woodpecker.co, apollo.io, unifygtm.com); konu satırı ve spam kelimeleri (instantly.ai, mixmax.com, litemail.ai); rakip fiyatları (apollo.io, marketbetter.ai, formanorden.com); Türkiye platformları (bilvio.com, kobimatik.com, internationaltradeai.com); 6563 sayılı Kanun (cenuta.com, verimor.com.tr); GDPR (gdprlocal.com, overloop.com); API limitleri (unipile.com); web araması ve adres doğrulama fiyatları (brave.com, buildmvpfast.com, exa.ai, cleanlist.ai); Claude API fiyatları (Anthropic). Bu belge hukuki görüş değildir.*
+*Kaynaklar: Gmail/Yahoo/Microsoft toplu gönderen kuralları (powerdmarc.com, redsift.com); soğuk mail teslim edilebilirliği (clay.com, mailreach.co, instantly.ai); takip ve yanıt oranları (woodpecker.co, apollo.io, unifygtm.com); konu satırı ve spam kelimeleri (instantly.ai, mixmax.com, litemail.ai); rakip fiyatları (apollo.io, marketbetter.ai, formanorden.com); Türkiye platformları (bilvio.com, kobimatik.com, internationaltradeai.com); 6563 sayılı Kanun (cenuta.com, verimor.com.tr); GDPR (gdprlocal.com, overloop.com); API limitleri (unipile.com); web araması ve adres doğrulama fiyatları (brave.com, buildmvpfast.com, exa.ai, cleanlist.ai); Claude API fiyatları (Anthropic); Google Custom Search kapanışı (brave.com/learn/google-api-shutdown); Brave ve Tavily fiyatları (costbench.com, docs.tavily.com). Bu belge hukuki görüş değildir.*

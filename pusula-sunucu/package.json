@@ -1,0 +1,9 @@
+{
+  "name": "pusula-sunucu",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Pusula otonom gönderim motoru (Microsoft 365 / Gmail)",
+  "scripts": {"test": "node --test"},
+  "engines": {"node": ">=20"}
+}
