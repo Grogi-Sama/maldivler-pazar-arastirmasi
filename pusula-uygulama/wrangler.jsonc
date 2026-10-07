@@ -1,0 +1,13 @@
+{
+  // Pusula – Cloudflare Workers (ücretsiz plan) + D1 veritabanı (Batı Avrupa)
+  "name": "pusula",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-10-01",
+  "account_id": "bbdd1a67e12641864e37c4b62e87d87f",
+  "workers_dev": true,
+  "preview_urls": false,
+  // Uygulama sayfası sunucu koduna gömülür (ayrı dosya yüklemesi gerekmez)
+  "rules": [{"type": "Text", "globs": ["**/*.html"], "fallthrough": false}],
+  "d1_databases": [{"binding": "DB", "database_name": "pusula-db", "database_id": "49b818c5-bb62-48df-b22c-fc76d2f6e501", "migrations_dir": "migrations"}],
+  "observability": {"enabled": true}
+}
