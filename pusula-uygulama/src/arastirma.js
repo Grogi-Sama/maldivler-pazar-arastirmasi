@@ -43,12 +43,20 @@ export async function tavily(env, sorgu, adet = 8) {
 // --- firma sitesinden kurumsal e-posta ---
 const ROL = /^(info|sales|satis|contact|iletisim|hello|enquir(y|ies)|inquir(y|ies)|office|admin|reservations?|export|ihracat|procurement|purchasing|satinalma|marketing|business|projects?|engineering)\b/i;
 const COP = /\.(png|jpe?g|gif|svg|webp)$|^(example|test|your|name|email)@|@(example|domain|sentry|wixpress)\./i;
+// İki seviyeli uzantılar (.com.tr, .co.uk ...) için marka adını doğru çıkarır: sevalkablo.com ↔ sevalkablo.com.tr aynı firma
+const IKI_SEVIYE = /\.(com|net|org|gen|biz|info|web|av|bel|edu|gov|k12|co|ac|or|ne|gob)\.[a-z]{2}$/;
+export function markaAdi(alan) {
+  const a = String(alan).toLowerCase().replace(/^www\./, "");
+  const parca = a.split(".");
+  return IKI_SEVIYE.test(a) ? parca[parca.length - 3] : parca[parca.length - 2];
+}
 export function epostalariBul(html, alanAdi) {
   const metin = String(html).slice(0, 300_000).replace(/&#64;|&#x40;|\s*\[\s*at\s*\]\s*|\s*\(\s*at\s*\)\s*/gi, "@");
-  const kok = alanAdi.replace(/^www\./, "").split(".").slice(-2).join(".");
+  const marka = markaAdi(alanAdi);
   return [...new Set((metin.match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/gi) || []).map(x => x.toLowerCase()))]
-    .filter(e => !COP.test(e) && e.split("@")[1].endsWith(kok))
-    .map(e => ({adres: e, rol: ROL.test(e.split("@")[0])})).sort((a, b) => b.rol - a.rol);
+    .filter(e => !COP.test(e) && markaAdi(e.split("@")[1]) === marka)
+    .map(e => { const yerel = e.split("@")[0]; return {adres: e, rol: ROL.test(yerel) || yerel === marka}; })
+    .sort((a, b) => b.rol - a.rol);
 }
 async function sayfa(url, ms = 6000) {
   try {
@@ -60,7 +68,7 @@ export async function siteEposta(site) {
   const alan = String(site).replace(/^https?:\/\//, "").replace(/\/.*$/, "");
   if (!alan) return {acildi: false};
   let acildi = false, kisiselGoruldu = false;
-  for (const yol of ["", "/contact", "/contact-us", "/iletisim"]) {
+  for (const yol of ["", "/iletisim", "/contact", "/tr/iletisim", "/contact-us"]) {
     const html = await sayfa(`https://${alan}${yol}`);
     if (html === null) { if (yol === "") return {acildi: false}; continue; }
     acildi = true;
@@ -82,7 +90,7 @@ const alanAdi = w => String(w || "").replace(/^https?:\/\//, "").replace(/^www\.
 export async function webArastir(env, {tarif, bolge, mod, adet = 10, sirket = {}, haric = []}) {
   adet = Math.max(3, Math.min(12, Number(adet) || 10));
   const hedef = mod === "supplier" ? "suppliers manufacturers distributors" : "companies";
-  const sorgular = [`${tarif} ${bolge}`.slice(0, 380), `${hedef} ${bolge} ${sirket.sektor || ""} ${mod === "supplier" ? sirket.urunler || "" : ""}`.slice(0, 380)];
+  const sorgular = [`${tarif} ${bolge}`.slice(0, 380), mod === "supplier" ? `${tarif} firmaları listesi üretici`.slice(0, 380) : `${hedef} ${bolge} ${sirket.sektor || ""}`.slice(0, 380)];
   const sonuclar = (await Promise.all(sorgular.map(s => tavily(env, s, 8).catch(e => { if (e.durum === 503 || e.durum === 429) throw e; return []; })))).flat();
   const tekil = [...new Map(sonuclar.filter(s => s.url).map(s => [s.url, s])).values()].slice(0, 14);
   if (!tekil.length) return {adaylar: [], not: "Web aramasından sonuç gelmedi; tarifi değiştirip tekrar deneyin."};
@@ -94,7 +102,7 @@ Exclude: ${haric.slice(0, 80).join("; ")}.
 Strict rules:
 - Only include organisations that are explicitly named in the search results. Never invent organisations, numbers, projects or emails.
 - "website": the organisation's own domain only if it appears in the results (or is clearly its official site URL there); otherwise "".
-- "source": the URL of the search result that mentions it.
+- "source": the number in square brackets [n] of the search result that mentions it (an integer).
 - "why": one Turkish sentence based only on what that result says.
 - "hook": one factual opening sentence for a first email, based only on that result, in the target's language ("Türkçe" for Turkish organisations, otherwise English). Empty if nothing concrete.
 - "segment": short Turkish label; reuse "EPC – tedarik ortağı", "Son kullanıcı – grup merkezi", "Son kullanıcı – resort", "Son kullanıcı – yeni proje", "Distribütör", "Üretici" when they fit.
@@ -110,7 +118,8 @@ ${tekil.map((s, i) => `[${i}] ${s.baslik}\nURL: ${s.url}\n${s.ozet}`).join("\n\n
   const adaylar = [];
   for (const a of liste.slice(0, adet)) {
     if (!a?.name || haricSet.has(String(a.name).toLowerCase())) continue;
-    const kaynak = kaynakUrl.has(a.source) ? a.source : "";
+    const no = Number(String(a.source ?? "").replace(/[^0-9]/g, ""));
+    const kaynak = Number.isInteger(no) && tekil[no] ? tekil[no].url : kaynakUrl.has(a.source) ? a.source : "";
     if (!kaynak) continue; // kaynağı arama sonuçlarında olmayan aday alınmaz
     adaylar.push({
       name: String(a.name), kind: String(a.kind || ""), segment: String(a.segment || "Diğer"), region: String(a.region || bolge),

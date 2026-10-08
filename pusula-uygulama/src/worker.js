@@ -84,7 +84,8 @@ async function api(req, env, yol) {
     if (new URL(req.url).searchParams.get("modeller")) { try { const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models?pageSize=200", {headers: {"x-goog-api-key": env.GEMINI_API_KEY}}); const j = await r.json(); sonuc.modeller = (j.models || []).filter(m => (m.supportedGenerationMethods || []).includes("generateContent")).map(m => m.name.replace("models/", "")); } catch (e) { sonuc.modeller = "HATA: " + e.message; } }
     if (new URL(req.url).searchParams.get("saglik")) sonuc.saglik = await saglikKontrol(env, "teshis", new URL(req.url).searchParams.get("saglik"));
     const g = new URL(req.url).searchParams.get("arastir");
-    if (g) { try { sonuc.arastir = await webArastir(env, {tarif: g, bolge: "Maldives", mod: "customer", adet: 6, sirket: {ad: "Karea Enerji", sektor: "solar inverters and battery energy storage distributor", urunler: "Huawei and HYXI inverters and ESS"}}); } catch (e) { sonuc.arastir = "HATA: " + e.message; } }
+    const qp = new URL(req.url).searchParams;
+    if (g) { try { sonuc.arastir = await webArastir(env, {tarif: g, bolge: qp.get("bolge") || "Maldives", mod: qp.get("mod") || "customer", adet: Number(qp.get("adet")) || 6, sirket: {ad: "Karea Enerji", sektor: "solar inverters and battery energy storage distributor", urunler: "Huawei and HYXI inverters and ESS"}}); } catch (e) { sonuc.arastir = "HATA: " + e.message; } }
     return json(sonuc);
   }
 
