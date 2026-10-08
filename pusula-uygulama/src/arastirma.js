@@ -101,6 +101,7 @@ Goal: find ${mod === "supplier" ? "SUPPLIERS for our needs" : "CUSTOMERS or chan
 Exclude: ${haric.slice(0, 80).join("; ")}.
 Strict rules:
 - Only include organisations that are explicitly named in the search results. Never invent organisations, numbers, projects or emails.
+- ${mod === "supplier" ? "Only include companies that actually sell or manufacture the products (manufacturers, distributors, wholesalers). EXCLUDE universities, research/R&D centres, laboratories, public institutions and ministries, associations and chambers, news sites, directories and marketplaces." : "Exclude news sites, directories, marketplaces and associations."}
 - "website": the organisation's own domain only if it appears in the results (or is clearly its official site URL there); otherwise "".
 - "source": the number in square brackets [n] of the search result that mentions it (an integer).
 - "why": one Turkish sentence based only on what that result says.
@@ -118,6 +119,8 @@ ${tekil.map((s, i) => `[${i}] ${s.baslik}\nURL: ${s.url}\n${s.ozet}`).join("\n\n
   const adaylar = [];
   for (const a of liste.slice(0, adet)) {
     if (!a?.name || haricSet.has(String(a.name).toLowerCase())) continue;
+    // Tedarikçi aramasında üniversite, Ar-Ge merkezi, kamu kurumu ve dernekler elenir (yapay zekâ atlasa bile)
+    if (mod === "supplier" && /üniversite|university|tübitak|ar-?ge merkezi|r&d cent|research (cent|inst)|enstitü|institute|laborat|bakanlığ|ministry|belediye|municipality|derneği|association|odası|chamber|vakfı|foundation/i.test(`${a.name} ${a.kind || ""}`)) continue;
     const no = Number(String(a.source ?? "").replace(/[^0-9]/g, ""));
     const kaynak = Number.isInteger(no) && tekil[no] ? tekil[no].url : kaynakUrl.has(a.source) ? a.source : "";
     if (!kaynak) continue; // kaynağı arama sonuçlarında olmayan aday alınmaz

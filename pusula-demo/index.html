@@ -220,6 +220,19 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 .hrow:last-child{border-bottom:0}
 .hrow .hi{font-size:16px;line-height:1.4}
 .hdet{display:block;margin-top:4px;font:12px/1.4 var(--mono);color:var(--muted);overflow-wrap:anywhere;background:var(--surface-2);padding:4px 7px;border-radius:6px}
+.roletabs{flex-wrap:wrap}
+.roletabs .cnt{font-size:11.5px;opacity:.7;margin-left:3px}
+.pill.kat{background:var(--surface-2);color:var(--fg);font-weight:500}
+.pill.rol-customer{background:var(--accent-soft);color:var(--accent)}
+.pill.rol-supplier{background:var(--blue-soft);color:var(--blue)}
+.pill.rol-partner{background:var(--amber-soft);color:var(--amber)}
+.havuz{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.havuz .hv{display:grid;gap:2px;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;cursor:pointer;color:var(--fg);font:inherit}
+.havuz .hv:hover{border-color:var(--accent)}
+.havuz .hv span{font-size:13px;color:var(--muted)}
+.havuz .hv b{font:700 24px var(--display)}
+.havuz .hv small{font-size:12px;color:var(--muted)}
+@media (max-width:600px){.havuz{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.havuz .hv{padding:9px}.havuz .hv b{font-size:19px}.havuz .hv small{display:none}}
 </style>
 
 <div class="app" id="app">
@@ -284,6 +297,16 @@ const HEALTH = [
   ["warmup", "Gönderen adres en az 3 haftalık",   "Yeni açılmış adreslerden günde 10–25 mail ile başlayın, yavaş artırın."],
   ["domain", "Satış için ayrı alt alan adı",      "Örn. mail.firmaniz.com: ana alan adınızın itibarını korur."],
 ];
+// İlişki türü: havuzda müşteri, tedarikçi ve iş ortakları ayrı tutulur (şablon, sekme ve sayılar buna göre)
+const ROLES = {customer: "Müşteriler", supplier: "Tedarikçiler", partner: "İş ortakları"};
+const ROLE1 = {customer: "Müşteri", supplier: "Tedarikçi", partner: "İş ortağı"};
+function guessRole(l) {
+  const s = `${l.segment || ""} ${l.kind || ""}`.toLowerCase();
+  if (/üretici|tedarikçi(?! ortağı)|manufacturer|supplier|toptancı|wholesale/.test(s) && !/son kullanıcı/.test(s)) return "supplier";
+  if (/epc|tedarik ortağı|distribüt|kurulumcu|installer|partner|bayi|ortak/.test(s)) return "partner";
+  return "customer";
+}
+const rolOf = l => ROLES[l.rol] ? l.rol : "customer";
 const HL = () => SERVER ? HEALTH.filter(([k]) => k !== "domain") : HEALTH;
 const TRIGGERS = ["free","guarantee","guaranteed","urgent","act now","limited time","no obligation","click here","winner","earn","cash","risk-free","risk free","congratulations","100%","lowest price","buy now","offer expires","ücretsiz","bedava","garantili","acil","hemen","kaçırmayın","son fırsat","tıklayın","kazandınız","indirim","kampanya"];
 const OPTOUT_RE = /(won't follow up|will not follow up|reply and let me know|just reply|unsubscribe|tekrar rahatsız etmeyeceğim|yanıt vermeniz yeterli|listeden çık)/i;
@@ -341,7 +364,7 @@ function demoState() {
 /* ---------- durum, göç ve kayıt ---------- */
 let state = demoState();
 let view = "panel";
-let filters = {segment: "Tümü", status: "Tümü", prio: "Tümü", q: "", campaign: "Tümü"};
+let filters = {segment: "Tümü", status: "Tümü", prio: "Tümü", q: "", campaign: "Tümü", rol: "customer", kategori: "Tümü"};
 let selected = new Set();
 let research = {running: false, results: [], error: "", ctl: null, note: ""};
 let mailBusy = false, replyBusy = false, openLead = null, tplLang = "English";
@@ -364,7 +387,8 @@ function normalize(s) {
   if (s.profile.resCountry === undefined) s.profile.resCountry = s.demo ? "Maldives" : "";
   if (s.profile.resType === undefined) s.profile.resType = "otel-resort";
   if (s.profile.resSector === undefined) s.profile.resSector = "";
-  for (const l of s.leads || []) if (!Array.isArray(l.sources)) l.sources = [];
+  for (const l of s.leads || []) { if (!Array.isArray(l.sources)) l.sources = []; if (!ROLES[l.rol]) l.rol = guessRole(l); if (!l.kategori) l.kategori = l.segment || l.kind || "Genel"; }
+  for (const k of ["buyNeeds", "buyNeedsMail", "buyShort", "buyShortTr"]) if (s.profile[k] === undefined) s.profile[k] = "";
   if (s.profile.productsShort === undefined) s.profile.productsShort = "";
   if (s.profile.productsShortTr === undefined) s.profile.productsShortTr = "";
   if (!s.profile.templates) s.profile.templates = {};
@@ -520,7 +544,8 @@ function vPanel() {
     newA.length && [`${newA.length} A öncelikli firmaya henüz yazılmadı`, newA.slice(0, 3).map(l => l.name).join(", "), `<button class="btn sm" data-bulkintro="${newA.map(l => l.id).join(",")}">Tanışma hazırla</button>`],
     unverified.length && [`${unverified.length} adresin doğrulanması gerekiyor`, "Yapay zekânın önerdiği adresleri web sitesinden kontrol edin.", `<button class="btn sm" data-f="status" data-v="new" data-nav="adaylar">Adaylara git</button>`],
   ].filter(Boolean);
-  return head("Bugün ne yapalım?", "Araştırma, mail ve takip işlerinizin özeti.", `<button class="btn primary" data-nav="arastir">Yeni araştırma</button>`) + autoBanner() + `
+  const havuz = `<div class="havuz">${Object.entries(ROLES).map(([k, t]) => { const ls = state.leads.filter(l => rolOf(l) === k); return `<button class="hv" data-nav="adaylar" data-f="rol" data-v="${k}"><span>${t}</span><b>${ls.length}</b><small>${ls.filter(l => CONTACTED.includes(l.status)).length} yazıldı · ${ls.filter(l => ["reply", "meet"].includes(l.status)).length} yanıt</small></button>`; }).join("")}</div>`;
+  return head("Bugün ne yapalım?", "Araştırma, mail ve takip işlerinizin özeti.", `<button class="btn primary" data-nav="arastir">Yeni araştırma</button>`) + autoBanner() + havuz + `
   <div class="card grid" style="margin-bottom:14px">
     <h2>Bugünkü işler</h2>
     ${tasks.length ? tasks.map(([a, b, c]) => `<div class="tl-item"><span style="flex:1;min-width:0"><b>${a}</b><br><span class="small muted">${esc(b)}</span></span>${c}</div>`).join("") : `<p class="small muted" style="margin:0">Bugün için bekleyen iş yok. Yeni aday bulmak için araştırma başlatabilirsiniz.</p>`}
@@ -579,17 +604,25 @@ function vProfil() {
     state.demo ? `<button class="btn" id="fresh">Kendi çalışma alanımı başlat</button>` : "") + `
   <div class="card grid">
     <div class="row"><h2>Şirketim ve hedefim</h2><span class="spacer"></span>
-      <div class="seg" role="group" aria-label="Arama türü"><button data-mode="customer" aria-pressed="${p.mode === "customer"}">Müşteri bul</button><button data-mode="supplier" aria-pressed="${p.mode === "supplier"}">Tedarikçi bul</button></div></div>
+    </div>
     <div class="form">
       ${f("company", "Şirket adı", p.company)}${f("website", "Web sitesi", p.website)}
       ${f("sector", "Sektör / faaliyet", p.sector)}${f("country", "Merkez ülke", p.country)}
-      ${ta("products", p.mode === "supplier" ? "Hangi ürünleri / hizmetleri tedarik etmek istiyorsunuz?" : "Sattığınız ürünler ve hizmetler", p.products)}
+      ${ta("products", "Ne satıyoruz? – ürünler ve hizmetler", p.products)}
       ${ta("value", "Size neden çalışılmalı? (virgülle ayırın; mailde madde olarak geçer)", p.value, 2)}
       ${ta("productsMail", "Ürünler – mail dilinde (" + esc(p.language || "English") + ")", p.productsMail, 2)}
       ${ta("valueMail", "Neden siz – mail dilinde (virgülle ayırın)", p.valueMail, 2)}
       ${f("productsShort", "Kısa ürün adı – konu satırı için (" + esc(p.language || "English") + ")", p.productsShort)}${f("productsShortTr", "Kısa ürün adı – Türkçe konu satırı için", p.productsShortTr)}
       ${f("regions", "Hedef ülke / bölge", p.regions)}${f("language", "Mail dili", p.language)}
       ${ta("segmentBrief", "Hedef müşteri / segment tarifi", p.segmentBrief, 3)}
+    </div>
+  </div>
+  <div class="card grid" style="margin-top:14px" id="satinalma">
+    <h2>Ne satın almak istiyoruz?</h2>
+    <p class="small muted" style="margin:0">Tedarikçilere giden mailler bu bilgilerden yazılır (fiyat, teslim süresi ve garanti sorulur). Müşteri mailleri yukarıdaki "Ne satıyoruz" alanını kullanır.</p>
+    <div class="form">
+      ${ta("buyNeeds", "Aradığımız ürün / hizmetler (Türkçe)", p.buyNeeds, 2)}${ta("buyNeedsMail", "Aradığımız ürünler – mail dilinde (" + esc(p.language || "English") + ")", p.buyNeedsMail, 2)}
+      ${f("buyShort", "Kısa ad – konu satırı için (" + esc(p.language || "English") + ")", p.buyShort)}${f("buyShortTr", "Kısa ad – Türkçe konu satırı için", p.buyShortTr)}
     </div>
   </div>
   <div class="card grid" style="margin-top:14px">
@@ -605,7 +638,7 @@ function vProfil() {
   <div class="card grid" style="margin-top:14px" id="sablonlar">
     <div class="row"><h2>Mail şablonları</h2><span class="spacer"></span><div class="seg" role="group" aria-label="Şablon dili">${LANGS.map(x => `<button data-tpllang="${x}" aria-pressed="${tplLang === x}">${x}</button>`).join("")}</div></div>
     <p class="small muted" style="margin:0">Kendi üslubunuzla yazın; süslü parantezli alanlar her firmaya göre dolar: <span class="mono">${VARS_HELP}</span>. İmza otomatik eklenir. ${SERVER ? "Yapay zekâ" : "Claude"} ile kişiselleştirme bu şablonu temel alır.</p>
-    ${["intro", "f1", "f2", "close"].concat(p.mode === "supplier" ? ["intro_supplier"] : []).map(k => { const t = tplFor(tplLang, k); const nm = k === "intro_supplier" ? "Tanışma (tedarikçi arama)" : stepLabel(k); return `<details ${k === "intro" ? "open" : ""}><summary style="cursor:pointer;font-weight:600;padding:6px 0">${esc(nm)}</summary><div class="grid" style="gap:8px;padding:6px 0 10px">
+    ${["intro", "f1", "f2", "close", "intro_supplier", "f1_supplier", "f2_supplier", "close_supplier"].map(k => { const t = tplFor(tplLang, k); const nm = k.endsWith("_supplier") ? `Tedarikçi – ${stepLabel(k.replace("_supplier", ""))}` : `Müşteri / iş ortağı – ${stepLabel(k)}`; return `<details ${k === "intro" ? "open" : ""}><summary style="cursor:pointer;font-weight:600;padding:6px 0">${esc(nm)}</summary><div class="grid" style="gap:8px;padding:6px 0 10px">
       <label class="f" for="t_${k}_s">Konu<input id="t_${k}_s" type="text" data-tpl="${tplLang}|${k}|subject" value="${esc(t.subject)}"></label>
       <label class="f" for="t_${k}_b">Metin<textarea id="t_${k}_b" rows="9" data-tpl="${tplLang}|${k}|body">${esc(t.body)}</textarea></label></div></details>`; }).join("")}
     <div class="row"><button class="btn sm" data-tplreset="${tplLang}">${tplLang} şablonlarını varsayılana döndür</button></div>
@@ -689,17 +722,18 @@ function vArastir() {
   return head("Araştır", p.mode === "supplier" ? "Ürün ihtiyacınızı tarif edin; Pusula tedarikçi adaylarını bulup sınıflandırsın." : "Hedef müşterinizi tarif edin; Pusula potansiyel müşteri listesini çıkarıp önceliklendirsin.",
     `<button class="btn" data-import="1">CSV içe aktar</button>`) + `
   <div class="card grid">
-    <div class="row"><div class="seg" role="group" aria-label="Arama türü"><button data-mode="customer" aria-pressed="${p.mode === "customer"}">Müşteri bul</button><button data-mode="supplier" aria-pressed="${p.mode === "supplier"}">Tedarikçi bul</button></div></div>
+    <div class="row"><div class="seg" role="group" aria-label="Arama türü"><button data-mode="customer" aria-pressed="${p.mode === "customer"}">Müşteri / iş ortağı bul</button><button data-mode="supplier" aria-pressed="${p.mode === "supplier"}">Tedarikçi bul</button></div>${p.mode === "supplier" && !p.buyNeeds && !p.buyNeedsMail ? `<span class="small muted">Tedarikçi mailleri için <button class="linkbtn" data-nav="profil" data-anchor="satinalma">Ayarlar › Ne satın almak istiyoruz</button> alanını doldurun.</span>` : ""}</div>
     <div class="row"><b class="small">Kaynak</b><div class="seg" role="group" aria-label="Araştırma kaynağı">${SERVER ? `<button data-ressrc="web" aria-pressed="${p.resSource === "web"}">Web araması</button>` : ""}<button data-ressrc="live" aria-pressed="${p.resSource === "live"}">Canlı açık veri</button>${SERVER ? "" : `<button data-ressrc="ai" aria-pressed="${p.resSource === "ai"}">Yapay zekâ bilgisi</button>`}</div>
       <span class="small muted">${p.resSource === "web" ? "Güncel web sonuçlarından firmalar; e-posta yalnızca firmanın kendi sitesinden alınır, her adayın kaynağı gösterilir." : p.resSource === "live" ? "OpenStreetMap ve Wikidata'dan gerçek kayıtlar; her adayın kaynağı gösterilir." : "Claude'un kendi bilgisi; adresler doğrulanmalı."}</span></div>
     ${p.resSource === "live" ? `<div class="form">
       <label class="f" for="resCountry">Ülke (İngilizce adı)<input id="resCountry" type="text" data-prof="resCountry" placeholder="Örn. Maldives, Turkey, Germany" value="${esc(p.resCountry)}"></label>
-      <label class="f" for="resType">Firma türü (harita kaydına göre)<select id="resType" data-prof="resType">${Object.entries(OSM_TYPES).map(([k, v]) => `<option value="${k}" ${p.resType === k ? "selected" : ""}>${v.label}</option>`).join("")}</select></label>
-      <label class="f" for="resSector">Sektör anahtar kelimesi (İngilizce, isteğe bağlı)<input id="resSector" type="text" data-prof="resSector" placeholder="Örn. energy, hotel, construction" value="${esc(p.resSector)}"></label>
+      <label class="f" for="resType">Firma türü (harita kaydına göre)<select id="resType" data-prof="resType">${[...new Set(Object.values(OSM_TYPES).map(v => v.g))].map(g => `<optgroup label="${esc(g)}">${Object.entries(OSM_TYPES).filter(([, v]) => v.g === g).map(([k, v]) => `<option value="${k}" ${p.resType === k ? "selected" : ""}>${esc(v.label)}</option>`).join("")}</optgroup>`).join("")}</select></label>
+      <label class="f" for="resSector">Anahtar kelime (isimde / sektörde geçen; ör. cable, battery, kablo)<input id="resSector" type="text" data-prof="resSector" placeholder="Örn. energy, hotel, construction" value="${esc(p.resSector)}"></label>
     </div>` : ""}
     <label class="f" for="brief">Kimi arıyoruz?<textarea id="brief" rows="4">${esc(p.segmentBrief)}</textarea></label>
     <div class="form">
       <label class="f" for="region">Bölge<input id="region" type="text" value="${esc(p.regions)}"></label>
+      <label class="f" for="resKat">Kategori (havuzda bu adla gruplanır)<input id="resKat" type="text" list="katList2" placeholder="${p.mode === "supplier" ? "Örn. Batarya üreticisi, Kablo üreticisi" : "Örn. Resort, EPC firması"}" value=""><datalist id="katList2">${[...new Set(state.leads.filter(l => rolOf(l) === (p.mode === "supplier" ? "supplier" : rolOf(l))).map(l => l.kategori).filter(Boolean))].map(c => `<option value="${esc(c)}">`).join("")}</datalist></label>
       <label class="f" for="campaign">Kampanya adı (adayları gruplar)<input id="campaign" type="text" placeholder="Örn. ${esc(p.regions || "Bölge")} – 2026 Q4" value=""></label>
       <label class="f" for="howMany">Kaç aday?<select id="howMany">${[5, 10, 15, 20].map(n => `<option ${n === 10 ? "selected" : ""}>${n}</option>`).join("")}</select></label>
     </div>
@@ -713,15 +747,21 @@ function vArastir() {
 function filteredLeads() {
   const q = filters.q.toLowerCase();
   return state.leads.filter(l =>
+    (!filters.rol || filters.rol === "all" || rolOf(l) === filters.rol) &&
+    (!filters.kategori || filters.kategori === "Tümü" || l.kategori === filters.kategori) &&
     (filters.segment === "Tümü" || l.segment === filters.segment) &&
     (filters.status === "Tümü" || l.status === filters.status) &&
     (filters.prio === "Tümü" || l.priority === filters.prio) &&
     (!filters.campaign || filters.campaign === "Tümü" || l.campaign === filters.campaign) &&
-    (!q || (l.name + l.region + l.email + l.kind).toLowerCase().includes(q))
+    (!q || (l.name + l.region + l.email + l.kind + (l.kategori || "")).toLowerCase().includes(q))
   ).sort((a, b) => a.priority.localeCompare(b.priority) || b.score - a.score);
 }
+function roleTabs(sayac, hedef = "rol") {
+  return `<div class="seg roletabs" role="group" aria-label="İlişki türü">${[...Object.entries(ROLES), ["all", "Tümü"]].map(([k, t]) => `<button data-f="${hedef}" data-v="${k}" aria-pressed="${(hedef === "rol" ? filters.rol : takipRol) === k}">${t} <span class="mono cnt">${sayac(k)}</span></button>`).join("")}</div>`;
+}
 function vAdaylar() {
-  const segs = ["Tümü", ...new Set(state.leads.map(l => l.segment))];
+  const inRole = state.leads.filter(l => !filters.rol || filters.rol === "all" || rolOf(l) === filters.rol);
+  const cats = [...new Set(inRole.map(l => l.kategori || "Genel"))].sort((a, b) => a.localeCompare(b, "tr"));
   const list = filteredLeads();
   const chip = (k, v, label) => `<button class="chip" data-f="${k}" data-v="${esc(v)}" aria-pressed="${filters[k] === v}">${esc(label ?? v)}</button>`;
   return head("Adaylar", "Firmalar segmente ve önceliğe göre sınıflandırıldı. Ayrıntı için firma adına dokunun.",
@@ -730,7 +770,8 @@ function vAdaylar() {
     <div class="row"><input type="search" id="q" placeholder="Firma, bölge veya e-posta ara" value="${esc(filters.q)}" style="max-width:320px">
       <select id="campSel" aria-label="Kampanya" style="width:auto">${["Tümü", ...new Set(state.leads.map(l => l.campaign || "Genel"))].map(c => `<option value="${esc(c)}" ${filters.campaign === c ? "selected" : ""}>${c === "Tümü" ? "Tüm kampanyalar" : esc(c)}</option>`).join("")}</select><span class="spacer"></span>
       <div class="chips">${["Tümü", "A", "B", "C"].map(v => chip("prio", v, v === "Tümü" ? "Tüm öncelikler" : "Öncelik " + v)).join("")}</div></div>
-    <div class="chips">${segs.map(s => chip("segment", s)).join("")}</div>
+    ${roleTabs(k => k === "all" ? state.leads.length : state.leads.filter(l => rolOf(l) === k).length)}
+    <div class="chips" aria-label="Kategori">${chip("kategori", "Tümü", "Tüm kategoriler")}${cats.map(c => chip("kategori", c, `${c} · ${inRole.filter(l => (l.kategori || "Genel") === c).length}`)).join("")}</div>
     <div class="chips">${chip("status", "Tümü", "Tüm durumlar")}${Object.entries(STATUS).map(([k, v]) => chip("status", k, v.t)).join("")}</div>
   </div>
   <div class="card" style="margin-top:14px">
@@ -739,7 +780,7 @@ function vAdaylar() {
       <input type="checkbox" id="l_${l.id}" data-sel="${l.id}" ${selected.has(l.id) ? "checked" : ""} aria-label="${esc(l.name)} seç" ${isSuppressed(l) ? "disabled" : ""}>
       <span class="prio p-${l.priority}" title="Uyum puanı ${l.score}">${l.priority}</span>
       <div><button class="nmbtn" data-open="${l.id}">${esc(l.name)}</button><div class="meta">${esc(l.kind)} · ${esc(l.region)}</div></div>
-      <div class="meta c-seg">${esc(l.segment)}</div>
+      <div class="meta c-seg"><span class="pill kat">${esc(l.kategori || "Genel")}</span>${filters.rol === "all" ? ` <span class="pill rol-${rolOf(l)}">${ROLE1[rolOf(l)]}</span>` : ""}</div>
       <div class="em c-em">${esc(l.email || "e-posta yok")}${l.email && !l.verified ? ` <span class="pill st-reply" title="Göndermeden önce web sitesinden kontrol edin">doğrulanmadı</span>` : ""}${isSuppressed(l) ? ` <span class="pill st-no">engelli</span>` : ""}${isTr(l.lang) ? ` <span class="pill st-new">TR</span>` : ""}</div>
       <span class="row c-st" style="gap:6px;flex-wrap:nowrap">${stepsBar(l)}<span class="pill ${STATUS[l.status].c}">${STATUS[l.status].t}</span></span>
       <div class="why">${esc(l.why)}${l.nextAt && l.status === "sent" ? ` · <span class="mono">Sıradaki: ${esc(seq()[l.step + 1]?.label || "")} ${fmtDate(l.nextAt)}</span>` : ""}</div></div>`).join("")}</div>`
@@ -764,7 +805,10 @@ function drawLead() {
       ${l.step < 0 ? `<button class="btn primary sm" data-intro1="${l.id}" ${isSuppressed(l) ? "disabled" : ""}>Tanışma maili hazırla</button>` : nx && l.status === "sent" ? `${nextBtn(l, "primary")}` : ""}
       <select data-status="${l.id}" aria-label="Durum" style="width:auto">${Object.entries(STATUS).map(([k, v]) => `<option value="${k}" ${l.status === k ? "selected" : ""}>${v.t}</option>`).join("")}</select>
     </div>
-    <div class="form">${fld("name", "Firma")}${fld("email", "E-posta")}${fld("website", "Web sitesi")}${fld("region", "Bölge")}${fld("kind", "Tür")}${fld("segment", "Segment")}</div>
+    <div class="form">${fld("name", "Firma")}${fld("email", "E-posta")}${fld("website", "Web sitesi")}${fld("region", "Bölge")}${fld("kind", "Tür")}${fld("segment", "Segment")}
+      <label class="f" for="ld_rol">İlişki türü<select id="ld_rol" data-leadsel="rol">${Object.entries(ROLE1).map(([k, t]) => `<option value="${k}" ${rolOf(l) === k ? "selected" : ""}>${t}</option>`).join("")}</select></label>
+      <label class="f" for="ld_kategori">Kategori<input id="ld_kategori" type="text" data-lead="kategori" list="katList" value="${esc(l.kategori || "")}"></label>
+      <datalist id="katList">${[...new Set(state.leads.map(x => x.kategori).filter(Boolean))].map(c => `<option value="${esc(c)}">`).join("")}</datalist></div>
     <label class="f" for="ld_why">Neden bu firma? (iç not)<textarea id="ld_why" rows="2" data-lead="why">${esc(l.why)}</textarea></label>
     <div class="form">
       <label class="f" for="ld_lang">Mail dili<select id="ld_lang" data-leadsel="lang"><option value="" ${!l.lang ? "selected" : ""}>Varsayılan (${esc(state.profile.language || "English")})</option>${LANGS.map(x => `<option ${l.lang === x ? "selected" : ""}>${x}</option>`).join("")}</select></label>
@@ -846,17 +890,20 @@ function vMailler() {
 }
 
 /* ---------- Takip ---------- */
+let takipRol = "all";
 function vTakip() {
   const t = todayISO(), w = addDays(t, 7);
-  const active = state.leads.filter(l => l.status === "sent" && l.nextAt).sort((a, b) => a.nextAt.localeCompare(b.nextAt));
-  const done = state.leads.filter(l => l.status === "sent" && !l.nextAt);
-  const sched = state.drafts.filter(d => d.scheduledFor).sort((a, b) => a.scheduledFor.localeCompare(b.scheduledFor));
+  const inR = l => takipRol === "all" || rolOf(l) === takipRol;
+  const active = state.leads.filter(l => l.status === "sent" && l.nextAt && inR(l)).sort((a, b) => a.nextAt.localeCompare(b.nextAt));
+  const done = state.leads.filter(l => l.status === "sent" && !l.nextAt && inR(l));
+  const sched = state.drafts.filter(d => d.scheduledFor && inR(leadById(d.leadId) || {})).sort((a, b) => a.scheduledFor.localeCompare(b.scheduledFor));
   const g = [["Gecikmiş", active.filter(l => l.nextAt < t)], ["Bugün", active.filter(l => l.nextAt === t)], ["Bu hafta", active.filter(l => l.nextAt > t && l.nextAt <= w)], ["Daha sonra", active.filter(l => l.nextAt > w)]];
-  const hot = state.leads.filter(l => ["reply", "meet"].includes(l.status));
+  const hot = state.leads.filter(l => ["reply", "meet"].includes(l.status) && inR(l));
   const item = l => { const nx = seq()[l.step + 1]; return `<div class="tl-item ${l.nextAt < t ? "over" : ""}"><span class="d">${fmtDate(l.nextAt)}</span><span style="flex:1;min-width:0"><button class="nmbtn" data-open="${l.id}" style="background:none;border:0;padding:0;font-weight:600;cursor:pointer;color:var(--fg)">${esc(l.name)}</button> ${stepsBar(l)}<br><span class="small muted">Sıradaki: ${esc(nx?.label || "")} · ilk mail ${fmtDate(l.sentAt)}</span></span>${nextBtn(l)}<button class="btn ghost sm" data-setst="${l.id}:reply">Yanıt geldi</button></div>`; };
   return head("Takip takvimi", `Her firma ${seq().map(s => s.label + (s.day ? ` (+${s.day} gün)` : "")).join(" → ")} dizisiyle izlenir. Yanıt gelen firmada dizi durur.`,
     active.filter(l => l.nextAt <= t && !hasNextDraft(l)).length ? `<button class="btn primary" id="prepDue">Zamanı gelen takipleri hazırla (${active.filter(l => l.nextAt <= t && !hasNextDraft(l)).length})</button>` : "") + `
-  <div class="two">
+  ${roleTabs(k => state.leads.filter(l => l.status === "sent" && l.nextAt && (k === "all" || rolOf(l) === k)).length, "takiprol")}
+  <div class="two" style="margin-top:12px">
     <div class="tl">
       ${sched.length ? `<div class="tl-group"><h3>Gönderim planı · ${sched.length}</h3>${sched.map(d => { const l = leadById(d.leadId) || {}; return `<div class="tl-item"><span class="d" style="color:var(--blue)">${fmtDate(d.scheduledFor)}</span><span style="flex:1;min-width:0"><b>${esc(l.name)}</b><br><span class="small muted">${esc(stepLabel(d.type))} · günlük limit dolduğu için ertelendi</span></span></div>`; }).join("")}</div>` : ""}
       ${g.map(([name, arr]) => `<div class="tl-group"><h3>${name} · ${arr.length}</h3>${arr.length ? arr.map(item).join("") : `<p class="small muted">Yok.</p>`}</div>`).join("")}
@@ -873,14 +920,20 @@ const LANGS = ["English", "Türkçe"];
 const DEFAULT_TPL = {
   "English": {
     intro: {subject: "{urunler_kisa} for {firma}", body: "Dear {firma} team,\n\nCould you kindly forward this to the person responsible for purchasing or engineering?\n\n{giris}\n\nI'm {gonderen} from {sirket}. We supply {urunler}.\n\nWhat we can offer:\n{degerler}\n\nWould you be open to a short call or video meeting in the coming weeks?\n\nIf this isn't relevant for you, just reply and let me know – I won't follow up."},
-    intro_supplier: {subject: "Supply enquiry from {sirket}", body: "Dear {firma} team,\n\nCould you kindly forward this to your export or sales team?\n\n{giris}\n\nI'm {gonderen} from {sirket}. We are looking for a reliable supplier of {urunler_kisa}.\n\nWhat we would like to learn:\n- Your product range and specifications\n- Pricing for project and repeat volumes\n- Warranty, lead time and after-sales terms\n\nWould you be open to a short call or video meeting in the coming weeks?\n\nIf this isn't relevant for you, just reply and let me know – I won't follow up."},
+    intro_supplier: {subject: "Supply enquiry – {urunler_kisa}", body: "Dear {firma} team,\n\nCould you kindly forward this to your export or sales team?\n\n{giris}\n\nI'm {gonderen} from {sirket}. We are looking for a reliable supplier of {urunler_kisa}.\n\nWhat we would like to learn:\n- Your product range and specifications\n- Pricing for project and repeat volumes\n- Warranty, lead time and after-sales terms\n\nWould you be open to a short call or video meeting in the coming weeks?\n\nIf this isn't relevant for you, just reply and let me know – I won't follow up."},
+    f1_supplier: {subject: "Following up – supply enquiry from {sirket}", body: "Dear {firma} team,\n\nI wanted to follow up on my enquiry of {ilk_tarih} about {urunler_kisa}.\n\nTo make it easy: a price list or catalogue with indicative lead times would already help us a lot.\n\nIf this isn't relevant for you, just reply and let me know – I won't follow up."},
+    f2_supplier: {subject: "Quick question – {urunler_kisa}", body: "Dear {firma} team,\n\nJust one quick question: can you supply {urunler_kisa} in project volumes, and what is your typical lead time?\n\nA one-line answer is perfectly fine.\n\nIf this isn't relevant for you, just reply and let me know – I won't follow up."},
+    close_supplier: {subject: "Closing my enquiry", body: "Dear {firma} team,\n\nAs I haven't heard back, I'll close my enquiry for now. If you would like to quote for {urunler_kisa} in the future, just reply to this email.\n\nThank you, and all the best."},
     f1: {subject: "Following up – {urunler_kisa}", body: "Dear {firma} team,\n\nI wanted to follow up on my email from {ilk_tarih}. I know inboxes get busy.\n\nTo make it easy: if you share one current or upcoming project, I can send an indicative offer and a short technical summary within two working days.\n\nWho would be the right person to speak with?\n\nIf this isn't relevant for you, just reply and let me know – I won't follow up."},
     f2: {subject: "An idea for {firma}", body: "Dear {firma} team,\n\nOne more thought since my last note. Many companies in your market start with a single small project to compare price, delivery and support before committing to more.\n\nIf that approach suits {firma}, we would be glad to support a first project on those terms.\n\nWould a 15-minute call next week work?\n\nIf this isn't relevant for you, just reply and let me know – I won't follow up."},
     close: {subject: "Closing the loop", body: "Dear {firma} team,\n\nI haven't heard back, so I'll assume the timing isn't right and won't follow up further.\n\nIf anything changes, just reply to this email and I'll pick it up from here.\n\nThank you for your time."},
   },
   "Türkçe": {
     intro: {subject: "{firma} için {urunler_kisa}", body: "Sayın {firma} yetkilileri,\n\n{giris}\n\nBen {sirket}'den {gonderen}. {urunler} alanında hizmet veriyoruz.\n\nÖnerebileceklerimiz:\n{degerler}\n\nUygun görürseniz önümüzdeki haftalarda kısa bir telefon veya çevrim içi görüşme yapabilir miyiz?\n\nİlginizi çekmiyorsa yanıt vermeniz yeterli, tekrar rahatsız etmeyeceğim."},
-    intro_supplier: {subject: "{sirket} tedarik talebi", body: "Sayın {firma} yetkilileri,\n\n{giris}\n\nBen {sirket}'den {gonderen}. {urunler_kisa} için güvenilir bir tedarikçi arıyoruz.\n\nÖğrenmek istediklerimiz:\n- Ürün yelpazeniz ve teknik özellikler\n- Proje ve tekrarlayan alımlar için fiyatlar\n- Garanti, teslim süresi ve satış sonrası koşullar\n\nKısa bir görüşme yapabilir miyiz?\n\nİlginizi çekmiyorsa yanıt vermeniz yeterli, tekrar rahatsız etmeyeceğim."},
+    intro_supplier: {subject: "Tedarik talebi – {urunler_kisa}", body: "Sayın {firma} yetkilileri,\n\n{giris}\n\nBen {sirket}'den {gonderen}. {urunler_kisa} için güvenilir ve uzun vadeli çalışabileceğimiz bir tedarikçi arıyoruz; hem proje bazlı hem de düzenli alım yapıyoruz.\n\nÖğrenmek istediklerimiz:\n- Ürün yelpazeniz ve teknik özellikler\n- Proje ve tekrarlayan alımlar için fiyatlar\n- Garanti, teslim süresi ve satış sonrası koşullar\n\nKısa bir görüşme yapabilir miyiz?\n\nİlginizi çekmiyorsa yanıt vermeniz yeterli, tekrar rahatsız etmeyeceğim."},
+    f1_supplier: {subject: "Tedarik talebimiz hakkında – {urunler_kisa}", body: "Sayın {firma} yetkilileri,\n\n{ilk_tarih} tarihli {urunler_kisa} tedarik talebimi hatırlatmak istedim.\n\nKolaylık olması için: fiyat listesi veya katalog ile yaklaşık teslim süreleriniz bile bizim için çok faydalı olur.\n\nİlginizi çekmiyorsa yanıt vermeniz yeterli, tekrar rahatsız etmeyeceğim."},
+    f2_supplier: {subject: "Kısa bir soru – {urunler_kisa}", body: "Sayın {firma} yetkilileri,\n\nKısa bir sorum var: proje ölçeğinde {urunler_kisa} tedarik edebiliyor musunuz, ortalama teslim süreniz nedir?\n\nTek satırlık bir yanıt yeterli.\n\nİlginizi çekmiyorsa yanıt vermeniz yeterli, tekrar rahatsız etmeyeceğim."},
+    close_supplier: {subject: "Tedarik talebimi kapatıyorum", body: "Sayın {firma} yetkilileri,\n\nDönüş alamadığım için talebimi şimdilik kapatıyorum. İleride {urunler_kisa} için teklif vermek isterseniz bu maile yanıt vermeniz yeterli.\n\nTeşekkür eder, çalışmalarınızda başarılar dilerim."},
     f1: {subject: "Önceki mailim hakkında – {urunler_kisa}", body: "Sayın {firma} yetkilileri,\n\n{ilk_tarih} tarihli mailimi hatırlatmak istedim; yoğunluğunuzu anlıyorum.\n\nKolaylık olması için: güncel veya yakın bir projenizi paylaşırsanız iki iş günü içinde ön teklif ve kısa bir teknik özet gönderebilirim.\n\nBu konuyu kiminle görüşmem doğru olur?\n\nİlginizi çekmiyorsa yanıt vermeniz yeterli, tekrar rahatsız etmeyeceğim."},
     f2: {subject: "{firma} için bir öneri", body: "Sayın {firma} yetkilileri,\n\nSon mailimden sonra bir öneri daha paylaşmak istedim. Birçok firma, daha büyük kararlardan önce fiyat, teslimat ve desteği görmek için tek ve küçük bir projeyle başlıyor.\n\nBu yaklaşım {firma} için uygunsa ilk projede bu şekilde destek olmaktan memnuniyet duyarız.\n\nGelecek hafta 15 dakikalık bir görüşme mümkün mü?\n\nİlginizi çekmiyorsa yanıt vermeniz yeterli, tekrar rahatsız etmeyeceğim."},
     close: {subject: "Son mesajım", body: "Sayın {firma} yetkilileri,\n\nYanıt alamadığım için zamanlamanın uygun olmadığını düşünüyor ve tekrar yazmayacağım.\n\nİleride bir değişiklik olursa bu maile yanıt vermeniz yeterli, oradan devam ederiz.\n\nZaman ayırdığınız için teşekkür ederim."},
@@ -895,11 +948,12 @@ function tplFor(lang, key) {
 }
 function fill(text, l) {
   const p = state.profile, tr = isTr(leadLang(l));
-  const prod = tr ? (p.products || p.productsMail) : (p.productsMail || p.products);
+  const sup = rolOf(l) === "supplier";
+  const prod = sup ? (tr ? (p.buyNeeds || p.buyNeedsMail) : (p.buyNeedsMail || p.buyNeeds)) : tr ? (p.products || p.productsMail) : (p.productsMail || p.products);
   const val = tr ? (p.value || p.valueMail) : (p.valueMail || p.value);
   const vars = {
     firma: l.name, giris: l.hook || (tr ? `${l.name} ile ${l.region || "bölgenizdeki"} çalışmalarınız hakkında yazıyorum.` : `I'm reaching out regarding ${l.name}'s work in ${l.region}.`),
-    urunler: prod, urunler_kisa: (tr ? p.productsShortTr : p.productsShort) || shortSubj(prod),
+    urunler: prod, urunler_kisa: (sup ? (tr ? p.buyShortTr : p.buyShort) : (tr ? p.productsShortTr : p.productsShort)) || shortSubj(prod),
     degerler: String(val || "").split(/[,;]/).map(x => x.trim()).filter(Boolean).map(x => "- " + x.charAt(0).toLocaleUpperCase(tr ? "tr-TR" : "en") + x.slice(1)).join("\n"),
     gonderen: p.senderName, sirket: p.company, ilk_tarih: fmtDate(l.sentAt),
   };
@@ -914,7 +968,7 @@ const sigImgOn = () => state.profile.sigMode !== "text" && !!state.profile.sigIm
 function sigText(l) { const p = state.profile; return isTr(leadLang(l)) ? (p.signatureTr || p.signature) : p.signature; }
 function sigFor(l) { const t = sigText(l) || ""; return state.profile.sigMode === "image" && state.profile.sigImg ? t.split("\n")[0] : t; }
 function renderTpl(l, key) {
-  const k = key === "intro" && state.profile.mode === "supplier" ? "intro_supplier" : key;
+  const k = rolOf(l) === "supplier" && ["intro", "f1", "f2", "close"].includes(key) ? key + "_supplier" : key;
   const t = tplFor(leadLang(l), k);
   return {subject: fill(t.subject, l), body: fill(t.body, l) + "\n\n" + sigFor(l)};
 }
@@ -1253,12 +1307,31 @@ const FALLBACK_SUPPLIER = [
 /* ---------- canlı açık veri (OpenStreetMap + Wikidata) ----------
    Tarayıcıdan doğrudan ücretsiz kaynaklara gider. Firma sitesini okuma tarayıcıda mümkün olmadığından
    (CORS) tam sürümde sunucuda yapılır (pusula-sunucu/arastirma). E-posta yalnızca kayıtta yayımlanmışsa alınır. */
+// Firma türleri (OpenStreetMap etiketleri). "Tüm işletmeler" ve "isimde anahtar kelime" seçenekleri her türü kapsar.
 const OSM_TYPES = {
-  "otel-resort": {label: "Otel / resort / pansiyon", f: ['["tourism"~"^(hotel|resort|guest_house)$"]']},
-  "enerji": {label: "Enerji firması / elektrik / GES", f: ['["office"="energy_supplier"]', '["craft"~"^(electrician|photovoltaic)$"]', '["power"="plant"]["operator"]']},
-  "sirket-ofisi": {label: "Şirket ofisi (mühendislik, inşaat vb.)", f: ['["office"~"^(company|engineering|construction_company)$"]']},
-  "fabrika": {label: "Fabrika / üretim tesisi", f: ['["man_made"="works"]["name"]']},
-  "magaza": {label: "Mağaza / bayi", f: ['["shop"]["name"]']},
+  "tumu": {g: "Genel", label: "Tüm işletmeler (ofis, mağaza, atölye, sanayi)", f: ['[~"^(office|shop|craft|industrial)$"~"."]["name"]', '["man_made"="works"]["name"]']},
+  "anahtar": {g: "Genel", label: "Adında anahtar kelime geçenler (aşağıya yazın)", f: []},
+  "fabrika": {g: "Sanayi ve üretim", label: "Fabrika / üretim tesisi", f: ['["man_made"="works"]["name"]', '["industrial"]["name"]']},
+  "imalat": {g: "Sanayi ve üretim", label: "İmalat atölyesi (metal, elektrik, makine…)", f: ['["craft"~"^(metal_construction|electrician|electronics_repair|hvac|plumber|carpenter|joiner|welder|blacksmith|tiler|builder|insulation|roofer|window_construction|glaziery|stonemason)$"]']},
+  "depo": {g: "Sanayi ve üretim", label: "Depo / lojistik", f: ['["office"="logistics"]', '["building"="warehouse"]["name"]', '["shop"="wholesale"]']},
+  "enerji": {g: "Enerji", label: "Enerji şirketi / GES / elektrik", f: ['["office"="energy_supplier"]', '["craft"~"^(electrician|photovoltaic)$"]', '["power"="plant"]["operator"]', '["shop"~"^(energy|solar)$"]']},
+  "elektrik": {g: "Enerji", label: "Elektrik malzemesi satıcısı", f: ['["shop"~"^(electrical|lighting|electronics)$"]', '["shop"="trade"]["trade"~"electrical"]']},
+  "sirket": {g: "Ofisler", label: "Şirket ofisi (genel)", f: ['["office"="company"]']},
+  "muhendislik": {g: "Ofisler", label: "Mühendislik / inşaat / mimarlık", f: ['["office"~"^(engineering|construction_company|architect|surveyor)$"]']},
+  "bilisim": {g: "Ofisler", label: "Bilişim / yazılım / telekom", f: ['["office"~"^(it|telecommunication|software)$"]']},
+  "danismanlik": {g: "Ofisler", label: "Danışmanlık / muhasebe / hukuk", f: ['["office"~"^(consulting|accountant|lawyer|tax_advisor|notary)$"]']},
+  "finans": {g: "Ofisler", label: "Finans / sigorta / emlak", f: ['["office"~"^(financial|insurance|estate_agent|financial_advisor)$"]', '["amenity"="bank"]["name"]']},
+  "ithalat": {g: "Ofisler", label: "Dış ticaret / ithalat-ihracat", f: ['["office"~"^(company|logistics)$"]["name"~"(trade|import|export|ticaret|dış|global)",i]']},
+  "yapi": {g: "Ticaret", label: "Yapı market / hırdavat / inşaat malzemesi", f: ['["shop"~"^(doityourself|hardware|trade|building_materials|paint)$"]']},
+  "otomotiv": {g: "Ticaret", label: "Otomotiv / yedek parça / servis", f: ['["shop"~"^(car|car_parts|car_repair|tyres|motorcycle|truck)$"]', '["craft"="car_repair"]']},
+  "tarim": {g: "Ticaret", label: "Tarım / ziraat / hayvancılık", f: ['["shop"~"^(agrarian|farm|garden_centre)$"]', '["landuse"="farmyard"]["name"]', '["office"="agriculture"]']},
+  "magaza": {g: "Ticaret", label: "Tüm mağazalar / bayiler", f: ['["shop"]["name"]']},
+  "otel-resort": {g: "Turizm ve hizmet", label: "Otel / resort / pansiyon", f: ['["tourism"~"^(hotel|resort|guest_house|motel|apartment|hostel|chalet)$"]']},
+  "restoran": {g: "Turizm ve hizmet", label: "Restoran / kafe / catering", f: ['["amenity"~"^(restaurant|cafe|fast_food|food_court)$"]["name"]', '["craft"="caterer"]']},
+  "saglik": {g: "Turizm ve hizmet", label: "Hastane / klinik / eczane", f: ['["amenity"~"^(hospital|clinic|doctors|dentist|pharmacy)$"]["name"]', '["healthcare"]["name"]']},
+  "egitim": {g: "Turizm ve hizmet", label: "Okul / üniversite / kurs", f: ['["amenity"~"^(school|college|university|kindergarten|language_school|driving_school)$"]["name"]']},
+  "spor": {g: "Turizm ve hizmet", label: "Spor tesisi / AVM / eğlence", f: ['["leisure"~"^(sports_centre|fitness_centre|stadium|water_park)$"]["name"]', '["shop"="mall"]["name"]']},
+  "kamu": {g: "Turizm ve hizmet", label: "Belediye / kamu kurumu", f: ['["office"="government"]["name"]', '["amenity"="townhall"]["name"]']},
 };
 const OVERPASS_URL = "https://overpass.private.coffee/api/interpreter", WIKIDATA_URL = "https://query.wikidata.org/sparql";
 const q = s => String(s).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
@@ -1275,8 +1348,12 @@ async function runLive(n, dedupe) {
   const p = state.profile, ulke = (p.resCountry || "").trim();
   if (!ulke) { research.running = false; research.error = "Canlı arama için ülkenin İngilizce adını yazın (örn. Maldives)."; render(); return; }
   const tp = OSM_TYPES[p.resType] || OSM_TYPES["otel-resort"];
-  const oq = `[out:json][timeout:50];area["name:en"="${q(ulke)}"][admin_level=2]->.a;(${tp.f.map(f => `nwr${f}(area.a);`).join("")});out center tags ${n * 4};`;
   const sec = (p.resSector || "").trim().toLowerCase();
+  if (p.resType === "anahtar" && !sec) { research.running = false; research.error = "Anahtar kelime seçeneği için aşağıdaki kutuya bir kelime yazın (ör. cable, battery, kablo)."; render(); return; }
+  // Anahtar kelime yazıldıysa seçili türde isimde geçenlerle daraltılır; "anahtar" türünde tüm işletmelerde aranır
+  const isimF = sec ? `["name"~"${q(sec)}",i]` : "";
+  const filtreler = p.resType === "anahtar" ? OSM_TYPES.tumu.f.map(f => f + isimF) : tp.f.map(f => f + isimF);
+  const oq = `[out:json][timeout:50];area["name:en"="${q(ulke)}"][admin_level=2]->.a;(${filtreler.map(f => `nwr${f}(area.a);`).join("")});out center tags ${n * 4};`;
   const wq = `SELECT DISTINCT ?firma ?firmaLabel ?web ?sektorLabel ?merkezLabel WHERE { ?ulke rdfs:label "${q(ulke)}"@en; wdt:P31 wd:Q6256. ?firma wdt:P17 ?ulke; wdt:P856 ?web; wdt:P452 ?sektor. OPTIONAL { ?firma wdt:P159 ?merkez. } ${sec ? `?sektor rdfs:label ?sl. FILTER(LANG(?sl) = "en" && CONTAINS(LCASE(?sl), "${q(sec)}"))` : ""} SERVICE wikibase:label { bd:serviceParam wikibase:language "tr,en". } } LIMIT ${n * 3}`;
   const sig = research.ctl.signal, tm = setTimeout(() => research.ctl.abort(), 45000);
   const [o, w] = await Promise.allSettled([
@@ -1288,7 +1365,7 @@ async function runLive(n, dedupe) {
   if (o.status === "fulfilled") for (const e of o.value.elements || []) {
     const t = e.tags || {}, ad = t["name:en"] || t.name; if (!ad) continue;
     const email = (t.email || t["contact:email"] || "").split(";")[0].trim().toLowerCase();
-    list.push({name: ad, kind: tp.label.split(" /")[0], region: [t["addr:city"] || t["addr:island"] || t["addr:place"], ulke].filter(Boolean).join(", "), website: (t.website || t["contact:website"] || "").replace(/^https?:\/\//, "").replace(/\/$/, ""), email, emailSource: email ? "OpenStreetMap kaydında yayımlanmış adres" : "", sources: [{ad: "OpenStreetMap", url: `https://www.openstreetmap.org/${e.type}/${e.id}`}]});
+    list.push({name: ad, kind: ["tumu", "anahtar"].includes(p.resType) ? (t.office || t.shop || t.craft || t.industrial || t.man_made || "İşletme") : tp.label.split(" /")[0], region: [t["addr:city"] || t["addr:island"] || t["addr:place"], ulke].filter(Boolean).join(", "), website: (t.website || t["contact:website"] || "").replace(/^https?:\/\//, "").replace(/\/$/, ""), email, emailSource: email ? "OpenStreetMap kaydında yayımlanmış adres" : "", sources: [{ad: "OpenStreetMap", url: `https://www.openstreetmap.org/${e.type}/${e.id}`}]});
   }
   if (w.status === "fulfilled") for (const b of w.value.results?.bindings || []) {
     const ad = b.firmaLabel?.value; if (!ad || /^Q\d+$/.test(ad)) continue;
@@ -1342,7 +1419,7 @@ async function runResearch() {
   const p = state.profile;
   const brief = $("#brief").value.trim(), region = $("#region").value.trim(), n = Number($("#howMany").value) || 10;
   commit(() => { p.segmentBrief = brief; p.regions = region; });
-  research = {running: true, results: [], error: "", ctl: new AbortController(), note: "", campaign: ($("#campaign")?.value || "").trim() || region};
+  research = {running: true, results: [], error: "", ctl: new AbortController(), note: "", campaign: ($("#campaign")?.value || "").trim() || region, kategori: ($("#resKat")?.value || "").trim(), mod: p.mode};
   render();
   const known = state.leads.map(l => l.name.toLowerCase());
   const knownDom = new Set(state.leads.map(l => domainOf(l.email)).filter(Boolean));
@@ -1386,9 +1463,10 @@ function addResults() {
   commit(() => {
     for (const r of pick) state.leads.push({id: uid(), name: r.name, kind: r.kind, segment: r.segment, region: r.region, website: r.website || "", email: r.email,
       emailSource: r.emailSource || (r.email ? (sample ? "Yapay zekâ önerisi – doğrulanmalı" : "Kurumsal genel adres (kamuya açık)") : ""), legal: "B2B – meşru menfaat / tacir istisnası",
-      priority: r.priority, score: r.score, why: r.why, hook: r.hook || "", lang: r.lang || "", sources: r.sources || [], campaign: research.campaign || p.regions || "Genel", verified: r.verified !== undefined ? !!r.verified : !sample && !!r.email, status: "new", step: -1, sentAt: "", lastSentAt: "", nextAt: "", notes: ""});
+      priority: r.priority, score: r.score, why: r.why, hook: r.hook || "", lang: r.lang || "", sources: r.sources || [],
+      rol: research.mod === "supplier" ? "supplier" : guessRole(r) === "supplier" ? "customer" : guessRole(r), kategori: research.kategori || r.segment || r.kind || "Genel", campaign: research.campaign || p.regions || "Genel", verified: r.verified !== undefined ? !!r.verified : !sample && !!r.email, status: "new", step: -1, sentAt: "", lastSentAt: "", nextAt: "", notes: ""});
     research.results = research.results.filter(r => !r._sel);
-    view = "adaylar"; filters = {segment: "Tümü", status: "new", prio: "Tümü", q: "", campaign: "Tümü"};
+    view = "adaylar"; filters = {segment: "Tümü", status: "new", prio: "Tümü", q: "", campaign: "Tümü", rol: pick[0] ? rolOf(pick[0]) : "customer", kategori: "Tümü"};
   });
   toast(`${pick.length} aday listeye eklendi.`);
 }
@@ -1405,7 +1483,7 @@ function parseCSV(text) {
   if (cur || row.length) { row.push(cur); rows.push(row); }
   return rows.filter(r => r.some(c => c.trim()));
 }
-const COLS = {name: ["firma", "name", "company", "şirket", "kurum", "resort"], email: ["e-posta", "eposta", "email", "mail", "e-mail"], website: ["web", "website", "site", "web sitesi"], region: ["bölge", "region", "ülke", "country", "atoll", "şehir", "city"], kind: ["tür", "type", "kind", "kategori"], segment: ["segment"], priority: ["öncelik", "priority"], why: ["neden", "why", "not", "notes", "açıklama"], hook: ["giriş", "hook", "ilk cümle", "opening"], campaign: ["kampanya", "campaign"], lang: ["dil", "language", "lang"]};
+const COLS = {rol: ["ilişki", "iliski", "rol", "relationship"], kategori: ["kategori", "category"], name: ["firma", "name", "company", "şirket", "kurum", "resort"], email: ["e-posta", "eposta", "email", "mail", "e-mail"], website: ["web", "website", "site", "web sitesi"], region: ["bölge", "region", "ülke", "country", "atoll", "şehir", "city"], kind: ["tür", "type", "kind", "kategori"], segment: ["segment"], priority: ["öncelik", "priority"], why: ["neden", "why", "not", "notes", "açıklama"], hook: ["giriş", "hook", "ilk cümle", "opening"], campaign: ["kampanya", "campaign"], lang: ["dil", "language", "lang"]};
 function importCSV(text) {
   const rows = parseCSV(text.trim()); if (rows.length < 2) return {n: 0, skip: 0};
   const hdr = rows[0].map(h => h.trim().toLowerCase());
@@ -1420,16 +1498,17 @@ function importCSV(text) {
       const email = g("email").toLowerCase();
       if (known.has(name.toLowerCase()) || (email && knownMail.has(email))) { skip++; continue; }
       const pr = g("priority").toUpperCase();
-      state.leads.push({id: uid(), name, kind: g("kind") || "Firma", segment: g("segment") || "İçe aktarılan", region: g("region"), website: g("website"), email,
+      const rolMetin = g("rol").toLowerCase();
+      state.leads.push({id: uid(), rol: /tedarik|supplier/.test(rolMetin) ? "supplier" : /ortak|partner/.test(rolMetin) ? "partner" : "customer", kategori: g("kategori") || g("segment") || "İçe aktarılan", name, kind: g("kind") || "Firma", segment: g("segment") || "İçe aktarılan", region: g("region"), website: g("website"), email,
         emailSource: "Kullanıcının içe aktardığı liste", legal: "B2B – meşru menfaat / tacir istisnası", priority: ["A", "B", "C"].includes(pr) ? pr : "B", score: 60, why: g("why"), hook: g("hook"), lang: isTr(g("lang")) ? "Türkçe" : "", campaign: g("campaign") || "İçe aktarılan", verified: !!email, status: "new", step: -1, sentAt: "", lastSentAt: "", nextAt: "", notes: ""});
       known.add(name.toLowerCase()); if (email) knownMail.add(email); n++;
     }
-    view = "adaylar"; filters = {segment: "Tümü", status: "Tümü", prio: "Tümü", q: "", campaign: "Tümü"};
+    view = "adaylar"; filters = {segment: "Tümü", status: "Tümü", prio: "Tümü", q: "", campaign: "Tümü", rol: "customer", kategori: "Tümü"};
   });
   return {n, skip};
 }
 function exportCSV() {
-  const cols = [["Firma", "name"], ["E-posta", "email"], ["Web", "website"], ["Bölge", "region"], ["Tür", "kind"], ["Segment", "segment"], ["Öncelik", "priority"], ["Puan", "score"], ["Durum", l => STATUS[l.status].t], ["Dizi adımı", l => l.step + 1], ["İlk mail", "sentAt"], ["Sıradaki", "nextAt"], ["Neden", "why"], ["Kampanya", "campaign"], ["Dil", l => leadLang(l)], ["E-posta doğrulandı", l => l.verified ? "Evet" : "Hayır"], ["Notlar", "notes"]];
+  const cols = [["İlişki", l => ROLE1[rolOf(l)]], ["Kategori", "kategori"], ["Firma", "name"], ["E-posta", "email"], ["Web", "website"], ["Bölge", "region"], ["Tür", "kind"], ["Segment", "segment"], ["Öncelik", "priority"], ["Puan", "score"], ["Durum", l => STATUS[l.status].t], ["Dizi adımı", l => l.step + 1], ["İlk mail", "sentAt"], ["Sıradaki", "nextAt"], ["Neden", "why"], ["Kampanya", "campaign"], ["Dil", l => leadLang(l)], ["E-posta doğrulandı", l => l.verified ? "Evet" : "Hayır"], ["Notlar", "notes"]];
   const cell = v => { v = String(v ?? ""); return /[;"\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v; };
   return "﻿" + [cols.map(c => c[0]).join(";"), ...state.leads.map(l => cols.map(([, k]) => cell(typeof k === "function" ? k(l) : l[k])).join(";"))].join("\n");
 }
@@ -1467,9 +1546,10 @@ function go(v, anchor) { view = v; closeLead(); try { localStorage.setItem("pusu
 document.addEventListener("click", e => {
   const t = e.target.closest("button, input[type=checkbox]"); if (!t) return;
   const ds = t.dataset;
-  if (ds.nav) { if (ds.f) filters[ds.f] = ds.v; go(ds.nav, ds.anchor); return; }
+  if (ds.nav) { if (ds.f) { filters[ds.f] = ds.v; if (ds.f === "rol") filters.kategori = "Tümü"; } go(ds.nav, ds.anchor); return; }
   if (ds.mode) { commit(() => state.profile.mode = ds.mode); return; }
-  if (ds.f) { filters[ds.f] = ds.v; render(); return; }
+  if (ds.f === "takiprol") { takipRol = ds.v; render(); return; }
+  if (ds.f) { filters[ds.f] = ds.v; if (ds.f === "rol") filters.kategori = "Tümü"; render(); return; }
   if (ds.open) { openLead = ds.open; drawLead(); return; }
   if (ds.closelead) { closeLead(); return; }
   if (ds.sel) { t.checked ? selected.add(ds.sel) : selected.delete(ds.sel); const b = $("#introSel"); if (b) { b.disabled = !selected.size; b.textContent = `Tanışma maili hazırla (${selected.size})`; } return; }

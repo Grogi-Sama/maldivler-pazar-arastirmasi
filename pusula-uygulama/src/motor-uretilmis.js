@@ -3,6 +3,8 @@
 export function motor(state, {bugun}) {
   const SERVER = true, queue = [];
   const todayISO = () => bugun;
+const ROLES = {customer: "Müşteriler", supplier: "Tedarikçiler", partner: "İş ortakları"};
+const rolOf = l => ROLES[l.rol] ? l.rol : "customer";
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const uid = () => Math.random().toString(36).slice(2, 10);
 const addDays = (iso, n) => { const d = new Date(iso + "T12:00:00"); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
@@ -33,14 +35,20 @@ const LANGS = ["English", "Türkçe"];
 const DEFAULT_TPL = {
   "English": {
     intro: {subject: "{urunler_kisa} for {firma}", body: "Dear {firma} team,\n\nCould you kindly forward this to the person responsible for purchasing or engineering?\n\n{giris}\n\nI'm {gonderen} from {sirket}. We supply {urunler}.\n\nWhat we can offer:\n{degerler}\n\nWould you be open to a short call or video meeting in the coming weeks?\n\nIf this isn't relevant for you, just reply and let me know – I won't follow up."},
-    intro_supplier: {subject: "Supply enquiry from {sirket}", body: "Dear {firma} team,\n\nCould you kindly forward this to your export or sales team?\n\n{giris}\n\nI'm {gonderen} from {sirket}. We are looking for a reliable supplier of {urunler_kisa}.\n\nWhat we would like to learn:\n- Your product range and specifications\n- Pricing for project and repeat volumes\n- Warranty, lead time and after-sales terms\n\nWould you be open to a short call or video meeting in the coming weeks?\n\nIf this isn't relevant for you, just reply and let me know – I won't follow up."},
+    intro_supplier: {subject: "Supply enquiry – {urunler_kisa}", body: "Dear {firma} team,\n\nCould you kindly forward this to your export or sales team?\n\n{giris}\n\nI'm {gonderen} from {sirket}. We are looking for a reliable supplier of {urunler_kisa}.\n\nWhat we would like to learn:\n- Your product range and specifications\n- Pricing for project and repeat volumes\n- Warranty, lead time and after-sales terms\n\nWould you be open to a short call or video meeting in the coming weeks?\n\nIf this isn't relevant for you, just reply and let me know – I won't follow up."},
+    f1_supplier: {subject: "Following up – supply enquiry from {sirket}", body: "Dear {firma} team,\n\nI wanted to follow up on my enquiry of {ilk_tarih} about {urunler_kisa}.\n\nTo make it easy: a price list or catalogue with indicative lead times would already help us a lot.\n\nIf this isn't relevant for you, just reply and let me know – I won't follow up."},
+    f2_supplier: {subject: "Quick question – {urunler_kisa}", body: "Dear {firma} team,\n\nJust one quick question: can you supply {urunler_kisa} in project volumes, and what is your typical lead time?\n\nA one-line answer is perfectly fine.\n\nIf this isn't relevant for you, just reply and let me know – I won't follow up."},
+    close_supplier: {subject: "Closing my enquiry", body: "Dear {firma} team,\n\nAs I haven't heard back, I'll close my enquiry for now. If you would like to quote for {urunler_kisa} in the future, just reply to this email.\n\nThank you, and all the best."},
     f1: {subject: "Following up – {urunler_kisa}", body: "Dear {firma} team,\n\nI wanted to follow up on my email from {ilk_tarih}. I know inboxes get busy.\n\nTo make it easy: if you share one current or upcoming project, I can send an indicative offer and a short technical summary within two working days.\n\nWho would be the right person to speak with?\n\nIf this isn't relevant for you, just reply and let me know – I won't follow up."},
     f2: {subject: "An idea for {firma}", body: "Dear {firma} team,\n\nOne more thought since my last note. Many companies in your market start with a single small project to compare price, delivery and support before committing to more.\n\nIf that approach suits {firma}, we would be glad to support a first project on those terms.\n\nWould a 15-minute call next week work?\n\nIf this isn't relevant for you, just reply and let me know – I won't follow up."},
     close: {subject: "Closing the loop", body: "Dear {firma} team,\n\nI haven't heard back, so I'll assume the timing isn't right and won't follow up further.\n\nIf anything changes, just reply to this email and I'll pick it up from here.\n\nThank you for your time."},
   },
   "Türkçe": {
     intro: {subject: "{firma} için {urunler_kisa}", body: "Sayın {firma} yetkilileri,\n\n{giris}\n\nBen {sirket}'den {gonderen}. {urunler} alanında hizmet veriyoruz.\n\nÖnerebileceklerimiz:\n{degerler}\n\nUygun görürseniz önümüzdeki haftalarda kısa bir telefon veya çevrim içi görüşme yapabilir miyiz?\n\nİlginizi çekmiyorsa yanıt vermeniz yeterli, tekrar rahatsız etmeyeceğim."},
-    intro_supplier: {subject: "{sirket} tedarik talebi", body: "Sayın {firma} yetkilileri,\n\n{giris}\n\nBen {sirket}'den {gonderen}. {urunler_kisa} için güvenilir bir tedarikçi arıyoruz.\n\nÖğrenmek istediklerimiz:\n- Ürün yelpazeniz ve teknik özellikler\n- Proje ve tekrarlayan alımlar için fiyatlar\n- Garanti, teslim süresi ve satış sonrası koşullar\n\nKısa bir görüşme yapabilir miyiz?\n\nİlginizi çekmiyorsa yanıt vermeniz yeterli, tekrar rahatsız etmeyeceğim."},
+    intro_supplier: {subject: "Tedarik talebi – {urunler_kisa}", body: "Sayın {firma} yetkilileri,\n\n{giris}\n\nBen {sirket}'den {gonderen}. {urunler_kisa} için güvenilir ve uzun vadeli çalışabileceğimiz bir tedarikçi arıyoruz; hem proje bazlı hem de düzenli alım yapıyoruz.\n\nÖğrenmek istediklerimiz:\n- Ürün yelpazeniz ve teknik özellikler\n- Proje ve tekrarlayan alımlar için fiyatlar\n- Garanti, teslim süresi ve satış sonrası koşullar\n\nKısa bir görüşme yapabilir miyiz?\n\nİlginizi çekmiyorsa yanıt vermeniz yeterli, tekrar rahatsız etmeyeceğim."},
+    f1_supplier: {subject: "Tedarik talebimiz hakkında – {urunler_kisa}", body: "Sayın {firma} yetkilileri,\n\n{ilk_tarih} tarihli {urunler_kisa} tedarik talebimi hatırlatmak istedim.\n\nKolaylık olması için: fiyat listesi veya katalog ile yaklaşık teslim süreleriniz bile bizim için çok faydalı olur.\n\nİlginizi çekmiyorsa yanıt vermeniz yeterli, tekrar rahatsız etmeyeceğim."},
+    f2_supplier: {subject: "Kısa bir soru – {urunler_kisa}", body: "Sayın {firma} yetkilileri,\n\nKısa bir sorum var: proje ölçeğinde {urunler_kisa} tedarik edebiliyor musunuz, ortalama teslim süreniz nedir?\n\nTek satırlık bir yanıt yeterli.\n\nİlginizi çekmiyorsa yanıt vermeniz yeterli, tekrar rahatsız etmeyeceğim."},
+    close_supplier: {subject: "Tedarik talebimi kapatıyorum", body: "Sayın {firma} yetkilileri,\n\nDönüş alamadığım için talebimi şimdilik kapatıyorum. İleride {urunler_kisa} için teklif vermek isterseniz bu maile yanıt vermeniz yeterli.\n\nTeşekkür eder, çalışmalarınızda başarılar dilerim."},
     f1: {subject: "Önceki mailim hakkında – {urunler_kisa}", body: "Sayın {firma} yetkilileri,\n\n{ilk_tarih} tarihli mailimi hatırlatmak istedim; yoğunluğunuzu anlıyorum.\n\nKolaylık olması için: güncel veya yakın bir projenizi paylaşırsanız iki iş günü içinde ön teklif ve kısa bir teknik özet gönderebilirim.\n\nBu konuyu kiminle görüşmem doğru olur?\n\nİlginizi çekmiyorsa yanıt vermeniz yeterli, tekrar rahatsız etmeyeceğim."},
     f2: {subject: "{firma} için bir öneri", body: "Sayın {firma} yetkilileri,\n\nSon mailimden sonra bir öneri daha paylaşmak istedim. Birçok firma, daha büyük kararlardan önce fiyat, teslimat ve desteği görmek için tek ve küçük bir projeyle başlıyor.\n\nBu yaklaşım {firma} için uygunsa ilk projede bu şekilde destek olmaktan memnuniyet duyarız.\n\nGelecek hafta 15 dakikalık bir görüşme mümkün mü?\n\nİlginizi çekmiyorsa yanıt vermeniz yeterli, tekrar rahatsız etmeyeceğim."},
     close: {subject: "Son mesajım", body: "Sayın {firma} yetkilileri,\n\nYanıt alamadığım için zamanlamanın uygun olmadığını düşünüyor ve tekrar yazmayacağım.\n\nİleride bir değişiklik olursa bu maile yanıt vermeniz yeterli, oradan devam ederiz.\n\nZaman ayırdığınız için teşekkür ederim."},
@@ -98,11 +106,12 @@ function tplFor(lang, key) {
 }
 function fill(text, l) {
   const p = state.profile, tr = isTr(leadLang(l));
-  const prod = tr ? (p.products || p.productsMail) : (p.productsMail || p.products);
+  const sup = rolOf(l) === "supplier";
+  const prod = sup ? (tr ? (p.buyNeeds || p.buyNeedsMail) : (p.buyNeedsMail || p.buyNeeds)) : tr ? (p.products || p.productsMail) : (p.productsMail || p.products);
   const val = tr ? (p.value || p.valueMail) : (p.valueMail || p.value);
   const vars = {
     firma: l.name, giris: l.hook || (tr ? `${l.name} ile ${l.region || "bölgenizdeki"} çalışmalarınız hakkında yazıyorum.` : `I'm reaching out regarding ${l.name}'s work in ${l.region}.`),
-    urunler: prod, urunler_kisa: (tr ? p.productsShortTr : p.productsShort) || shortSubj(prod),
+    urunler: prod, urunler_kisa: (sup ? (tr ? p.buyShortTr : p.buyShort) : (tr ? p.productsShortTr : p.productsShort)) || shortSubj(prod),
     degerler: String(val || "").split(/[,;]/).map(x => x.trim()).filter(Boolean).map(x => "- " + x.charAt(0).toLocaleUpperCase(tr ? "tr-TR" : "en") + x.slice(1)).join("\n"),
     gonderen: p.senderName, sirket: p.company, ilk_tarih: fmtDate(l.sentAt),
   };
@@ -116,7 +125,7 @@ const sigImgOn = () => state.profile.sigMode !== "text" && !!state.profile.sigIm
 function sigText(l) { const p = state.profile; return isTr(leadLang(l)) ? (p.signatureTr || p.signature) : p.signature; }
 function sigFor(l) { const t = sigText(l) || ""; return state.profile.sigMode === "image" && state.profile.sigImg ? t.split("\n")[0] : t; }
 function renderTpl(l, key) {
-  const k = key === "intro" && state.profile.mode === "supplier" ? "intro_supplier" : key;
+  const k = rolOf(l) === "supplier" && ["intro", "f1", "f2", "close"].includes(key) ? key + "_supplier" : key;
   const t = tplFor(leadLang(l), k);
   return {subject: fill(t.subject, l), body: fill(t.body, l) + "\n\n" + sigFor(l)};
 }

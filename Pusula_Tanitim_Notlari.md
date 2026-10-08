@@ -18,7 +18,9 @@ Firmanızı ve hedefinizi anlatırsınız. Pusula müşteri veya tedarikçi aday
 
 | Özellik | Kullanıcıya faydası |
 |---|---|
-| Hem müşteri hem tedarikçi bulma | Aynı araçla satış ve satın alma |
+| Hem müşteri hem tedarikçi bulma | Aynı araçla satış ve satın alma; adaylar Müşteriler / Tedarikçiler / İş ortakları sekmelerinde ve kategorilerde ayrı tutulur, karışmaz |
+| İlişkiye göre şablon | Tedarikçiye fiyat ve teslim süresi soran mail, müşteriye tanıtım maili; "Ne satın almak istiyoruz" alanından yazılır |
+| Geniş firma türü seçimi | 23 firma türü, "tüm işletmeler" ve firma adında anahtar kelime ile arama |
 | Otomatik araştırma ve sınıflandırma | Segment, A/B/C öncelik, 0–100 uygunluk puanı, "neden bu firma" gerekçesi |
 | Kişiye özel giriş cümlesi | Her mail, firmanın kendi projesine değinerek başlar |
 | Türkçe / İngilizce mail | Türk firmalara Türkçe, yabancılara İngilizce otomatik |
@@ -32,7 +34,7 @@ Firmanızı ve hedefinizi anlatırsınız. Pusula müşteri veya tedarikçi aday
 | Outlook (Microsoft 365) bağlantısı | Mailler kullanıcının kendi Outlook hesabından gerçekten gider, Gönderilmiş Öğeler'e düşer; şifre Pusula'ya verilmez |
 | Bugünkü işler | Panel her sabah ne yapılacağını söyler |
 | Yanıt asistanı | Gelen cevabı sınıflandırır (ilgili, görüşme, sonra, ilgisiz, listeden çık) ve cevap taslağı yazar |
-| Otonom gönderim | Açın, günlük adedi seçin, onaylayın; Pusula kurallara uyan mailleri kendisi gönderir |
+| Otonom gönderim | Açın, günlük adedi seçin, onaylayın; Pusula kurallara uyan mailleri sunucuda kendisi gönderir, tarayıcı kapalı olsa bile |
 | Test modu | Demo ve denemelerde mailler firmaya değil sizin adresinize gider |
 | Kampanyalar ve CSV | Pazar bazında takip; Excel'den içe ve dışa aktarma |
 | Mobil, tarayıcı, masaüstü | Tek uygulama her cihazda çalışır |
@@ -53,7 +55,7 @@ Firmanızı ve hedefinizi anlatırsınız. Pusula müşteri veya tedarikçi aday
   - Listeden çıkma cümlesi ve imza
   - Dil karışıklığı
   - Doğrulanmamış adres
-- **Gönderim sağlığı kontrolü:** SPF, DKIM ve DMARC için kontrol listesi. Tam sürümde alan adınızdan otomatik okunur.
+- **Gönderim sağlığı kontrolü:** SPF, DKIM ve DMARC için kontrol listesi. Alan adınızın DNS kayıtlarından otomatik okunur, her gün kendiliğinden yenilenir; eksikse ne yapılacağı yazılır.
   - **SPF:** Alan adınız adına hangi sunucuların mail gönderebileceğini gösteren liste.
   - **DKIM:** Her maile eklenen dijital imza; mailin gerçekten sizden geldiğini ve yolda değişmediğini kanıtlar.
   - **DMARC:** Bu iki kontrolden geçemeyen, sizin adınıza gönderilmiş sahte maillere ne yapılacağını söyleyen kural.
@@ -85,6 +87,7 @@ Firmanızı ve hedefinizi anlatırsınız. Pusula müşteri veya tedarikçi aday
 ## 6. Veri doğruluğu ve uyum
 
 - **Kaynak gösterimi:** Canlı araştırmada her firmanın hangi açık kayıttan geldiği tıklanabilir bağlantıyla gösterilir; adresin alan adı mail kabul ediyor mu (MX) ücretsiz kontrol edilir.
+- **Tedarikçi aramasında eleme:** Üniversite, Ar-Ge merkezi, laboratuvar, kamu kurumu, dernek ve oda sonuçları otomatik elenir.
 - **E-posta adresleri uydurulmaz:** Yalnızca firmanın kendi sitesinde yayımladığı kurumsal adresler alınır. Kişisel adres tahmini yapılmaz.
 - **Her aday için kaynak bağlantısı saklanır.** Doğrulanmamış bilgi "doğrulanmadı" etiketiyle gösterilir.
 - **Tekrar önleme:** Aynı firma veya alan adı listeye ikinci kez eklenmez.
