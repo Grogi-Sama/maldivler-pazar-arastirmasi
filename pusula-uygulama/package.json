@@ -9,6 +9,7 @@
     "deploy": "wrangler deploy"
   },
   "devDependencies": {
+    "acorn": "^8.19.0",
     "wrangler": "^4.148.0"
   }
 }

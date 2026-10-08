@@ -215,6 +215,11 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 .mailto.mto{display:grid;gap:3px;text-align:left}
 .mailto.mto .pill{vertical-align:middle;white-space:nowrap}
 .conn-ms{display:grid;gap:8px;border-top:1px solid var(--line);padding-top:12px}
+.hrows{display:grid;gap:2px}
+.hrow{display:grid;grid-template-columns:26px minmax(0,1fr);gap:8px;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px}
+.hrow:last-child{border-bottom:0}
+.hrow .hi{font-size:16px;line-height:1.4}
+.hdet{display:block;margin-top:4px;font:12px/1.4 var(--mono);color:var(--muted);overflow-wrap:anywhere;background:var(--surface-2);padding:4px 7px;border-radius:6px}
 </style>
 
 <div class="app" id="app">
@@ -279,6 +284,7 @@ const HEALTH = [
   ["warmup", "Gönderen adres en az 3 haftalık",   "Yeni açılmış adreslerden günde 10–25 mail ile başlayın, yavaş artırın."],
   ["domain", "Satış için ayrı alt alan adı",      "Örn. mail.firmaniz.com: ana alan adınızın itibarını korur."],
 ];
+const HL = () => SERVER ? HEALTH.filter(([k]) => k !== "domain") : HEALTH;
 const TRIGGERS = ["free","guarantee","guaranteed","urgent","act now","limited time","no obligation","click here","winner","earn","cash","risk-free","risk free","congratulations","100%","lowest price","buy now","offer expires","ücretsiz","bedava","garantili","acil","hemen","kaçırmayın","son fırsat","tıklayın","kazandınız","indirim","kampanya"];
 const OPTOUT_RE = /(won't follow up|will not follow up|reply and let me know|just reply|unsubscribe|tekrar rahatsız etmeyeceğim|yanıt vermeniz yeterli|listeden çık)/i;
 
@@ -422,7 +428,7 @@ async function serverSave(body) {
     const r = await fetch("/api/alan", {method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify({veri: body, surum: srvVer})});
     if (r.status === 401) { location.href = "/giris"; return; }
     const j = await r.json();
-    if (r.status === 409) { srvConflict = true; setStoreNote("Başka bir cihazda değişiklik var. Sayfayı yenileyin."); toast("Veriler başka bir cihazda değişti; son hâli görmek için sayfayı yenileyin."); return; }
+    if (r.status === 409) { srvConflict = true; toast("Sunucuda yeni değişiklik vardı (ör. otonom gönderim); son hâl yüklendi. Son düzenlemenizi kontrol edin."); await serverPull(true); setStoreNote(); return; }
     if (!r.ok) throw new Error(j.hata);
     srvVer = j.surum; setStoreNote();
   } catch (e) { setStoreNote("Kaydedilemedi; bağlantıyı kontrol edin."); }
@@ -499,7 +505,7 @@ function vPanel() {
   const max = Math.max(1, ...stages.map(s => state.leads.filter(l => l.status === s[0]).length));
   const top = state.leads.filter(l => l.status === "new" && !isSuppressed(l)).sort((a, b) => b.score - a.score).slice(0, 4);
   const segs = [...new Set(state.leads.map(l => l.segment))].map(s => { const ls = state.leads.filter(l => l.segment === s); const sent = ls.filter(l => CONTACTED.includes(l.status)).length; const rep = ls.filter(l => ["reply", "meet"].includes(l.status)).length; return {s, sent, rep, rate: sent ? rep / sent : 0}; }).filter(x => x.sent);
-  const h = state.profile.health, hs = HEALTH.filter(([k]) => h[k]).length;
+  const h = state.profile.health, hs = HL().filter(([k]) => h[k]).length;
   const dueNow = state.leads.filter(l => l.status === "sent" && l.nextAt && l.nextAt <= t && !hasNextDraft(l));
   const replyDrafts = state.drafts.filter(d => d.type === "reply");
   const readyDrafts = state.drafts.filter(d => !d.scheduledFor && d.type !== "reply");
@@ -543,8 +549,8 @@ function vPanel() {
     </div>
     <div class="card grid">
       <div class="row"><h2>Gönderim sağlığı</h2><span class="spacer"></span><button class="btn ghost sm" data-nav="profil" data-anchor="saglik">Kontrol et</button></div>
-      <div class="meter"><i style="width:${hs / HEALTH.length * 100}%"></i></div>
-      <p class="small" style="margin:0">${hs}/${HEALTH.length} madde tamam. ${hs < HEALTH.length ? `Eksik: ${HEALTH.filter(([k]) => !h[k]).map(x => x[1]).join(", ")}.` : "Mailleriniz gelen kutusuna ulaşmaya hazır."}</p>
+      <div class="meter"><i style="width:${hs / HL().length * 100}%"></i></div>
+      <p class="small" style="margin:0">${hs}/${HL().length} madde tamam. ${hs < HL().length ? `Eksik: ${HL().filter(([k]) => !h[k]).map(x => x[1]).join(", ")}.` : "Mailleriniz gelen kutusuna ulaşmaya hazır."}</p>
     </div>
   </div>
   <div class="card grid" style="margin-top:14px">
@@ -648,9 +654,9 @@ function vProfil() {
     <div class="row">${state.auto.on ? `<button class="btn" id="autoOff">Otonom gönderimi durdur</button>` : `<button class="btn primary" id="autoOn">Otonom gönderimi aç</button>`}</div>
   </div>
   <div class="card grid" style="margin-top:14px" id="saglik">
-    <div class="row"><h2>Gönderim sağlığı</h2><span class="spacer"></span><span class="mono muted">${HEALTH.filter(([k]) => h[k]).length}/${HEALTH.length}</span></div>
-    <p class="small muted" style="margin:0">Gmail, Yahoo ve Microsoft, Kasım 2025'ten beri bu kuralları sağlamayan mailleri reddediyor. Tam sürümde bu kontroller alan adınız üzerinden otomatik yapılır.</p>
-    <div>${HEALTH.map(([k, t, d]) => `<label class="check" for="h_${k}"><input id="h_${k}" type="checkbox" data-health="${k}" ${h[k] ? "checked" : ""}><span>${t}<small>${d}</small></span></label>`).join("")}</div>
+    <div class="row"><h2>Gönderim sağlığı</h2><span class="spacer"></span><span class="mono muted">${HL().filter(([k]) => h[k]).length}/${HL().length}</span>${SERVER ? `<button class="btn sm" id="healthRun">Yeniden kontrol et</button>` : ""}</div>
+    <p class="small muted" style="margin:0">Gmail, Yahoo ve Microsoft, Kasım 2025'ten beri bu kuralları sağlamayan mailleri reddediyor. ${SERVER ? `Kontroller gönderen alan adınızın DNS kayıtlarından otomatik yapılır${state.profile.healthAuto ? ` (${esc(state.profile.healthAuto.alan)} · ${new Date(state.profile.healthAuto.zaman).toLocaleString("tr-TR", {dateStyle: "short", timeStyle: "short"})})` : ""}.` : "Tam sürümde bu kontroller alan adınız üzerinden otomatik yapılır."}</p>
+    ${SERVER ? healthAutoHtml() : `<div>${HEALTH.map(([k, t, d]) => `<label class="check" for="h_${k}"><input id="h_${k}" type="checkbox" data-health="${k}" ${h[k] ? "checked" : ""}><span>${t}<small>${d}</small></span></label>`).join("")}</div>`}
   </div>
   <div class="card grid" style="margin-top:14px">
     <h2>Yasal uyum</h2>
@@ -1076,6 +1082,43 @@ function drawQueue() {
   el.innerHTML = `<span>${done}/${qTotal} gönderildi</span><span class="bar"><i style="width:${done / qTotal * 100}%"></i></span><span class="small" style="opacity:.75">${realMail() ? (testOn() ? "Test: mailler arası 15–30 sn" : `Mailler arası ${sn.minGap}–${sn.maxGap} dk`) : "Demo hızı"} · gerçekte ${sn.minGap}–${sn.maxGap} dk aralık</span>`;
 }
 
+/* ---------- otomatik gönderim sağlığı (sunucu modu) ---------- */
+let healthBusy = false;
+const ICON = {ok: "✅", uyari: "⚠️", hata: "❌", bilgi: "ℹ️", bilinmiyor: "❔"};
+function optoutAll() { return LANGS.every(lang => ["intro", "f1", "f2", "close"].every(k => OPTOUT_RE.test(tplFor(lang, k).body || ""))); }
+function healthRows() {
+  const a = state.profile.healthAuto, k = a?.kontroller || {}, yas = a?.yas, onay = !!state.profile.healthWarmupOk;
+  const yasOk = (yas && yas.gun >= 21) || onay;
+  return [
+    ["spf", "SPF kaydı", k.spf],
+    ["dkim", "DKIM imzası", k.dkim],
+    ["dmarc", "DMARC kaydı", k.dmarc],
+    ["unsub", "Listeden çıkma yolu", optoutAll() ? {durum: "ok", ozet: "Tüm şablonlarda 'istemiyorsanız yanıt verin' cümlesi var."} : {durum: "hata", ozet: "Bazı şablonlarda listeden çıkma cümlesi eksik.", cozum: "Ayarlar › Mail şablonları'nda her şablona bu cümleyi ekleyin."}],
+    ["warmup", "Gönderen adres yaşı", yasOk ? {durum: "ok", ozet: yas && yas.gun >= 21 ? (yas.kaynak === "rdap" ? `Alan adı ${yas.gun} günlük.` : `Pusula ile ilk gönderim ${yas.gun} gün önce.`) : "Adresin 3 haftadan eski olduğunu onayladınız."}
+      : {durum: "uyari", ozet: yas ? `Pusula ile ilk gönderim ${yas.gun} gün önce; ilk 3 hafta günde en fazla 20 mail önerilir.` : "Alan adı yaşı bu uzantı için otomatik ölçülemiyor.", onay: true}],
+    ["domain", "Satış için ayrı alt alan adı", {durum: "bilgi", ozet: "Öneri: yüksek hacimde ana alan adının itibarını korumak için ayrı bir alt alan adı (ör. mail.firmaniz.com) kullanılabilir. Günde 50'nin altındaki kişisel gönderimde gerekli değil."}],
+  ];
+}
+function healthAutoHtml() {
+  if (!state.profile.healthAuto) return `<p class="small">${healthBusy ? "Kontrol ediliyor…" : `Henüz kontrol edilmedi. <button class="linkbtn" id="healthRun2">Şimdi kontrol et</button>`}</p>`;
+  return `<div class="hrows">${healthRows().map(([key, t, r]) => `<div class="hrow"><span class="hi" aria-hidden="true">${ICON[r?.durum] || "❔"}</span><div><b>${t}</b><span class="small muted"> ${esc(r?.ozet || "Kontrol edilemedi.")}</span>${r?.detay ? `<code class="hdet">${esc(r.detay)}</code>` : ""}${r?.cozum ? `<div class="small">Çözüm: ${esc(r.cozum)}</div>` : ""}${r?.onay ? `<label class="check"><input type="checkbox" id="warmOk"><span>Bu adres 3 haftadan uzun süredir kullanılıyor<small>Onaylarsanız bu madde tamamlanmış sayılır.</small></span></label>` : ""}</div></div>`).join("")}</div>`;
+}
+async function runHealth(sessiz) {
+  if (!SERVER || healthBusy) return;
+  healthBusy = true; if (!sessiz) render();
+  try {
+    const r = await fetch("/api/saglik"); const j = await r.json();
+    if (!r.ok || j.hata) throw new Error(j.hata || "Kontrol edilemedi");
+    commit(() => {
+      state.profile.healthAuto = j;
+      // Otonom gönderim ve panel aynı puanı kullansın diye eski işaretleri otomatik sonuçla eşitle
+      for (const [key, , row] of healthRows()) if (key !== "domain") state.profile.health[key] = row?.durum === "ok";
+    });
+    if (!sessiz) toast("Gönderim sağlığı kontrol edildi.");
+  } catch (e) { if (!sessiz) toast("Kontrol yapılamadı: " + e.message); }
+  healthBusy = false; render();
+}
+
 /* ---------- görsel imza ---------- */
 function loadSigImage(file) {
   if (!file) return;
@@ -1135,7 +1178,26 @@ function autoPlan() {
   ok.sort((x, y) => (x.type === "intro") - (y.type === "intro") || (leadById(y.leadId).score - leadById(x.leadId).score));
   return ok.slice(0, autoQuota());
 }
+// Kendi adresindeki sürümde otonom gönderimi yalnızca sunucu yapar (çift gönderimi önler); tarayıcı yalnızca tetikler ve izler.
+async function serverTur() {
+  try {
+    const r = await fetch("/api/otonom/tur", {method: "POST"}); const j = await r.json();
+    const m = {gonderildi: `${j.firma} için mail gönderildi (${j.alici}).${j.kalan ? ` Sırada ${j.kalan} mail var; sunucu insan temposunda devam edecek.` : ""}`, "gonderilecek-yok": "Kurallara uyan, gönderilecek mail yok.", "posta-yok": "Önce Ayarlar › Bağlantılar'dan Outlook'u bağlayın.", kapali: "Otonom gönderim kapalı.", fren: j.neden, hata: "Gönderilemedi: " + j.neden};
+    toast(m[j.durum] || (j.hata || "Tamamlandı."));
+    await serverPull(true);
+  } catch (e) { toast("Sunucuya ulaşılamadı."); }
+}
+async function serverPull(zorla) {
+  if (!SERVER || !srvReady) return;
+  const yaziyor = ["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName) && !zorla;
+  if (yaziyor || saveTimer && !zorla) return;
+  try {
+    const r = await fetch("/api/alan"); if (!r.ok) return; const j = await r.json();
+    if (j.veri && j.surum > srvVer) { state = normalize(j.veri); srvVer = j.surum; srvConflict = false; render(); }
+  } catch (e) {}
+}
 function autoRun(force) {
+  if (SERVER) { if (force) serverTur(); return 0; }
   const a = state.auto; if (!a.on || qTimer) return 0;
   if (!force && !inWindow()) return 0;
   if (state.leads.filter(isOptoutToday).length >= 2) {
@@ -1148,19 +1210,19 @@ function autoRun(force) {
   return plan.length;
 }
 function autoEnable() {
-  const a = state.auto, sn = state.profile.sending, h = state.profile.health, hs = HEALTH.filter(([k]) => h[k]).length;
+  const a = state.auto, sn = state.profile.sending, h = state.profile.health, hs = HL().filter(([k]) => h[k]).length;
   const cap = Math.min(a.dailyMax, sn.dailyLimit);
   const ready = state.drafts.filter(d => !autoCheck(d)).length, held = state.drafts.filter(d => d.type !== "reply" && autoCheck(d)).length;
   confirmDlg("Otonom gönderimi aç",
     `Pusula ${sn.weekdaysOnly ? "her iş günü" : "her gün"} ${String(sn.startHour).padStart(2, "0")}:00–${String(sn.endHour).padStart(2, "0")}:00 arasında <b>günde en fazla ${cap} mail</b> gönderecek; mailler arasında ${sn.minGap}–${sn.maxGap} dakika rastgele bekleyecek.<br><br>
     Gönderilecekler: ${[a.followups && "zamanı gelen takip mailleri", a.intros && "A/B öncelikli yeni adaylara tanışma maili", "hazır taslaklarınız"].filter(Boolean).join(", ")}. Şu an ${ready} taslak kurallara uyuyor${held ? `, ${held} taslak kontrolünüzü bekleyecek` : ""}.<br><br>
     Cevap mailleri, doğrulanmamış adresler ve teslim puanı ${a.minQuality}'in altındaki mailler hiçbir zaman otomatik gitmez. Firma yanıt verince ya da listeden çıkınca dizi kendiliğinden durur; aynı gün 2 firma listeden çıkarsa otonom gönderim kendini kapatır.
-    ${hs < HEALTH.length ? `<br><br><b>Gönderim sağlığı ${hs}/${HEALTH.length}.</b> SPF, DKIM ve DMARC tamamlanmadan otomatik gönderim spam riskini artırır:<br>
+    ${hs < HL().length ? `<br><br><b>Gönderim sağlığı ${hs}/${HL().length}.</b> SPF, DKIM ve DMARC tamamlanmadan otomatik gönderim spam riskini artırır:<br>
     • <b>SPF:</b> Alan adınız adına hangi sunucuların mail gönderebileceğini gösteren liste.<br>
     • <b>DKIM:</b> Her maile eklenen dijital imza; mailin gerçekten sizden geldiğini ve yolda değişmediğini kanıtlar.<br>
     • <b>DMARC:</b> Bu iki kontrolden geçemeyen, sizin adınıza gönderilmiş sahte maillere ne yapılacağını söyleyen kural.<br>
-    Bu konu için Ayarlar sekmesindeki <button class="linkbtn" data-x data-nav="profil" data-anchor="saglik">Gönderim sağlığı</button> kısmını kontrol edebilirsiniz.` : ""}<br><br>Demo modunda gerçek mail gönderilmez.`,
-    "Onayla ve başlat", () => { commit(() => { a.on = true; a.since = new Date().toISOString(); a.pausedReason = ""; log("", `Otonom gönderim açıldı (günde en fazla ${cap})`); }); if (!autoRun(false)) toast(inWindow() ? "Otonom gönderim açık; şu an kurallara uyan mail yok." : `Otonom gönderim açık; ilk çalışma ${nextWindow()}.`); });
+    Bu konu için Ayarlar sekmesindeki <button class="linkbtn" data-x data-nav="profil" data-anchor="saglik">Gönderim sağlığı</button> kısmını kontrol edebilirsiniz.` : ""}<br><br>${SERVER ? "Gönderimi Pusula sunucusu yapar: bilgisayarınız ve tarayıcınız kapalıyken de devam eder." : "Demo modunda gerçek mail gönderilmez."}`,
+    "Onayla ve başlat", () => { commit(() => { a.on = true; a.since = new Date().toISOString(); a.pausedReason = ""; log("", `Otonom gönderim açıldı (günde en fazla ${cap})`); }); if (SERVER) toast(inWindow() ? "Otonom gönderim açık; sunucu birkaç dakika içinde başlar." : `Otonom gönderim açık; sunucu ${nextWindow()} başlar.`); else if (!autoRun(false)) toast(inWindow() ? "Otonom gönderim açık; şu an kurallara uyan mail yok." : `Otonom gönderim açık; ilk çalışma ${nextWindow()}.`); });
 }
 function autoBanner() {
   const a = state.auto, cap = Math.min(a.dailyMax, state.profile.sending.dailyLimit), sent = sentToday();
@@ -1169,7 +1231,7 @@ function autoBanner() {
   return `<div class="card grid auto" style="margin-bottom:14px" role="status">
     <div class="row"><span class="dot-live" aria-hidden="true"></span><b>Otonom gönderim açık</b><span class="pill st-sent">bugün ${Math.min(sent, cap)}/${cap}</span><span class="spacer"></span><button class="btn sm" id="autoNow">Şimdi bir tur çalıştır</button><button class="btn sm" id="autoOff">Durdur</button></div>
     <div class="meter" aria-hidden="true"><i style="width:${Math.min(100, sent / Math.max(1, cap) * 100)}%"></i></div>
-    <p class="small muted" style="margin:0">${qTimer ? "Şu an gönderiyor." : inWindow() ? "Gönderim saatinde; kurallara uyan mailler sırayla gidiyor." : `Gönderim saatleri dışında; sonraki çalışma ${nextWindow()}.`} ${nxt} mail sırada${held ? ` · ${held} mail kontrolünüzü bekliyor` : ""}.</p>
+    <p class="small muted" style="margin:0">${SERVER ? (inWindow() ? "Sunucu gönderiyor: kurallara uyan mailler insan temposunda tek tek gidiyor; tarayıcıyı kapatabilirsiniz." : `Gönderim saatleri dışında; sunucu ${nextWindow()} devam edecek.`) : qTimer ? "Şu an gönderiyor." : inWindow() ? "Gönderim saatinde; kurallara uyan mailler sırayla gidiyor." : `Gönderim saatleri dışında; sonraki çalışma ${nextWindow()}.`} ${nxt} mail sırada${held ? ` · ${held} mail kontrolünüzü bekliyor` : ""}.</p>
   </div>`;
 }
 
@@ -1469,6 +1531,8 @@ document.addEventListener("click", e => {
       .catch(() => toast("Sunucuya ulaşılamadı.")).finally(() => { t.disabled = false; });
     return;
   }
+  if (t.id === "healthRun" || t.id === "healthRun2") { runHealth(false); return; }
+  if (t.id === "warmOk") { commit(() => { state.profile.healthWarmupOk = t.checked; state.profile.health.warmup = t.checked || state.profile.health.warmup; }); runHealth(true); return; }
   if (t.id === "logout") { fetch("/api/cikis", {method: "POST"}).finally(() => { location.href = "/giris"; }); return; }
   if (ds.ressrc) { commit(() => { state.profile.resSource = ds.ressrc; }); return; }
   if (ds.sigmode) { commit(() => { state.profile.sigMode = ds.sigmode; }); return; }
@@ -1513,6 +1577,7 @@ if (!SERVER) try { const s = localStorage.getItem("pusula.state"); if (s) state 
 state = normalize(state);
 render(); setStoreNote("Veriler bu tarayıcıda saklanıyor.");
 setInterval(() => autoRun(false), 60000); setTimeout(() => autoRun(false), 2500);
+setInterval(() => { if (SERVER && document.visibilityState === "visible") serverPull(false); }, 60000);
 (async () => {
   if (SERVER) {
     try {
@@ -1521,6 +1586,7 @@ setInterval(() => autoRun(false), 60000); setTimeout(() => autoRun(false), 2500)
       const j = await r.json();
       srvReady = true; sample = serverSample();
       loadPosta();
+      const ha = state.profile.healthAuto; if (!ha || Date.now() - Date.parse(ha.zaman) > 864e5) setTimeout(() => runHealth(true), 1500);
       const qp = new URLSearchParams(location.search);
       if (qp.get("ms")) { view = "profil"; render(); setTimeout(() => document.getElementById("baglantilar")?.scrollIntoView({block: "start"}), 100); toast(qp.get("ms") === "baglandi" ? "Outlook hesabınız bağlandı." : "Outlook bağlanamadı: " + (qp.get("neden") || "bilinmeyen hata")); history.replaceState(null, "", "/"); }
       if (j.veri) { state = normalize(j.veri); srvVer = j.surum; render(); } else persist();

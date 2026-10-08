@@ -96,7 +96,9 @@ export async function gonder(req, env, kullaniciId, {kime, firmaEposta = "", kon
   const h = await env.DB.prepare("SELECT * FROM posta_hesabi WHERE kullanici_id = ?").bind(kullaniciId).first();
   if (!h) throw new PostaHatasi("Önce Ayarlar > Bağlantılar'dan Outlook hesabınızı bağlayın.", 409);
 
-  const t = await tokenAl(req, env, {grant_type: "refresh_token", refresh_token: await coz(env, h.yenileme_sifreli)});
+  let yenileme;
+  try { yenileme = await coz(env, h.yenileme_sifreli); } catch { throw new PostaHatasi("Outlook bağlantısı okunamadı; Ayarlar › Bağlantılar'dan yeniden bağlanın.", 401); }
+  const t = await tokenAl(req, env, {grant_type: "refresh_token", refresh_token: yenileme});
   if (t.refresh_token) await env.DB.prepare("UPDATE posta_hesabi SET yenileme_sifreli = ? WHERE kullanici_id = ?").bind(await sifrele(env, t.refresh_token), kullaniciId).run();
 
   const imzaM = /^data:(image\/(?:jpeg|png));base64,([A-Za-z0-9+/=]+)$/.exec(imza || "");

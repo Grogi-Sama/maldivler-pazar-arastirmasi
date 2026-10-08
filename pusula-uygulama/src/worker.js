@@ -4,6 +4,8 @@
 
 import UYGULAMA from "../public/index.html";
 import {gemini, tavily, webArastir, ServisHatasi} from "./arastirma.js";
+import {saglikKontrol} from "./saglik.js";
+import {kullaniciTuru as otonomTur, zamanlanmisTur} from "./otonom.js";
 import {baglantiBaslat, baglantiTamamla, postaDurumu, baglantiKaldir, gonder, PostaHatasi} from "./posta.js";
 import IKON_192 from "../marka/ikon-192.png";
 import IKON_512 from "../marka/ikon-512.png";
@@ -80,6 +82,7 @@ async function api(req, env, yol) {
     try { sonuc.gemini = await gemini(env, 'Reply with the JSON {"ok":true}'); } catch (e) { sonuc.gemini = "HATA: " + e.message; }
     try { sonuc.tavily = (await tavily(env, "Maldives resort solar battery storage", 2)).map(x => x.baslik); } catch (e) { sonuc.tavily = "HATA: " + e.message; }
     if (new URL(req.url).searchParams.get("modeller")) { try { const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models?pageSize=200", {headers: {"x-goog-api-key": env.GEMINI_API_KEY}}); const j = await r.json(); sonuc.modeller = (j.models || []).filter(m => (m.supportedGenerationMethods || []).includes("generateContent")).map(m => m.name.replace("models/", "")); } catch (e) { sonuc.modeller = "HATA: " + e.message; } }
+    if (new URL(req.url).searchParams.get("saglik")) sonuc.saglik = await saglikKontrol(env, "teshis", new URL(req.url).searchParams.get("saglik"));
     const g = new URL(req.url).searchParams.get("arastir");
     if (g) { try { sonuc.arastir = await webArastir(env, {tarif: g, bolge: "Maldives", mod: "customer", adet: 6, sirket: {ad: "Karea Enerji", sektor: "solar inverters and battery energy storage distributor", urunler: "Huawei and HYXI inverters and ESS"}}); } catch (e) { sonuc.arastir = "HATA: " + e.message; } }
     return json(sonuc);
@@ -144,6 +147,11 @@ async function api(req, env, yol) {
     if (yol === "/api/microsoft/baglan") return Response.redirect(await baglantiBaslat(req, env, k.id), 302);
     if (yol === "/api/microsoft/geri") return Response.redirect(new URL(await baglantiTamamla(req, env, k.id), req.url).toString(), 302);
     if (yol === "/api/posta/durum") return json(await postaDurumu(env, k.id));
+    if (yol === "/api/otonom/tur" && req.method === "POST") return json(await otonomTur(env, k.id, {zorla: true}));
+    if (yol === "/api/saglik") {
+      const h = await env.DB.prepare("SELECT eposta FROM posta_hesabi WHERE kullanici_id = ?").bind(k.id).first();
+      return json(await saglikKontrol(env, k.id, new URL(req.url).searchParams.get("alan") || h?.eposta || k.eposta));
+    }
     if (yol === "/api/posta/kaldir" && req.method === "POST") { await baglantiKaldir(env, k.id); return json({tamam: true}); }
     if (yol === "/api/posta/gonder" && req.method === "POST") {
       const metin = await req.text();
@@ -267,6 +275,8 @@ const j=await r.json();if(r.ok){location.href="/"}else{h.textContent=j.hata||"Bi
 }
 
 export default {
+  // Her 5 dakikada bir: sunucuda otonom gönderim (tarayıcı kapalıyken de)
+  async scheduled(olay, env, ctx) { ctx.waitUntil(zamanlanmisTur(env)); },
   async fetch(req, env) {
     const url = new URL(req.url), yol = url.pathname;
     try {

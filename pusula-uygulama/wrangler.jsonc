@@ -16,5 +16,6 @@
     "ALICI_KILIDI": "acik",
     "TEST_ALICILAR": "onur.topuz@arsdef.com,onur.topuz@ercsistem.com.tr"
   },
+  "triggers": {"crons": ["*/5 * * * *"]},
   "observability": {"enabled": true}
 }
