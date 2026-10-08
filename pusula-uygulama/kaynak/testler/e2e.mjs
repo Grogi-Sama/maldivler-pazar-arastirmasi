@@ -1,0 +1,20 @@
+import {chromium} from "playwright-core";
+const B = "http://127.0.0.1:8787";
+const br = await chromium.launch({executablePath: "/opt/pw-browsers/chromium", args: ["--no-sandbox"]});
+const ctx = await br.newContext(); const pg = await ctx.newPage();
+const errs = []; pg.on("pageerror", e => errs.push(e.message));
+await pg.goto(B + "/"); console.log("açılış:", new URL(pg.url()).pathname);
+await pg.fill("#e", "test@ornek.com"); await pg.fill("#s", "cokguvenli123"); await pg.click("#b");
+await pg.waitForURL(B + "/"); await pg.waitForSelector("#storeNote button#logout", {timeout: 10000});
+console.log("not:", (await pg.textContent("#storeNote")).trim());
+// alan {"a":2} test verisiydi -> normalize ile boş çalışma alanı; demo verisiyle başlamak için sıfırla
+await pg.evaluate(() => { state.profile.company = "E2E Test"; commit(() => {}); });
+await pg.waitForTimeout(2500);
+const r = await pg.evaluate(async () => (await (await fetch("/api/alan")).json()));
+console.log("sunucudaki şirket:", r.veri?.profile?.company, "sürüm:", r.surum);
+await pg.reload(); await pg.waitForTimeout(1500);
+console.log("yenileme sonrası:", await pg.evaluate(() => state.profile.company));
+await pg.click("#logout"); await pg.waitForURL(B + "/giris"); console.log("çıkış sonrası:", new URL(pg.url()).pathname);
+await pg.goto(B + "/"); console.log("çıkıştan sonra ana sayfa:", new URL(pg.url()).pathname);
+console.log("JS hataları:", errs.length ? errs : "yok");
+await br.close();

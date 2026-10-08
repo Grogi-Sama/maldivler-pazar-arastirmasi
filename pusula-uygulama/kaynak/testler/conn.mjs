@@ -1,0 +1,15 @@
+import {chromium} from "playwright-core";
+const B = "http://127.0.0.1:8787";
+const br = await chromium.launch({executablePath: "/opt/pw-browsers/chromium", args: ["--no-sandbox"]});
+const pg = await (await br.newContext({viewport: {width: 1280, height: 900}})).newPage();
+const errs = []; pg.on("pageerror", e => errs.push(e.message));
+await pg.goto(B + "/giris"); await pg.fill("#e", "test@ornek.com"); await pg.fill("#s", "cokguvenli123"); await pg.click("#b"); await pg.waitForURL(B + "/"); await pg.waitForTimeout(1200);
+await pg.goto(B + "/?ms=hata&neden=Deneme%20hatas%C4%B1"); await pg.waitForTimeout(1500);
+console.log("görünüm:", await pg.evaluate(() => view), "url:", pg.url());
+await pg.evaluate(() => document.querySelectorAll("main .card").forEach(c => { if (c.id !== "baglantilar") c.style.display = "none"; }));
+await pg.screenshot({path: "/tmp/claude-0/x/conn.png"});
+await pg.evaluate(() => { state = normalize(demoState()); makeIntros(state.leads.filter(l => l.status === "new").map(l => l.id)); view = "mailler"; render(); });
+await pg.waitForTimeout(300);
+console.log("mailler notu:", (await pg.textContent("main .note")).slice(0, 120));
+console.log("JS hataları:", errs.length ? errs : "yok");
+await br.close();
