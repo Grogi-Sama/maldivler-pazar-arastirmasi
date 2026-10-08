@@ -29,6 +29,7 @@ Firmanızı ve hedefinizi anlatırsınız. Pusula müşteri veya tedarikçi aday
 | Canlı açık veriyle araştırma | OpenStreetMap ve Wikidata'dan gerçek firma kayıtları; her adayın kaynak bağlantısı görünür |
 | Web araştırması | Güncel haber ve proje sonuçlarından firmalar; e-posta yalnızca firmanın kendi sitesinden, yalnızca kurumsal (info@, sales@) adresler |
 | Kendi adresinde çalışan uygulama | Giriş ekranı, Avrupa'da saklanan veriler, telefona logolu kurulum |
+| Outlook (Microsoft 365) bağlantısı | Mailler kullanıcının kendi Outlook hesabından gerçekten gider, Gönderilmiş Öğeler'e düşer; şifre Pusula'ya verilmez |
 | Bugünkü işler | Panel her sabah ne yapılacağını söyler |
 | Yanıt asistanı | Gelen cevabı sınıflandırır (ilgili, görüşme, sonra, ilgisiz, listeden çık) ve cevap taslağı yazar |
 | Otonom gönderim | Açın, günlük adedi seçin, onaylayın; Pusula kurallara uyan mailleri kendisi gönderir |
@@ -72,6 +73,8 @@ Firmanızı ve hedefinizi anlatırsınız. Pusula müşteri veya tedarikçi aday
   - Geri dönen mail oranı %5'i aşarsa
 - **Onaylı başlatma:** Otonom gönderim, ne gideceğini anlatan bir onay penceresiyle başlar; tek tuşla durdurulur.
 - **Test modu varsayılan olarak açık.** Kapatmak ayrıca onay ister.
+- **Sunucu tarafı alıcı kilidi:** Pilot süresince sunucu yalnızca izin verilen test adreslerine gönderir; uygulamadan kapatılamaz. Günlük sunucu üst sınırı 50 mail.
+- **Kurumsal BT uyumu:** Şirket BT'si dış uygulamalara yönetici onayı istiyorsa, tek tıklık yönetici onay bağlantısı ve onay sonrası bilgilendirme sayfası hazır (Karea'da NRC bu yolla onayladı).
 - **Bağlantı güvenliği:** Outlook ve Gmail'e resmî OAuth izinleriyle bağlanılır; şifreniz Pusula'ya hiç verilmez. İzin her an geri alınabilir. Bağlantı koparsa gönderim durur ve kullanıcı uyarılır.
 - **Hata yönetimi:**
   - Sağlayıcı geçici olarak yavaşlatırsa Pusula bekleyip bir kez daha dener.
