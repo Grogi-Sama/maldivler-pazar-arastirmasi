@@ -65,6 +65,23 @@ async function oturum(req, env) {
   return env.DB.prepare("SELECT id, eposta FROM kullanici WHERE id = ?").bind(id).first();
 }
 
+// Günlük arama kotası: kullanıcıya bir günde verilen yeni firma sayısı (Türkiye saatiyle). Sınır Cloudflare'de GUNLUK_KOTA ile değişir.
+const GUNLUK_KOTA = 50;
+const bugunTR = () => new Date(Date.now() + 3 * 36e5).toISOString().slice(0, 10);
+async function kotaDurumu(env, kullaniciId) {
+  const limit = Number(env.GUNLUK_KOTA) || GUNLUK_KOTA, gun = bugunTR();
+  const r = await env.DB.prepare("SELECT adet FROM arama_kotasi WHERE kullanici_id = ? AND gun = ?").bind(kullaniciId, gun).first();
+  const kullanilan = r?.adet || 0;
+  return {gun, limit, kullanilan, kalan: Math.max(0, limit - kullanilan)};
+}
+async function kotaKullan(env, kullaniciId, adet) {
+  const d = await kotaDurumu(env, kullaniciId);
+  const verilen = Math.max(0, Math.min(d.kalan, Math.floor(Number(adet) || 0)));
+  if (verilen) await env.DB.prepare("INSERT INTO arama_kotasi (kullanici_id, gun, adet) VALUES (?, ?, ?) ON CONFLICT(kullanici_id, gun) DO UPDATE SET adet = adet + excluded.adet").bind(kullaniciId, d.gun, verilen).run();
+  return {...d, kullanilan: d.kullanilan + verilen, kalan: d.kalan - verilen, verilen};
+}
+const kotaDoldu = d => `Bugünkü arama kotanız (${d.limit} yeni firma) doldu. Yarın devam edebilirsiniz.`;
+
 async function denemeSayisi(env, ip) {
   await env.DB.prepare("DELETE FROM giris_denemesi WHERE zaman < ?").bind(Date.now() - DENEME_PENCERE_MS).run();
   return (await env.DB.prepare("SELECT COUNT(*) AS n FROM giris_denemesi WHERE ip = ?").bind(ip).first()).n;
@@ -173,10 +190,21 @@ async function api(req, env, yol) {
       if (!istem || String(istem).length > 60000) return hata("Geçersiz istek.");
       return json({metin: await gemini(env, String(istem), {json: jsonIste !== false})});
     }
+    if (yol === "/api/kota") return json(await kotaDurumu(env, k.id));
+    // Canlı açık veri araması tarayıcıda yapılır; bulunan yeni firma sayısı buradan düşülür, verilebilecek adet döner
+    if (yol === "/api/kota/kullan" && req.method === "POST") {
+      const {adet = 0} = await req.json().catch(() => ({}));
+      const d = await kotaKullan(env, k.id, adet);
+      return d.verilen || !Number(adet) ? json(d) : json({hata: kotaDoldu(d), kota: d}, 429);
+    }
     if (yol === "/api/arastir-web" && req.method === "POST") {
       const g = await req.json().catch(() => ({}));
       if (!g.tarif || String(g.tarif).length < 5) return hata("Kimi aradığınızı birkaç kelimeyle yazın.");
-      return json(await webArastir(env, g));
+      const d = await kotaDurumu(env, k.id);
+      if (!d.kalan) return json({hata: kotaDoldu(d), kota: d}, 429);
+      const sonuc = await webArastir(env, {...g, adet: Math.min(Number(g.adet) || 10, d.kalan)});
+      sonuc.adaylar = sonuc.adaylar.slice(0, d.kalan);
+      return json({...sonuc, kota: await kotaKullan(env, k.id, sonuc.adaylar.length)});
     }
     if (yol === "/api/baglanti") {
       const sonuc = {};

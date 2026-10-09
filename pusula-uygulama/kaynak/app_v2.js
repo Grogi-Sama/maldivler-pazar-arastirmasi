@@ -63,6 +63,32 @@ const OPTOUT_RE = /(won't follow up|will not follow up|reply and let me know|jus
 const SIG = "With my best regards,\n\nOnur Topuz\nSales & Business Development Director\nKarea Enerji\n+90 505 228 03 72 | onur.topuz@karea.com.tr\nkareaenerji.com.tr";
 const SIG_IMG_DEMO = "data:image/jpeg;base64,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";
 const SIG_TR = "En iyi dileklerimle,\n\nOnur Topuz\nSatış ve İş Geliştirme Direktörü\nKarea Enerji\n+90 505 228 03 72 | onur.topuz@karea.com.tr\nkareaenerji.com.tr";
+// Araştırma hedefi: ülkeler ISO koduyla tutulur (OpenStreetMap ve Wikidata koda göre arar), adlar tarayıcının dil verisinden gelir.
+// Bölgeler yalnızca web aramasında kullanılır; canlı açık veri tek ülkede arar.
+const ULKE_KODLARI = "AD AE AF AG AL AM AO AR AT AU AZ BA BB BD BE BF BG BH BI BJ BN BO BR BS BT BW BY BZ CA CD CF CG CH CI CL CM CN CO CR CU CV CY CZ DE DJ DK DM DO DZ EC EE EG ER ES ET FI FJ FM FR GA GB GD GE GH GM GN GQ GR GT GW GY HK HN HR HT HU ID IE IL IN IQ IR IS IT JM JO JP KE KG KH KI KM KN KR KW KZ LA LB LC LI LK LR LS LT LU LV LY MA MC MD ME MG MH MK ML MM MN MO MR MT MU MV MW MX MY MZ NA NE NG NI NL NO NP NR NZ OM PA PE PG PH PK PL PS PT PW PY QA RO RS RU RW SA SB SC SD SE SG SI SK SL SM SN SO SR SS ST SV SY SZ TD TG TH TJ TL TM TN TO TR TT TV TW TZ UA UG US UY UZ VA VC VE VN VU WS XK YE ZA ZM ZW".split(" ");
+const BOLGELER = [
+  {k: "@avrupa", tr: "Avrupa", en: "Europe"}, {k: "@ab", tr: "Avrupa Birliği", en: "European Union"}, {k: "@balkanlar", tr: "Balkanlar", en: "Balkans"},
+  {k: "@ortadogu", tr: "Orta Doğu", en: "Middle East"}, {k: "@korfez", tr: "Körfez ülkeleri", en: "Gulf countries (GCC)"}, {k: "@kafrika", tr: "Kuzey Afrika", en: "North Africa"},
+  {k: "@afrika", tr: "Sahra Altı Afrika", en: "Sub-Saharan Africa"}, {k: "@ortaasya", tr: "Orta Asya ve Kafkasya", en: "Central Asia and the Caucasus"}, {k: "@gasya", tr: "Güney Asya", en: "South Asia"},
+  {k: "@gdasya", tr: "Güneydoğu Asya", en: "Southeast Asia"}, {k: "@hint", tr: "Hint Okyanusu adaları", en: "Indian Ocean islands"}, {k: "@kamerika", tr: "Kuzey Amerika", en: "North America"},
+  {k: "@lamerika", tr: "Latin Amerika", en: "Latin America"}, {k: "@okyanusya", tr: "Okyanusya", en: "Oceania"}, {k: "@dunya", tr: "Tüm dünya", en: "worldwide"},
+];
+const ulkeAdi = dil => { try { return new Intl.DisplayNames([dil], {type: "region"}); } catch (e) { return null; } };
+const ULKE_TR = ulkeAdi("tr"), ULKE_EN = ulkeAdi("en");
+function hedefOf(k) {
+  const b = BOLGELER.find(x => x.k === k); if (b) return {...b, ulke: false};
+  if (!ULKE_KODLARI.includes(k)) return null;
+  return {k, tr: ULKE_TR?.of(k) || k, en: ULKE_EN?.of(k) || k, ulke: true};
+}
+const ULKELER = ULKE_KODLARI.map(hedefOf).sort((a, b) => a.tr.localeCompare(b.tr, "tr"));
+// Eski kayıtlarda ülke elle yazılmış ad olabilir (Maldives, Turkey, Maldivler): koda çevrilir
+function hedefKodu(ad) {
+  const s = String(ad || "").trim().toLocaleLowerCase("tr"); if (!s) return "";
+  if (hedefOf(String(ad).trim())) return String(ad).trim();
+  if (/^(turkey|türkiye|turkiye)$/.test(s)) return "TR";
+  const x = [...ULKELER, ...BOLGELER].find(h => [h.tr, h.en].some(n => n.toLocaleLowerCase("tr") === s));
+  return x ? x.k : "";
+}
 function demoState() {
   const S = "2026-10-06";
   const L = (name, kind, segment, region, email, website, priority, score, why, status, step, hook) => ({
@@ -132,9 +158,11 @@ function normalize(s) {
   if (!["live", "ai", "web"].includes(s.profile.resSource)) s.profile.resSource = SERVER ? "web" : "live";
   if (SERVER && s.profile.resSource === "ai") s.profile.resSource = "web";
   if (!SERVER && s.profile.resSource === "web") s.profile.resSource = "live";
-  if (s.profile.resCountry === undefined) s.profile.resCountry = s.demo ? "Maldives" : "";
+  if (s.profile.resCountry === undefined) s.profile.resCountry = s.demo ? "MV" : "";
+  if (!hedefOf(s.profile.resCountry)) s.profile.resCountry = hedefKodu(s.profile.resCountry) || hedefKodu(s.profile.regions);
   if (s.profile.resType === undefined) s.profile.resType = "otel-resort";
   if (s.profile.resSector === undefined) s.profile.resSector = "";
+  if (!Array.isArray(s.gorulen)) s.gorulen = [];
   for (const l of s.leads || []) { if (!Array.isArray(l.sources)) l.sources = []; if (!ROLES[l.rol]) l.rol = guessRole(l); if (!l.kategori) l.kategori = l.segment || l.kind || "Genel"; }
   for (const k of ["buyNeeds", "buyNeedsMail", "buyShort", "buyShortTr"]) if (s.profile[k] === undefined) s.profile[k] = "";
   if (s.profile.productsShort === undefined) s.profile.productsShort = "";
@@ -453,11 +481,11 @@ function vProfil() {
 
 /* ---------- Araştır ---------- */
 function vArastir() {
-  const p = state.profile, res = research.results;
+  const p = state.profile, res = research.results, hedef = hedefOf(p.resCountry);
   const body = research.running
     ? `<div class="card"><div class="think"><span class="dots"><i></i><i></i><i></i></span><span>Pusula hedef pazarı tarıyor ve adayları sınıflandırıyor. Bu 30–90 saniye sürebilir.</span><span class="spacer"></span><button class="btn sm" id="stopRes">Durdur</button></div></div>`
     : res.length ? `<div class="card grid">
-        <div class="row"><h2>${res.length} aday bulundu</h2><span class="spacer"></span><button class="btn sm" id="selAllRes">Tümünü seç</button><button class="btn primary sm" id="addRes">Seçilenleri listeye ekle</button></div>
+        <div class="row"><h2>${res.length} aday bulundu</h2><span class="spacer"></span><button class="btn sm" id="selAllRes">Tümünü seç</button><button class="btn sm" id="addRes">Yalnızca listeye ekle</button><button class="btn primary sm" id="addResIntro" title="Seçilenleri listeye ekler ve e-postası olanlar için tanışma maillerini hazırlar">Ekle ve tanışma maillerini hazırla</button></div>
         ${research.note ? `<p class="note">${research.note}</p>` : ""}
         <div class="leads">${res.map((r, i) => `<div class="lead">
           <input type="checkbox" id="r${i}" data-ri="${i}" ${r._sel ? "checked" : ""} aria-label="${esc(r.name)} seç">
@@ -473,19 +501,22 @@ function vArastir() {
     <div class="row"><div class="seg" role="group" aria-label="Arama türü"><button data-mode="customer" aria-pressed="${p.mode === "customer"}">Müşteri / iş ortağı bul</button><button data-mode="supplier" aria-pressed="${p.mode === "supplier"}">Tedarikçi bul</button></div>${p.mode === "supplier" && !p.buyNeeds && !p.buyNeedsMail ? `<span class="small muted">Tedarikçi mailleri için <button class="linkbtn" data-nav="profil" data-anchor="satinalma">Ayarlar › Ne satın almak istiyoruz</button> alanını doldurun.</span>` : ""}</div>
     <div class="row"><b class="small">Kaynak</b><div class="seg" role="group" aria-label="Araştırma kaynağı">${SERVER ? `<button data-ressrc="web" aria-pressed="${p.resSource === "web"}">Web araması</button>` : ""}<button data-ressrc="live" aria-pressed="${p.resSource === "live"}">Canlı açık veri</button>${SERVER ? "" : `<button data-ressrc="ai" aria-pressed="${p.resSource === "ai"}">Yapay zekâ bilgisi</button>`}</div>
       <span class="small muted">${p.resSource === "web" ? "Güncel web sonuçlarından firmalar; e-posta yalnızca firmanın kendi sitesinden alınır, her adayın kaynağı gösterilir." : p.resSource === "live" ? "OpenStreetMap ve Wikidata'dan gerçek kayıtlar; her adayın kaynağı gösterilir." : "Claude'un kendi bilgisi; adresler doğrulanmalı."}</span></div>
-    ${p.resSource === "live" ? `<div class="form">
-      <label class="f" for="resCountry">Ülke (İngilizce adı)<input id="resCountry" type="text" data-prof="resCountry" placeholder="Örn. Maldives, Turkey, Germany" value="${esc(p.resCountry)}"></label>
+    <div class="form">
+      <label class="f" for="resCountry">Ülke veya bölge<select id="resCountry" data-prof="resCountry"><option value="" ${hedef ? "" : "selected"} disabled>Seçin…</option>
+        <optgroup label="${p.resSource === "live" ? "Bölgeler (yalnızca web aramasında)" : "Bölgeler"}">${BOLGELER.map(b => `<option value="${b.k}" ${p.resCountry === b.k ? "selected" : ""} ${p.resSource === "live" ? "disabled" : ""}>${esc(b.tr)}</option>`).join("")}</optgroup>
+        <optgroup label="Ülkeler">${ULKELER.map(u => `<option value="${u.k}" ${p.resCountry === u.k ? "selected" : ""}>${esc(u.tr)}</option>`).join("")}</optgroup></select></label>
+    ${p.resSource === "live" ? `
       <label class="f" for="resType">Firma türü (harita kaydına göre)<select id="resType" data-prof="resType">${[...new Set(Object.values(OSM_TYPES).map(v => v.g))].map(g => `<optgroup label="${esc(g)}">${Object.entries(OSM_TYPES).filter(([, v]) => v.g === g).map(([k, v]) => `<option value="${k}" ${p.resType === k ? "selected" : ""}>${esc(v.label)}</option>`).join("")}</optgroup>`).join("")}</select></label>
-      <label class="f" for="resSector">Anahtar kelime (isimde / sektörde geçen; ör. cable, battery, kablo)<input id="resSector" type="text" data-prof="resSector" placeholder="Örn. energy, hotel, construction" value="${esc(p.resSector)}"></label>
-    </div>` : ""}
+      <label class="f" for="resSector">Anahtar kelime (isimde / sektörde geçen; ör. cable, battery, kablo)<input id="resSector" type="text" data-prof="resSector" placeholder="Örn. energy, hotel, construction" value="${esc(p.resSector)}"></label>` : ""}
+    </div>
     <label class="f" for="brief">Kimi arıyoruz?<textarea id="brief" rows="4">${esc(p.segmentBrief)}</textarea></label>
     <div class="form">
-      <label class="f" for="region">Bölge<input id="region" type="text" value="${esc(p.regions)}"></label>
       <label class="f" for="resKat">Kategori (havuzda bu adla gruplanır)<input id="resKat" type="text" list="katList2" placeholder="${p.mode === "supplier" ? "Örn. Batarya üreticisi, Kablo üreticisi" : "Örn. Resort, EPC firması"}" value=""><datalist id="katList2">${[...new Set(state.leads.filter(l => rolOf(l) === (p.mode === "supplier" ? "supplier" : rolOf(l))).map(l => l.kategori).filter(Boolean))].map(c => `<option value="${esc(c)}">`).join("")}</datalist></label>
-      <label class="f" for="campaign">Kampanya adı (adayları gruplar)<input id="campaign" type="text" placeholder="Örn. ${esc(p.regions || "Bölge")} – 2026 Q4" value=""></label>
+      <label class="f" for="campaign">Kampanya adı (adayları gruplar)<input id="campaign" type="text" placeholder="Örn. ${esc(hedef?.tr || "Maldivler")} – 2026 Q4" value=""></label>
       <label class="f" for="howMany">Kaç aday?<select id="howMany">${[5, 10, 15, 20].map(n => `<option ${n === 10 ? "selected" : ""}>${n}</option>`).join("")}</select></label>
     </div>
-    <div class="row"><button class="btn primary" id="runRes" ${research.running ? "disabled" : ""}>Araştırmayı başlat</button><span class="small muted">Listenizdeki ve engellediğiniz firmalar tekrar önerilmez.</span></div>
+    <div class="row"><button class="btn primary" id="runRes" ${research.running || (SERVER && kota && !kota.kalan) ? "disabled" : ""}>Araştırmayı başlat</button><span class="small muted">Her aramada daha önce verilmemiş yeni firmalar gelir.</span><span class="spacer"></span>${SERVER && kota ? `<span class="kota ${kota.kalan ? "" : "bitti"}" title="Günlük arama kotası: bir günde verilen yeni firma sayısı">Bugün kalan: <b>${kota.kalan}</b> / ${kota.limit} yeni firma</span>` : ""}</div>
+    ${SERVER && kota && !kota.kalan && !research.error ? `<p class="note">${kotaMesaji()}</p>` : ""}
     ${research.error ? `<p class="note"><b>Araştırma tamamlanamadı.</b> ${esc(research.error)}</p>` : ""}
   </div>
   <div style="margin-top:14px">${body}</div>`;
@@ -498,7 +529,7 @@ function filteredLeads() {
     (!filters.rol || filters.rol === "all" || rolOf(l) === filters.rol) &&
     (!filters.kategori || filters.kategori === "Tümü" || l.kategori === filters.kategori) &&
     (filters.segment === "Tümü" || l.segment === filters.segment) &&
-    (filters.status === "Tümü" || l.status === filters.status) &&
+    (filters.status === "Tümü" || (DURUM_GRUP[filters.status]?.s || [filters.status]).includes(l.status)) &&
     (filters.prio === "Tümü" || l.priority === filters.prio) &&
     (!filters.campaign || filters.campaign === "Tümü" || l.campaign === filters.campaign) &&
     (!q || (l.name + l.region + l.email + l.kind + (l.kategori || "")).toLowerCase().includes(q))
@@ -507,32 +538,59 @@ function filteredLeads() {
 function roleTabs(sayac, hedef = "rol") {
   return `<div class="seg roletabs" role="group" aria-label="İlişki türü">${[...Object.entries(ROLES), ["all", "Tümü"]].map(([k, t]) => `<button data-f="${hedef}" data-v="${k}" aria-pressed="${(hedef === "rol" ? filters.rol : takipRol) === k}">${t} <span class="mono cnt">${sayac(k)}</span></button>`).join("")}</div>`;
 }
+// Adaylar ekranında dokuz durum, kullanıcının düşündüğü beş aşamaya toplanır
+const DURUM_GRUP = {
+  yazilmadi: {t: "Henüz yazılmadı", s: ["new", "draft", "scheduled"]},
+  takipte: {t: "Yazıldı, yanıt bekleniyor", s: ["sent"]},
+  yanit: {t: "Yanıt verdi", s: ["reply", "meet"]},
+  kapandi: {t: "Kapandı", s: ["no", "optout"]},
+};
+// Satırdaki tek düğme: bu firma için sıradaki iş
+function siradakiIs(l) {
+  if (isSuppressed(l)) return "";
+  if (l.status === "reply") return `<button class="btn sm primary" data-open="${l.id}">Yanıtı işle</button>`;
+  if (l.status === "new") return l.email ? `<button class="btn sm" data-intro1="${l.id}">Tanışma maili</button>` : `<button class="btn sm" data-open="${l.id}">E-posta ekle</button>`;
+  if (["draft", "scheduled"].includes(l.status)) return `<button class="btn sm" data-nav="mailler">Taslağa git</button>`;
+  if (l.status === "sent" && l.nextAt && l.nextAt <= todayISO()) return nextBtn(l);
+  return "";
+}
 function vAdaylar() {
   const inRole = state.leads.filter(l => !filters.rol || filters.rol === "all" || rolOf(l) === filters.rol);
   const cats = [...new Set(inRole.map(l => l.kategori || "Genel"))].sort((a, b) => a.localeCompare(b, "tr"));
+  const camps = [...new Set(state.leads.map(l => l.campaign || "Genel"))];
   const list = filteredLeads();
-  const chip = (k, v, label) => `<button class="chip" data-f="${k}" data-v="${esc(v)}" aria-pressed="${filters[k] === v}">${esc(label ?? v)}</button>`;
-  return head("Adaylar", "Firmalar segmente ve önceliğe göre sınıflandırıldı. Ayrıntı için firma adına dokunun.",
-    `<button class="btn" data-import="1">İçe aktar</button><button class="btn" id="exportCsv">Dışa aktar</button><button class="btn primary" id="introSel" ${selected.size ? "" : "disabled"}>Tanışma maili hazırla (${selected.size})</button>`) + `
+  const aktif = filters.q || filters.status !== "Tümü" || filters.prio !== "Tümü" || (filters.kategori && filters.kategori !== "Tümü") || (filters.campaign && filters.campaign !== "Tümü");
+  const opt = (k, v, label) => `<option value="${esc(v)}" ${(filters[k] || "Tümü") === v ? "selected" : ""}>${esc(label)}</option>`;
+  // Panelden tek bir duruma (ör. "Görüşme") gelinmişse o da listede görünsün
+  const tekDurum = filters.status !== "Tümü" && !DURUM_GRUP[filters.status] && STATUS[filters.status] ? opt("status", filters.status, STATUS[filters.status].t) : "";
+  return head("Adaylar", "Bulduğunuz firmalar. Ayrıntı için firma adına dokunun; sağdaki düğme sıradaki işi yapar.",
+    `<button class="btn ghost sm" data-import="1">İçe aktar</button><button class="btn ghost sm" id="exportCsv">Dışa aktar</button><button class="btn primary" id="introSel" ${selected.size ? "" : "disabled"}>Tanışma maili hazırla (${selected.size})</button>`) + `
   <div class="card grid">
-    <div class="row"><input type="search" id="q" placeholder="Firma, bölge veya e-posta ara" value="${esc(filters.q)}" style="max-width:320px">
-      <select id="campSel" aria-label="Kampanya" style="width:auto">${["Tümü", ...new Set(state.leads.map(l => l.campaign || "Genel"))].map(c => `<option value="${esc(c)}" ${filters.campaign === c ? "selected" : ""}>${c === "Tümü" ? "Tüm kampanyalar" : esc(c)}</option>`).join("")}</select><span class="spacer"></span>
-      <div class="chips">${["Tümü", "A", "B", "C"].map(v => chip("prio", v, v === "Tümü" ? "Tüm öncelikler" : "Öncelik " + v)).join("")}</div></div>
     ${roleTabs(k => k === "all" ? state.leads.length : state.leads.filter(l => rolOf(l) === k).length)}
-    <div class="chips" aria-label="Kategori">${chip("kategori", "Tümü", "Tüm kategoriler")}${cats.map(c => chip("kategori", c, `${c} · ${inRole.filter(l => (l.kategori || "Genel") === c).length}`)).join("")}</div>
-    <div class="chips">${chip("status", "Tümü", "Tüm durumlar")}${Object.entries(STATUS).map(([k, v]) => chip("status", k, v.t)).join("")}</div>
+    <div class="filtre">
+      <input type="search" id="q" placeholder="Firma, şehir veya e-posta ara" value="${esc(filters.q)}" aria-label="Ara">
+      <select data-fsel="status" aria-label="Durum">${opt("status", "Tümü", "Tüm durumlar")}${Object.entries(DURUM_GRUP).map(([k, g]) => opt("status", k, g.t)).join("")}${tekDurum}</select>
+      ${cats.length > 1 ? `<select data-fsel="kategori" aria-label="Kategori">${opt("kategori", "Tümü", "Tüm kategoriler")}${cats.map(c => opt("kategori", c, `${c} (${inRole.filter(l => (l.kategori || "Genel") === c).length})`)).join("")}</select>` : ""}
+      <select data-fsel="prio" aria-label="Öncelik">${opt("prio", "Tümü", "Tüm öncelikler")}${["A", "B", "C"].map(v => opt("prio", v, "Öncelik " + v)).join("")}</select>
+      ${camps.length > 1 ? `<select id="campSel" aria-label="Kampanya">${opt("campaign", "Tümü", "Tüm kampanyalar")}${camps.map(c => opt("campaign", c, c)).join("")}</select>` : ""}
+      ${aktif ? `<button class="btn ghost sm" id="clrF">Filtreleri temizle</button>` : ""}
+    </div>
   </div>
   <div class="card" style="margin-top:14px">
-    ${list.length ? `<div class="row small muted" style="padding:0 4px 8px"><label class="row" for="selAll"><input type="checkbox" id="selAll" ${list.every(l => selected.has(l.id)) ? "checked" : ""}> Görünenleri seç</label><span class="spacer"></span>${list.length} aday</div>
-    <div class="leads">${list.map(l => `<div class="lead">
+    ${list.length ? `<div class="row small muted" style="padding:0 4px 8px"><label class="row" for="selAll"><input type="checkbox" id="selAll" ${list.every(l => selected.has(l.id)) ? "checked" : ""}> Tümünü seç</label><span class="spacer"></span>${list.length} firma</div>
+    <div class="leads">${list.map(l => `<div class="aday">
       <input type="checkbox" id="l_${l.id}" data-sel="${l.id}" ${selected.has(l.id) ? "checked" : ""} aria-label="${esc(l.name)} seç" ${isSuppressed(l) ? "disabled" : ""}>
-      <span class="prio p-${l.priority}" title="Uyum puanı ${l.score}">${l.priority}</span>
-      <div><button class="nmbtn" data-open="${l.id}">${esc(l.name)}</button><div class="meta">${esc(l.kind)} · ${esc(l.region)}</div></div>
-      <div class="meta c-seg"><span class="pill kat">${esc(l.kategori || "Genel")}</span>${filters.rol === "all" ? ` <span class="pill rol-${rolOf(l)}">${ROLE1[rolOf(l)]}</span>` : ""}</div>
-      <div class="em c-em">${esc(l.email || "e-posta yok")}${l.email && !l.verified ? ` <span class="pill st-reply" title="Göndermeden önce web sitesinden kontrol edin">doğrulanmadı</span>` : ""}${isSuppressed(l) ? ` <span class="pill st-no">engelli</span>` : ""}${isTr(l.lang) ? ` <span class="pill st-new">TR</span>` : ""}</div>
-      <span class="row c-st" style="gap:6px;flex-wrap:nowrap">${stepsBar(l)}<span class="pill ${STATUS[l.status].c}">${STATUS[l.status].t}</span></span>
-      <div class="why">${esc(l.why)}${l.nextAt && l.status === "sent" ? ` · <span class="mono">Sıradaki: ${esc(seq()[l.step + 1]?.label || "")} ${fmtDate(l.nextAt)}</span>` : ""}</div></div>`).join("")}</div>`
-    : `<div class="empty"><h3>${state.leads.length ? "Bu filtreye uyan aday yok" : "Henüz aday yok"}</h3><p>${state.leads.length ? "Filtreleri temizleyin ya da yeni bir araştırma başlatın." : "Araştır ekranından aday bulun ya da elinizdeki listeyi içe aktarın."}</p><div class="row" style="justify-content:center"><button class="btn primary" data-nav="arastir">Araştır</button><button class="btn" data-import="1">CSV içe aktar</button></div></div>`}
+      <span class="prio p-${l.priority}" title="Öncelik ${l.priority} · uyum puanı ${l.score}">${l.priority}</span>
+      <div class="govde">
+        <div class="ust"><button class="nmbtn" data-open="${l.id}">${esc(l.name)}</button>${filters.rol === "all" ? `<span class="pill rol-${rolOf(l)}">${ROLE1[rolOf(l)]}</span>` : ""}</div>
+        <div class="meta">${[l.kind, l.region].filter(Boolean).map(esc).join(" · ")}${l.email ? "" : ` · <span class="uyari">e-posta yok</span>`}${l.email && !l.verified ? ` · <span class="uyari" title="Göndermeden önce web sitesinden kontrol edin">adres doğrulanmadı</span>` : ""}${isSuppressed(l) ? ` · <span class="uyari">yazılmayacak</span>` : ""}</div>
+        ${l.why ? `<div class="why" title="${esc(l.why)}">${esc(l.why)}</div>` : ""}
+      </div>
+      <div class="sag">
+        <div class="durum"><span class="pill ${STATUS[l.status].c}">${STATUS[l.status].t}</span>${l.nextAt && l.status === "sent" ? `<small>${esc(seq()[l.step + 1]?.label || "Takip")} · ${fmtDate(l.nextAt)}</small>` : ""}</div>
+        ${siradakiIs(l)}
+      </div></div>`).join("")}</div>`
+    : `<div class="empty"><h3>${state.leads.length ? "Bu filtreye uyan firma yok" : "Henüz aday yok"}</h3><p>${state.leads.length ? "Filtreleri temizleyin ya da yeni bir araştırma başlatın." : "Araştır ekranından aday bulun ya da elinizdeki listeyi içe aktarın."}</p><div class="row" style="justify-content:center">${aktif ? `<button class="btn" id="clrF">Filtreleri temizle</button>` : ""}<button class="btn primary" data-nav="arastir">Araştır</button><button class="btn" data-import="1">Liste içe aktar</button></div></div>`}
   </div>`;
 }
 
@@ -1055,13 +1113,27 @@ const FALLBACK_SUPPLIER = [
 /* ---------- canlı açık veri (OpenStreetMap + Wikidata) ----------
    Tarayıcıdan doğrudan ücretsiz kaynaklara gider. Firma sitesini okuma tarayıcıda mümkün olmadığından
    (CORS) tam sürümde sunucuda yapılır (pusula-sunucu/arastirma). E-posta yalnızca kayıtta yayımlanmışsa alınır. */
+// Daha önce gösterilen firmalar (listeye eklenmese ya da silinse bile) sonraki aramalarda tekrar verilmez
+const firmaAnahtarlari = r => [`n:${String(r.name || "").toLocaleLowerCase("tr").trim()}`, ...[domainOf(r.email), String(r.website || "").replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0].toLowerCase()].filter(Boolean).map(d => "d:" + d)];
+function hatirla(liste) {
+  const g = new Set(state.gorulen);
+  for (const r of liste) for (const k of firmaAnahtarlari(r)) g.add(k);
+  state.gorulen = [...g].slice(-5000); persist();
+}
+// Günlük arama kotası sunucuda tutulur (yeni firma sayısı); ekranda anlık gösterilir
+let kota = null;
+async function kotaYukle() {
+  if (!SERVER) return;
+  try { const r = await fetch("/api/kota"); if (r.ok) { kota = await r.json(); if (view === "arastir") render(); } } catch (e) {}
+}
+const kotaMesaji = () => `Bugünkü arama kotanız (${kota.limit} yeni firma) doldu. Yarın devam edebilirsiniz.`;
 // Firma türleri (OpenStreetMap etiketleri). "Tüm işletmeler" ve "isimde anahtar kelime" seçenekleri her türü kapsar.
 const OSM_TYPES = {
-  "tumu": {g: "Genel", label: "Tüm işletmeler (ofis, mağaza, atölye, sanayi)", f: ['[~"^(office|shop|craft|industrial)$"~"."]["name"]', '["man_made"="works"]["name"]']},
+  "tumu": {g: "Genel", label: "Tüm işletmeler (ofis, mağaza, atölye, sanayi)", f: ['["office"]["name"]', '["craft"]["name"]', '["industrial"]["name"]', '["man_made"="works"]["name"]', '["shop"]["name"]']},
   "anahtar": {g: "Genel", label: "Adında anahtar kelime geçenler (aşağıya yazın)", f: []},
   "fabrika": {g: "Sanayi ve üretim", label: "Fabrika / üretim tesisi", f: ['["man_made"="works"]["name"]', '["industrial"]["name"]']},
   "imalat": {g: "Sanayi ve üretim", label: "İmalat atölyesi (metal, elektrik, makine…)", f: ['["craft"~"^(metal_construction|electrician|electronics_repair|hvac|plumber|carpenter|joiner|welder|blacksmith|tiler|builder|insulation|roofer|window_construction|glaziery|stonemason)$"]']},
-  "depo": {g: "Sanayi ve üretim", label: "Depo / lojistik", f: ['["office"="logistics"]', '["building"="warehouse"]["name"]', '["shop"="wholesale"]']},
+  "depo": {g: "Sanayi ve üretim", label: "Depo / lojistik", f: ['["office"="logistics"]', '["shop"="wholesale"]']},
   "enerji": {g: "Enerji", label: "Enerji şirketi / GES / elektrik", f: ['["office"="energy_supplier"]', '["craft"~"^(electrician|photovoltaic)$"]', '["power"="plant"]["operator"]', '["shop"~"^(energy|solar)$"]']},
   "elektrik": {g: "Enerji", label: "Elektrik malzemesi satıcısı", f: ['["shop"~"^(electrical|lighting|electronics)$"]', '["shop"="trade"]["trade"~"electrical"]']},
   "sirket": {g: "Ofisler", label: "Şirket ofisi (genel)", f: ['["office"="company"]']},
@@ -1081,7 +1153,65 @@ const OSM_TYPES = {
   "spor": {g: "Turizm ve hizmet", label: "Spor tesisi / AVM / eğlence", f: ['["leisure"~"^(sports_centre|fitness_centre|stadium|water_park)$"]["name"]', '["shop"="mall"]["name"]']},
   "kamu": {g: "Turizm ve hizmet", label: "Belediye / kamu kurumu", f: ['["office"="government"]["name"]', '["amenity"="townhall"]["name"]']},
 };
-const OVERPASS_URL = "https://overpass.private.coffee/api/interpreter", WIKIDATA_URL = "https://query.wikidata.org/sparql";
+// Ücretsiz harita sunucuları: önce resmî ana sunucu (tarayıcıdan erişime izin veriyor), çökerse topluluk yansıları denenir.
+// Ana sunucu yoğunken 504/429 döndürür; kısa bir beklemeyle bir kez daha denenir.
+const OVERPASS_URLS = ["https://overpass-api.de/api/interpreter", "https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter", "https://overpass.private.coffee/api/interpreter"], WIKIDATA_URL = "https://query.wikidata.org/sparql";
+// Sık kullanılan sektör kelimeleri: [Türkçe, İngilizce, firma türü]. Kullanıcı hangisini yazarsa yazsın ikisiyle de aranır;
+// firma türü varsa "Tüm işletmeler" araması o türe daraltılır (tüm ülkeyi taramak harita sunucusunda zaman aşımına düşüyor).
+const SOZLUK = [
+  ["lojistik", "logistic", "depo"], ["nakliye", "transport", "depo"], ["nakliyat", "transport", "depo"], ["taşımacılık", "transport", "depo"], ["kargo", "cargo", "depo"], ["depo", "warehouse", "depo"], ["antrepo", "warehouse", "depo"], ["toptan", "wholesale", "depo"],
+  ["enerji", "energy", "enerji"], ["güneş", "solar", "enerji"], ["elektrik", "electric", "elektrik"], ["elektronik", "electronic", "elektrik"], ["aydınlatma", "lighting", "elektrik"],
+  ["kablo", "cable", ""], ["batarya", "battery", ""], ["akü", "battery", ""], ["trafo", "transformer", ""], ["jeneratör", "generator", ""], ["inverter", "inverter", ""],
+  ["inşaat", "construction", "muhendislik"], ["mühendislik", "engineering", "muhendislik"], ["mimarlık", "architect", "muhendislik"], ["yapı", "building", "yapi"], ["hırdavat", "hardware", "yapi"],
+  ["otel", "hotel", "otel-resort"], ["turizm", "tourism", "otel-resort"], ["restoran", "restaurant", "restoran"], ["catering", "catering", "restoran"],
+  ["yazılım", "software", "bilisim"], ["bilişim", "information technology", "bilisim"], ["telekom", "telecom", "bilisim"],
+  ["danışmanlık", "consulting", "danismanlik"], ["muhasebe", "accounting", "danismanlik"], ["hukuk", "law", "danismanlik"],
+  ["sigorta", "insurance", "finans"], ["emlak", "real estate", "finans"], ["gayrimenkul", "real estate", "finans"], ["finans", "finance", "finans"],
+  ["ithalat", "import", "ithalat"], ["ihracat", "export", "ithalat"], ["dış ticaret", "trade", "ithalat"],
+  ["otomotiv", "automotive", "otomotiv"], ["yedek parça", "spare parts", "otomotiv"], ["tarım", "agricultur", "tarim"], ["hastane", "hospital", "saglik"], ["sağlık", "health", "saglik"], ["eğitim", "education", "egitim"],
+  ["fabrika", "factory", "fabrika"], ["üretim", "manufactur", "fabrika"], ["sanayi", "industr", "fabrika"], ["makine", "machine", "fabrika"], ["metal", "metal", "fabrika"], ["çelik", "steel", "fabrika"],
+  ["plastik", "plastic", "fabrika"], ["kimya", "chemical", "fabrika"], ["tekstil", "textile", "fabrika"], ["gıda", "food", "fabrika"], ["mobilya", "furniture", "fabrika"], ["ambalaj", "packaging", "fabrika"], ["boya", "paint", "fabrika"],
+  ["ilaç", "pharma", "saglik"], ["medikal", "medical", "saglik"], ["denizcilik", "maritime", "depo"], ["havacılık", "aviation", ""], ["savunma", "defen", "fabrika"], ["madencilik", "mining", "fabrika"], ["petrol", "petrol", "enerji"],
+];
+const trAscii = s => s.replace(/[ıİ]/g, "i").replace(/ş/g, "s").replace(/ç/g, "c").replace(/ğ/g, "g").replace(/ü/g, "u").replace(/ö/g, "o");
+// "Lojistik" → {terimler: ["lojistik", "logistic"], tur: "depo"}. Virgülle birden çok kelime yazılabilir.
+function anahtarTerimler(girdi) {
+  const terimler = new Set(), turler = new Set();
+  for (const k of String(girdi || "").split(",").map(s => s.trim().toLocaleLowerCase("tr")).filter(s => s.length > 1)) {
+    const eslesen = SOZLUK.filter(([tr, en]) => [tr, trAscii(tr), en].some(t => k === t || k.startsWith(t) || (k.length >= 4 && t.startsWith(k))));
+    if (!eslesen.length) { terimler.add(k); continue; }
+    for (const [tr, en, tur] of eslesen) { terimler.add(tr); terimler.add(en); if (tur) turler.add(tur); }
+  }
+  // Türkçe karaktersiz yazılmış kayıtlar için (Tasimacilik); çok kısa kelimelerde (aku) başka adlara karışmasın diye eklenmez
+  for (const t of [...terimler]) if (trAscii(t) !== t && t.length >= 4) terimler.add(trAscii(t));
+  return {terimler: [...terimler], tur: turler.size === 1 ? [...turler][0] : ""};
+}
+// Harita sunucusu büyük/küçük harf ayrımını yalnızca İngilizce harflerde yok sayar; Türkçe harfler iki biçimiyle yazılır
+const TR_HARF = {"i": "(i|İ)", "ı": "(ı|I)", "ş": "(ş|Ş)", "ç": "(ç|Ç)", "ğ": "(ğ|Ğ)", "ü": "(ü|Ü)", "ö": "(ö|Ö)"};
+const osmRegex = terimler => "(" + terimler.map(t => [...t.replace(/[^\p{L}\p{N} -]/gu, "")].map(c => TR_HARF[c] || c).join("")).join("|") + ")";
+async function overpass(sorgu, signal) {
+  let son, mesgul = false;
+  for (const [i, url] of OVERPASS_URLS.entries()) {
+    try {
+      // Aynı sunucunun ikinci denemesi yalnızca "meşgul" yanıtından sonra yapılır (zaman aşımında aynı sorgu yine aşar)
+      if (i > 0 && url === OVERPASS_URLS[i - 1]) { if (!mesgul) continue; await new Promise(r => setTimeout(r, 5000)); }
+      mesgul = false;
+      const r = await fetch(url, {method: "POST", body: "data=" + encodeURIComponent(sorgu), headers: {"Content-Type": "application/x-www-form-urlencoded"}, signal});
+      if (!r.ok) { mesgul = [429, 503, 504].includes(r.status); throw new Error(url + " HTTP " + r.status); }
+      const j = await r.json();
+      // Zaman aşımında sunucu boş liste ve "remark" döndürür; sonuçsuz sayılmasın, sıradaki sunucu denensin
+      if (/timed out|error/i.test(j.remark || "")) throw new Error(url + " " + j.remark);
+      return j;
+    } catch (e) {
+      son = e; if (signal.aborted) break;
+      // Sunucu "çok sık istek" (429) dediğinde yanıtı tarayıcıya izin başlığı olmadan döner; bu da ağ hatası gibi görünür
+      if (e.name === "TypeError") mesgul = true;
+    }
+  }
+  throw son;
+}
+// Ekranda "Araştırma tamamlanamadı." başlığının ardından gösterilir
+const GELISTIRICI_HATA = "Lütfen geliştiriciyle iletişime geçin.";
 const q = s => String(s).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 function srcLinks(src, block) {
   if (!src?.length) return "";
@@ -1093,22 +1223,28 @@ async function mxOk(email) {
   try { const r = await fetch(`https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(dom)}&type=MX`, {headers: {Accept: "application/dns-json"}}); const j = await r.json(); return (j.Answer || []).some(a => a.type === 15); } catch (e) { return null; }
 }
 async function runLive(n, dedupe) {
-  const p = state.profile, ulke = (p.resCountry || "").trim();
-  if (!ulke) { research.running = false; research.error = "Canlı arama için ülkenin İngilizce adını yazın (örn. Maldives)."; render(); return; }
+  const p = state.profile, hedef = hedefOf(p.resCountry), kod = hedef.k, ulke = hedef.tr;
   const tp = OSM_TYPES[p.resType] || OSM_TYPES["otel-resort"];
-  const sec = (p.resSector || "").trim().toLowerCase();
+  const sec = (p.resSector || "").trim();
   if (p.resType === "anahtar" && !sec) { research.running = false; research.error = "Anahtar kelime seçeneği için aşağıdaki kutuya bir kelime yazın (ör. cable, battery, kablo)."; render(); return; }
-  // Anahtar kelime yazıldıysa seçili türde isimde geçenlerle daraltılır; "anahtar" türünde tüm işletmelerde aranır
-  const isimF = sec ? `["name"~"${q(sec)}",i]` : "";
-  const filtreler = p.resType === "anahtar" ? OSM_TYPES.tumu.f.map(f => f + isimF) : tp.f.map(f => f + isimF);
-  const oq = `[out:json][timeout:50];area["name:en"="${q(ulke)}"][admin_level=2]->.a;(${filtreler.map(f => `nwr${f}(area.a);`).join("")});out center tags ${n * 4};`;
-  const wq = `SELECT DISTINCT ?firma ?firmaLabel ?web ?sektorLabel ?merkezLabel WHERE { ?ulke rdfs:label "${q(ulke)}"@en; wdt:P31 wd:Q6256. ?firma wdt:P17 ?ulke; wdt:P856 ?web; wdt:P452 ?sektor. OPTIONAL { ?firma wdt:P159 ?merkez. } ${sec ? `?sektor rdfs:label ?sl. FILTER(LANG(?sl) = "en" && CONTAINS(LCASE(?sl), "${q(sec)}"))` : ""} SERVICE wikibase:label { bd:serviceParam wikibase:language "tr,en". } } LIMIT ${n * 3}`;
-  const sig = research.ctl.signal, tm = setTimeout(() => research.ctl.abort(), 45000);
+  // Anahtar kelime Türkçe ve İngilizce karşılığıyla birlikte aranır (Lojistik → lojistik | logistic)
+  const {terimler, tur} = anahtarTerimler(sec);
+  const isimF = terimler.length ? `["name"~"${q(osmRegex(terimler))}",i]` : "";
+  const genel = ["tumu", "anahtar"].includes(p.resType);
+  // Genel aramada kelimenin firma türü biliniyorsa yalnızca o türün kayıtları aranır (büyük ülkelerde tüm işletmelerin adını
+  // taramak harita sunucusunda zaman aşımına düşüyor; adında kelime geçen diğer firmalar Wikidata'dan gelir).
+  // Tür bilinmiyorsa adında kelime geçen işletmeler aranır. Seçili bir türde ise o türün içinde adında kelime geçenler.
+  const filtreler = !genel ? tp.f.map(f => f + isimF) : tur ? OSM_TYPES[tur].f : OSM_TYPES.tumu.f.map(f => f + isimF);
+  const oq = `[out:json][timeout:25];area["ISO3166-1"="${kod}"][admin_level=2]->.a;(${filtreler.map(f => `nwr${f}(area.a);`).join("")});out center tags ${Math.min(2000, n * 4 + state.gorulen.length)};`;
+  const wf = terimler.map(t => `CONTAINS(LCASE(?sl), "${q(t)}")`).join(" || ");
+  const wq = `SELECT DISTINCT ?firma ?firmaLabel ?web ?sektorLabel ?merkezLabel WHERE { ?ulke wdt:P297 "${kod}". ?firma wdt:P17 ?ulke; wdt:P856 ?web; wdt:P452 ?sektor. OPTIONAL { ?firma wdt:P159 ?merkez. } ${wf ? `?sektor rdfs:label ?sl. FILTER(LANG(?sl) IN ("en", "tr") && (${wf}))` : ""} SERVICE wikibase:label { bd:serviceParam wikibase:language "tr,en". } } LIMIT ${Math.min(1000, n * 3 + state.gorulen.length)}`;
+  const sig = research.ctl.signal, tm = setTimeout(() => research.ctl.abort(), 60000);
   const [o, w] = await Promise.allSettled([
-    fetch(OVERPASS_URL, {method: "POST", body: "data=" + encodeURIComponent(oq), headers: {"Content-Type": "application/x-www-form-urlencoded"}, signal: sig}).then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); }),
+    overpass(oq, sig),
     fetch(`${WIKIDATA_URL}?format=json&query=${encodeURIComponent(wq)}`, {headers: {Accept: "application/sparql-results+json"}, signal: sig}).then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); }),
   ]);
   clearTimeout(tm);
+  for (const x of [o, w]) if (x.status === "rejected") console.warn("Pusula canlı arama kaynağı yanıt vermedi:", x.reason);
   const list = [];
   if (o.status === "fulfilled") for (const e of o.value.elements || []) {
     const t = e.tags || {}, ad = t["name:en"] || t.name; if (!ad) continue;
@@ -1123,17 +1259,28 @@ async function runLive(n, dedupe) {
   const key = r => (r.website || "").replace(/^www\./, "").split("/")[0].toLowerCase() || r.name.toLowerCase();
   const m = new Map();
   for (const r of list) { const k = key(r), x = m.get(k); if (x) { x.sources.push(...r.sources); x.email ||= r.email; x.emailSource ||= r.emailSource; } else m.set(k, r); }
-  let res = [...m.values()].filter(dedupe).sort((a, b) => (!!b.email - !!a.email) || (!!b.website - !!a.website) || (b.sources.length - a.sources.length)).slice(0, n);
+  // Adında aranan kelime geçen firmalar öne alınır (türe göre gelen diğer kayıtlar arkada kalır)
+  const isimde = r => terimler.some(t => trAscii(r.name.toLocaleLowerCase("tr")).includes(trAscii(t)));
+  let res = [...m.values()].filter(dedupe).sort((a, b) => (isimde(b) - isimde(a)) || (!!b.email - !!a.email) || (!!b.website - !!a.website) || (b.sources.length - a.sources.length)).slice(0, n);
   const fails = [o.status === "rejected" && "OpenStreetMap", w.status === "rejected" && "Wikidata"].filter(Boolean);
   if (!res.length) {
     research.running = false;
-    research.error = fails.length === 2 ? "Canlı kaynaklara bu görünümden ulaşılamadı (tarayıcı ya da ağ izin vermedi). Tam sürümde arama sunucu üzerinden yapılır. Şimdilik 'Yapay zekâ bilgisi' kaynağıyla devam edebilirsiniz." : "Bu ülke ve firma türü için yeni kayıt bulunamadı. Firma türünü veya sektör kelimesini değiştirin; ülke adını İngilizce yazdığınızdan emin olun.";
+    research.error = fails.length ? GELISTIRICI_HATA : "Bu ülke ve firma türü için yeni firma bulunamadı. Firma türünü veya anahtar kelimeyi değiştirip tekrar deneyin.";
     render(); return;
+  }
+  if (SERVER) {
+    try {
+      const r = await fetch("/api/kota/kullan", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({adet: res.length})});
+      const j = await r.json();
+      if (j.kota || j.limit) kota = j.kota || j;
+      if (!r.ok) { research.running = false; research.error = j.kota ? j.hata : GELISTIRICI_HATA; render(); return; }
+      res = res.slice(0, j.verilen);
+    } catch (e) { console.warn("Pusula kota:", e); research.running = false; research.error = GELISTIRICI_HATA; render(); return; }
   }
   for (const r of res) {
     if (r.email) { const ok = await mxOk(r.email); r.verified = ok === true; if (ok === true) r.emailSource += " · alan adı mail kabul ediyor (MX)"; if (ok === false) r.emailSource += " · alan adı mail kabul etmiyor"; }
     else r.verified = false;
-    Object.assign(r, {segment: "Sınıflandırılmadı", priority: r.email ? "B" : "C", score: (r.email ? 55 : 35) + (r.website ? 10 : 0) + (r.sources.length > 1 ? 10 : 0), why: `${r.sources.map(x => x.ad).join(" + ")} kaydı${r.website ? ", web sitesi var" : ""}${r.email ? ", kurumsal adres yayımlanmış" : "; e-posta tam sürümde firmanın sitesinden okunacak"}.`, hook: "", lang: /turkey|türkiye/i.test(ulke) ? "Türkçe" : "", _sel: !!r.email});
+    Object.assign(r, {segment: "Sınıflandırılmadı", priority: r.email ? "B" : "C", score: (r.email ? 55 : 35) + (r.website ? 10 : 0) + (r.sources.length > 1 ? 10 : 0), why: `${r.sources.map(x => x.ad).join(" + ")} kaydı${r.website ? ", web sitesi var" : ""}${r.email ? ", kurumsal adres yayımlanmış" : "; e-posta tam sürümde firmanın sitesinden okunacak"}.`, hook: "", lang: kod === "TR" ? "Türkçe" : "", _sel: !!r.email});
   }
   // Claude varsa yalnızca bu bilgilerle sınıflandırır; e-posta veya bilgi uydurmaz.
   if (sample) {
@@ -1145,35 +1292,47 @@ ${res.map((r, i) => `${i}. ${r.name} | ${r.kind} | ${r.region} | web: ${r.websit
       if (Array.isArray(out)) for (const c of out) { const r = res[Number(c.i)]; if (!r) continue; Object.assign(r, {segment: String(c.segment || r.segment), priority: ["A", "B", "C"].includes(c.priority) ? c.priority : r.priority, score: Math.max(0, Math.min(100, Number(c.score) || r.score)), why: String(c.why || r.why), hook: isTr(r.lang) ? "" : String(c.hook || "")}); r._sel = !!r.email && r.priority !== "C"; }
     } catch (e) { /* sınıflandırma olmadan da sonuçlar gösterilir */ }
   }
-  research.results = res;
-  research.note = `Canlı açık veriden ${res.length} kayıt (${["OpenStreetMap", "Wikidata"].filter(x => !fails.includes(x)).join(" + ")}). ${res.filter(r => r.email).length} firmanın kurumsal adresi kayıtta yayımlanmış; diğerlerinin adresi tam sürümde firmanın kendi sitesinden okunacak.${fails.length ? ` ${fails.join(", ")} şu an yanıt vermedi.` : ""}`;
+  research.results = res; hatirla(res);
+  research.note = `Canlı açık veriden ${res.length} kayıt (${["OpenStreetMap", "Wikidata"].filter(x => !fails.includes(x)).join(" + ")}). ${res.filter(r => r.email).length} firmanın kurumsal adresi kayıtta yayımlanmış; diğerlerinin adresi tam sürümde firmanın kendi sitesinden okunacak.`;
   research.running = false; render();
 }
 async function runWeb(n, dedupe, brief, region) {
   const p = state.profile;
   try {
     const r = await fetch("/api/arastir-web", {method: "POST", headers: {"Content-Type": "application/json"}, signal: research.ctl.signal,
-      body: JSON.stringify({tarif: brief, bolge: region, mod: p.mode, adet: n, sirket: {ad: p.company, sektor: p.sector, urunler: p.productsMail || p.products}, haric: [...state.leads.map(l => l.name), ...state.suppress]})});
+      body: JSON.stringify({tarif: brief, bolge: region, mod: p.mode, adet: n, sirket: {ad: p.company, sektor: p.sector, urunler: p.productsMail || p.products}, haric: [...state.leads.map(l => l.name), ...state.suppress, ...state.gorulen.filter(k => k.startsWith("n:")).slice(-200).map(k => k.slice(2))]})});
     if (r.status === 401) { location.href = "/giris"; return; }
     const j = await r.json();
-    if (!r.ok) throw new Error(j.hata || "Araştırma tamamlanamadı.");
-    research.results = (j.adaylar || []).filter(dedupe).map(a => ({...a, _sel: !!a.email && a.priority !== "C"}));
+    if (j.kota) kota = j.kota;
+    // Kullanıcının düzeltebileceği uyarılar (400, kota) aynen gösterilir; servis hatalarında yalnızca geliştiriciye yönlendirilir
+    if (!r.ok) { console.warn("Pusula web araması:", r.status, j.hata); throw new Error((r.status === 400 || j.kota) && j.hata ? j.hata : GELISTIRICI_HATA); }
+    research.results = (j.adaylar || []).filter(dedupe).map(a => ({...a, _sel: !!a.email && a.priority !== "C"})); hatirla(research.results);
     research.note = j.not + " E-posta adresleri yapay zekâdan değil, yalnızca firmaların kendi sitelerinden alındı.";
     if (!research.results.length) research.error = "Yeni aday bulunamadı. Tarifi ya da bölgeyi değiştirip tekrar deneyin.";
-  } catch (e) { research.error = e.name === "AbortError" ? "" : e.message; }
+  } catch (e) {
+    // Yalnızca yukarıda bizim attığımız hatalar (Error) aynen gösterilir; ağ ve yanıt okuma hataları geliştiriciye yönlendirilir
+    if (e.name !== "AbortError" && e.name !== "Error") console.warn("Pusula web araması:", e);
+    research.error = e.name === "AbortError" ? "" : e.name === "Error" ? e.message : GELISTIRICI_HATA;
+  }
   research.running = false; render();
 }
 async function runResearch() {
   const p = state.profile;
-  const brief = $("#brief").value.trim(), region = $("#region").value.trim(), n = Number($("#howMany").value) || 10;
+  const brief = $("#brief").value.trim(), hedef = hedefOf(p.resCountry);
+  if (SERVER && kota && !kota.kalan) { research = {...research, running: false, error: kotaMesaji()}; render(); return; }
+  const n = Math.min(Number($("#howMany").value) || 10, SERVER && kota ? kota.kalan : 99);
+  if (!hedef) { research = {...research, running: false, error: "Listeden bir ülke veya bölge seçin."}; render(); return; }
+  if (p.resSource === "live" && !hedef.ulke) { research = {...research, running: false, error: "Canlı açık veri tek bir ülkede arar. Listeden bir ülke seçin ya da bölge araması için Web araması kaynağını kullanın."}; render(); return; }
+  const region = hedef.tr;
   commit(() => { p.segmentBrief = brief; p.regions = region; });
   research = {running: true, results: [], error: "", ctl: new AbortController(), note: "", campaign: ($("#campaign")?.value || "").trim() || region, kategori: ($("#resKat")?.value || "").trim(), mod: p.mode};
   render();
   const known = state.leads.map(l => l.name.toLowerCase());
   const knownDom = new Set(state.leads.map(l => domainOf(l.email)).filter(Boolean));
-  const dedupe = r => !known.includes(String(r.name).toLowerCase()) && !(r.email && (knownDom.has(domainOf(r.email)) || state.suppress.includes("@" + domainOf(r.email)) || state.suppress.includes(String(r.email).toLowerCase())));
+  const gorulen = new Set(state.gorulen);
+  const dedupe = r => !firmaAnahtarlari(r).some(k => gorulen.has(k)) && !known.includes(String(r.name).toLowerCase()) && !(r.email && (knownDom.has(domainOf(r.email)) || state.suppress.includes("@" + domainOf(r.email)) || state.suppress.includes(String(r.email).toLowerCase())));
   if (p.resSource === "live") return runLive(n, dedupe);
-  if (p.resSource === "web" && SERVER) return runWeb(n, dedupe, brief, region);
+  if (p.resSource === "web" && SERVER) return runWeb(n, dedupe, brief, hedef.en);
   if (!sample) {
     await new Promise(r => setTimeout(r, 1400));
     research.results = (p.mode === "supplier" ? FALLBACK_SUPPLIER : FALLBACK).filter(dedupe).map(r => ({...r, _sel: true}));
@@ -1205,17 +1364,21 @@ Reply with only a JSON array of {"name","kind","segment","region","website","ema
     else research.error = "Yanıt okunamadı. Tarifi kısaltıp tekrar deneyin.";
   } finally { research.running = false; render(); }
 }
-function addResults() {
+function addResults(tanisma) {
   const p = state.profile;
   const pick = research.results.filter(r => r._sel);
+  if (!pick.length) { toast("Önce eklenecek firmaları seçin."); return; }
+  const yeni = [];
   commit(() => {
-    for (const r of pick) state.leads.push({id: uid(), name: r.name, kind: r.kind, segment: r.segment, region: r.region, website: r.website || "", email: r.email,
+    for (const r of pick) yeni.push(uid()), state.leads.push({id: yeni[yeni.length - 1], name: r.name, kind: r.kind, segment: r.segment, region: r.region, website: r.website || "", email: r.email,
       emailSource: r.emailSource || (r.email ? (sample ? "Yapay zekâ önerisi – doğrulanmalı" : "Kurumsal genel adres (kamuya açık)") : ""), legal: "B2B – meşru menfaat / tacir istisnası",
       priority: r.priority, score: r.score, why: r.why, hook: r.hook || "", lang: r.lang || "", sources: r.sources || [],
       rol: research.mod === "supplier" ? "supplier" : guessRole(r) === "supplier" ? "customer" : guessRole(r), kategori: research.kategori || r.segment || r.kind || "Genel", campaign: research.campaign || p.regions || "Genel", verified: r.verified !== undefined ? !!r.verified : !sample && !!r.email, status: "new", step: -1, sentAt: "", lastSentAt: "", nextAt: "", notes: ""});
     research.results = research.results.filter(r => !r._sel);
-    view = "adaylar"; filters = {segment: "Tümü", status: "new", prio: "Tümü", q: "", campaign: "Tümü", rol: pick[0] ? rolOf(pick[0]) : "customer", kategori: "Tümü"};
+    view = "adaylar"; filters = {segment: "Tümü", status: "Tümü", prio: "Tümü", q: "", campaign: "Tümü", rol: rolOf(leadById(yeni[0])), kategori: "Tümü"};
   });
+  // Tek düğme akışı: e-postası olanlar için tanışma taslakları hazırlanır ve Mailler ekranına geçilir
+  if (tanisma) { const mailli = yeni.filter(id => leadById(id)?.email); if (mailli.length) { makeIntros(mailli); if (mailli.length < yeni.length) toast(`${yeni.length} firma eklendi; ${mailli.length} tanışma maili hazır. ${yeni.length - mailli.length} firmanın e-postası yok, Adaylar'dan ekleyebilirsiniz.`); return; } }
   toast(`${pick.length} aday listeye eklendi.`);
 }
 
@@ -1288,7 +1451,7 @@ function confirmDlg(title, text, okLabel, onOk) {
   back.addEventListener("click", e => { if (e.target === back || e.target.closest("[data-x]")) back.remove(); if (e.target.closest("[data-ok]")) { back.remove(); onOk(); } });
   $("#layer").append(back); back.querySelector("[data-ok]").focus();
 }
-function go(v, anchor) { view = v; closeLead(); try { localStorage.setItem("pusula.view", view); } catch (x) {} render(); if (anchor) document.getElementById(anchor)?.scrollIntoView({block: "start"}); else window.scrollTo(0, 0); }
+function go(v, anchor) { view = v; if (v === "arastir") kotaYukle(); closeLead(); try { localStorage.setItem("pusula.view", view); } catch (x) {} render(); if (anchor) document.getElementById(anchor)?.scrollIntoView({block: "start"}); else window.scrollTo(0, 0); }
 
 /* ---------- olaylar ---------- */
 document.addEventListener("click", e => {
@@ -1301,6 +1464,7 @@ document.addEventListener("click", e => {
   if (ds.open) { openLead = ds.open; drawLead(); return; }
   if (ds.closelead) { closeLead(); return; }
   if (ds.sel) { t.checked ? selected.add(ds.sel) : selected.delete(ds.sel); const b = $("#introSel"); if (b) { b.disabled = !selected.size; b.textContent = `Tanışma maili hazırla (${selected.size})`; } return; }
+  if (t.id === "clrF") { Object.assign(filters, {q: "", status: "Tümü", prio: "Tümü", kategori: "Tümü", campaign: "Tümü", segment: "Tümü"}); render(); return; }
   if (t.id === "selAll") { filteredLeads().filter(l => !isSuppressed(l)).forEach(l => t.checked ? selected.add(l.id) : selected.delete(l.id)); render(); return; }
   if (t.id === "introSel") { makeIntros([...selected]); return; }
   if (ds.bulkintro) { makeIntros(ds.bulkintro.split(",").filter(Boolean)); return; }
@@ -1313,6 +1477,7 @@ document.addEventListener("click", e => {
   if (t.id === "stopRes") { research.ctl?.abort(); return; }
   if (t.id === "selAllRes") { research.results.forEach(r => r._sel = true); render(); return; }
   if (t.id === "addRes") { addResults(); return; }
+  if (t.id === "addResIntro") { addResults(true); return; }
   if (ds.import) { importDlg(); return; }
   if (t.id === "exportCsv") {
     const csv = exportCSV();
@@ -1395,6 +1560,7 @@ document.addEventListener("change", e => {
   if (ds.auto) { commit(() => { state.auto[ds.auto] = Number(e.target.value); }); return; }
   if (e.target.id === "sigFile") { loadSigImage(e.target.files[0]); return; }
   if (e.target.id === "campSel") { filters.campaign = e.target.value; render(); return; }
+  if (ds.fsel) { filters[ds.fsel] = e.target.value; render(); return; }
   if (ds.leadsel) { commit(() => { const l = leadById(openLead); if (l) l[ds.leadsel] = e.target.value; }); return; }
   if (ds.lead || ds.prof) render();
 });
@@ -1412,7 +1578,7 @@ setInterval(() => { if (SERVER && document.visibilityState === "visible") server
       const r = await fetch("/api/alan");
       if (r.status === 401) { location.href = "/giris"; return; }
       const j = await r.json();
-      srvReady = true; sample = serverSample();
+      srvReady = true; sample = serverSample(); kotaYukle();
       loadPosta();
       const ha = state.profile.healthAuto; if (!ha || Date.now() - Date.parse(ha.zaman) > 864e5) setTimeout(() => runHealth(true), 1500);
       const qp = new URLSearchParams(location.search);

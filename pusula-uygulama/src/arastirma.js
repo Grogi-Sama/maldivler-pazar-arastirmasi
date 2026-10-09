@@ -4,6 +4,9 @@
 
 // Kendiliğinden güncellenen ücretsiz model adları; ilki bulunamazsa (404) sıradakine geçilir.
 const GEMINI_MODELLER = ["gemini-flash-lite-latest", "gemini-flash-latest"];
+// Google arama aracı (Ekim 2026): bu hesabın ücretsiz paketinde hiçbir modelde açık değil (429, kota 0).
+// Google hesabına ödeme yöntemi eklenirse Cloudflare'de GOOGLE_ARAMA = "acik" yapılarak devreye alınır.
+const ARAMA_MODELLER = ["gemini-flash-lite-latest", "gemini-flash-latest"];
 
 export class ServisHatasi extends Error { constructor(mesaj, durum = 502) { super(mesaj); this.durum = durum; } }
 
@@ -25,6 +28,40 @@ export async function gemini(env, istem, {json = true, sicaklik = 0.3} = {}) {
   }
   const j = await r.json();
   return (j.candidates?.[0]?.content?.parts || []).map(p => p.text || "").join("");
+}
+
+// Gemini'nin Google arama aracı (ödeme yöntemi gerektirir; bkz. ARAMA_MODELLER). Sonuçlar Tavily ile aynı biçimde döner:
+// her satır bir kuruluş; adres olarak Google'ın gösterdiği kaynak sayfası kullanılır.
+export async function googleAra(env, sorgu, adet = 12) {
+  if (!env.GEMINI_API_KEY) throw new ServisHatasi("Yapay zekâ anahtarı tanımlı değil.", 503);
+  const istem = `Search the web for: ${sorgu}
+List up to ${adet} real organisations that match, using only what the search results say. One per line, exactly in this format:
+NAME | OFFICIAL WEBSITE DOMAIN or - | one sentence about what the source says about them
+No other text.`;
+  let r;
+  for (const model of ARAMA_MODELLER) {
+    r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY},
+      body: JSON.stringify({contents: [{role: "user", parts: [{text: istem}]}], tools: [{google_search: {}}], generationConfig: {temperature: 0.1}}),
+    });
+    if (![404, 429].includes(r.status)) break; // modelin kotası yoksa ya da dolduysa sıradaki model
+  }
+  if (!r.ok) {
+    if (r.status === 429) throw new ServisHatasi("Google araması günlük ücretsiz sınırı doldu.", 429);
+    throw new ServisHatasi(`Google araması yanıt vermedi (${r.status}).`, 502);
+  }
+  const aday = (await r.json()).candidates?.[0] || {};
+  const metin = (aday.content?.parts || []).map(p => p.text || "").join("");
+  const kaynaklar = (aday.groundingMetadata?.groundingChunks || []).map(c => c.web).filter(w => w?.uri);
+  // Google kaynak göstermediyse sonuç kullanılmaz (uydurma firmaya karşı)
+  if (!kaynaklar.length) return [];
+  return metin.split("\n").map(s => s.split("|").map(x => x.trim())).filter(p => p.length >= 3 && p[0] && !/^name$/i.test(p[0])).map(([ad, site, ozet]) => {
+    const alan = site && site !== "-" ? site.replace(/^https?:\/\//, "").replace(/\/.*$/, "").toLowerCase() : "";
+    // Kaynak: firmanın kendi alan adıyla eşleşen Google kaynağı, yoksa ilk kaynak
+    const k = kaynaklar.find(w => alan && String(w.title || "").toLowerCase().includes(alan.replace(/^www\./, ""))) || kaynaklar[0];
+    return {baslik: ad, url: k.uri, kaynakAd: String(k.title || ""), site: alan, ozet: `${ad}${alan ? ` (${alan})` : ""}: ${ozet}`.slice(0, 700)};
+  });
 }
 
 export async function tavily(env, sorgu, adet = 8) {
@@ -79,6 +116,17 @@ export async function siteEposta(site) {
   }
   return {acildi, yalnizKisisel: kisiselGoruldu};
 }
+// Yapay zekâ bazen bir firmaya başka bir firmanın sitesini yazar (ör. AKYAPI → akfeninsaat.com.tr).
+// Sitenin marka adı firma adındaki kelimelerle uyuşmuyorsa site kullanılmaz; yanlış firmaya mail gitmesin.
+const sade = s => String(s).toLocaleLowerCase("tr").replace(/[ıİ]/g, "i").replace(/ş/g, "s").replace(/ç/g, "c").replace(/ğ/g, "g").replace(/ü/g, "u").replace(/ö/g, "o").replace(/[^a-z0-9 ]/g, " ");
+const GENEL_KELIME = /^(as|ltd|sti|san|tic|ve|insaat|yapi|holding|grup|group|sanayi|ticaret|limited|sirketi|company|co|inc|the|of|and|taahhut|muhendislik|enerji|energy)$/;
+export function siteUyumlu(ad, alan) {
+  const marka = sade(markaAdi(alan)).replace(/ /g, "");
+  if (!marka) return false;
+  const kelimeler = sade(ad).split(/\s+/).filter(k => k.length >= 3 && !GENEL_KELIME.test(k));
+  const bitisik = sade(ad).replace(/ /g, "");
+  return kelimeler.some(k => marka.includes(k) || (k.length >= 4 && k.startsWith(marka.slice(0, 4)) && marka.length >= 4)) || (marka.length >= 4 && bitisik.includes(marka));
+}
 export async function mxVar(eposta) {
   const alan = String(eposta).split("@")[1]; if (!alan) return false;
   try { const j = await (await fetch(`https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(alan)}&type=MX`, {headers: {Accept: "application/dns-json"}})).json(); return (j.Answer || []).some(a => a.type === 15); } catch { return null; }
@@ -88,11 +136,20 @@ const alanAdi = w => String(w || "").replace(/^https?:\/\//, "").replace(/^www\.
 
 // Web araştırması: Tavily sonuçları → yapay zekâ yalnızca bu sonuçlarda geçen kuruluşları çıkarır → site + MX
 export async function webArastir(env, {tarif, bolge, mod, adet = 10, sirket = {}, haric = []}) {
-  adet = Math.max(3, Math.min(12, Number(adet) || 10));
+  adet = Math.max(3, Math.min(20, Number(adet) || 10));
   const hedef = mod === "supplier" ? "suppliers manufacturers distributors" : "companies";
-  const sorgular = [`${tarif} ${bolge}`.slice(0, 380), mod === "supplier" ? `${tarif} firmaları listesi üretici`.slice(0, 380) : `${hedef} ${bolge} ${sirket.sektor || ""}`.slice(0, 380)];
-  const sonuclar = (await Promise.all(sorgular.map(s => tavily(env, s, 8).catch(e => { if (e.durum === 503 || e.durum === 429) throw e; return []; })))).flat();
-  const tekil = [...new Map(sonuclar.filter(s => s.url).map(s => [s.url, s])).values()].slice(0, 14);
+  // Google araması açıksa önce o; sonuç gelmezse Tavily (ücretsiz paket: ayda 1.000 sorgu, araştırma başına 1 sorgu)
+  let sonuclar = [], kaynakAdi = "Google";
+  if (env.GOOGLE_ARAMA === "acik") try {
+    const haricNot = haric.length ? ` Do not list: ${haric.slice(-60).join(", ")}.` : "";
+    sonuclar = await googleAra(env, `${mod === "supplier" ? "suppliers / manufacturers of" : hedef} ${tarif} in ${bolge}.${haricNot}`.slice(0, 1500), Math.min(20, adet + 6));
+  } catch (e) { console.warn("Google araması:", e.message); }
+  if (sonuclar.length < 3 && env.TAVILY_API_KEY) {
+    kaynakAdi = "Tavily";
+    const sorgu = `${tarif} ${bolge} ${mod === "supplier" ? "üretici tedarikçi firmaları" : "firmaları"}`.slice(0, 380);
+    sonuclar = await tavily(env, sorgu, 15).catch(e => { if (e.durum === 503 || e.durum === 429) throw e; return []; });
+  }
+  const tekil = [...new Map(sonuclar.filter(s => s.url).map(s => [s.url + "|" + s.baslik, s])).values()].slice(0, 20);
   if (!tekil.length) return {adaylar: [], not: "Web aramasından sonuç gelmedi; tarifi değiştirip tekrar deneyin."};
 
   const istem = `You are a careful B2B research analyst. From the SEARCH RESULTS below, list real organisations that match the goal.
@@ -110,7 +167,7 @@ Strict rules:
 Return a JSON array (max ${adet}) of {"name","kind","segment","region","website","source","priority":"A|B|C","score":0-100,"why","hook","lang":"Türkçe|English"}. Kind and region in Turkish.
 
 SEARCH RESULTS:
-${tekil.map((s, i) => `[${i}] ${s.baslik}\nURL: ${s.url}\n${s.ozet}`).join("\n\n")}`;
+${tekil.map((s, i) => `[${i}] ${s.baslik}\nURL: ${s.site ? "https://" + s.site : s.url}\n${s.ozet}`).join("\n\n")}`;
   let liste;
   try { liste = JSON.parse(await gemini(env, istem, {sicaklik: 0.2})); } catch (e) { if (e instanceof ServisHatasi) throw e; throw new ServisHatasi("Yapay zekâ yanıtı okunamadı; tekrar deneyin."); }
   if (!Array.isArray(liste)) liste = [];
@@ -124,11 +181,12 @@ ${tekil.map((s, i) => `[${i}] ${s.baslik}\nURL: ${s.url}\n${s.ozet}`).join("\n\n
     const no = Number(String(a.source ?? "").replace(/[^0-9]/g, ""));
     const kaynak = Number.isInteger(no) && tekil[no] ? tekil[no].url : kaynakUrl.has(a.source) ? a.source : "";
     if (!kaynak) continue; // kaynağı arama sonuçlarında olmayan aday alınmaz
+    const kaynakEtiket = (Number.isInteger(no) && tekil[no]?.kaynakAd) || alanAdi(kaynak) || "kaynak";
     adaylar.push({
       name: String(a.name), kind: String(a.kind || ""), segment: String(a.segment || "Diğer"), region: String(a.region || bolge),
-      website: alanAdi(a.website), priority: ["A", "B", "C"].includes(a.priority) ? a.priority : "B", score: Math.max(0, Math.min(100, Number(a.score) || 50)),
+      website: siteUyumlu(a.name, alanAdi(a.website)) ? alanAdi(a.website) : "", priority: ["A", "B", "C"].includes(a.priority) ? a.priority : "B", score: Math.max(0, Math.min(100, Number(a.score) || 50)),
       why: String(a.why || ""), hook: String(a.hook || ""), lang: a.lang === "Türkçe" ? "Türkçe" : "", email: "", emailSource: "", verified: false,
-      sources: [{ad: "Web: " + (alanAdi(kaynak) || "kaynak"), url: kaynak}],
+      sources: [{ad: "Web: " + kaynakEtiket, url: kaynak}],
     });
   }
   // Firma sitelerinden kurumsal adres (paralel, zaman aşımlı)
@@ -144,5 +202,5 @@ ${tekil.map((s, i) => `[${i}] ${s.baslik}\nURL: ${s.url}\n${s.ozet}`).join("\n\n
     }
   }));
   adaylar.sort((x, y) => (!!y.email - !!x.email) || y.score - x.score);
-  return {adaylar, not: `${tekil.length} web sonucundan ${adaylar.length} kuruluş; ${adaylar.filter(a => a.email).length} tanesinin kurumsal adresi kendi sitesinde bulundu.`};
+  return {adaylar, kaynak: kaynakAdi, not: `${tekil.length} web sonucundan ${adaylar.length} kuruluş; ${adaylar.filter(a => a.email).length} tanesinin kurumsal adresi kendi sitesinde bulundu.`};
 }
