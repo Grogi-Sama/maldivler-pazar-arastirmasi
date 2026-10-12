@@ -1138,6 +1138,7 @@ const OSM_TYPES = {
   "elektrik": {g: "Enerji", label: "Elektrik malzemesi satıcısı", f: ['["shop"~"^(electrical|lighting|electronics)$"]', '["shop"="trade"]["trade"~"electrical"]']},
   "sirket": {g: "Ofisler", label: "Şirket ofisi (genel)", f: ['["office"="company"]']},
   "muhendislik": {g: "Ofisler", label: "Mühendislik / inşaat / mimarlık", f: ['["office"~"^(engineering|construction_company|architect|surveyor)$"]']},
+  "veri-merkezi": {g: "Ofisler", label: "Veri merkezi / barındırma", f: ['["telecom"="data_center"]', '["building"="data_center"]["name"]', '["office"="telecommunication"]["name"~"(data|veri|hosting|cloud|bulut)",i]']},
   "bilisim": {g: "Ofisler", label: "Bilişim / yazılım / telekom", f: ['["office"~"^(it|telecommunication|software)$"]']},
   "danismanlik": {g: "Ofisler", label: "Danışmanlık / muhasebe / hukuk", f: ['["office"~"^(consulting|accountant|lawyer|tax_advisor|notary)$"]']},
   "finans": {g: "Ofisler", label: "Finans / sigorta / emlak", f: ['["office"~"^(financial|insurance|estate_agent|financial_advisor)$"]', '["amenity"="bank"]["name"]']},
@@ -1153,9 +1154,10 @@ const OSM_TYPES = {
   "spor": {g: "Turizm ve hizmet", label: "Spor tesisi / AVM / eğlence", f: ['["leisure"~"^(sports_centre|fitness_centre|stadium|water_park)$"]["name"]', '["shop"="mall"]["name"]']},
   "kamu": {g: "Turizm ve hizmet", label: "Belediye / kamu kurumu", f: ['["office"="government"]["name"]', '["amenity"="townhall"]["name"]']},
 };
-// Ücretsiz harita sunucuları: önce resmî ana sunucu (tarayıcıdan erişime izin veriyor), çökerse topluluk yansıları denenir.
+// Ücretsiz harita sunucuları: önce resmî ana sunucu (tarayıcıdan erişime izin veriyor), çökerse topluluk yansısı denenir.
+// (overpass.private.coffee Ekim 2026'da günlerce çöktüğü için çıkarıldı.) Hepsi sonuçsuzsa arama web aramasıyla yapılır.
 // Ana sunucu yoğunken 504/429 döndürür; kısa bir beklemeyle bir kez daha denenir.
-const OVERPASS_URLS = ["https://overpass-api.de/api/interpreter", "https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter", "https://overpass.private.coffee/api/interpreter"], WIKIDATA_URL = "https://query.wikidata.org/sparql";
+const OVERPASS_URLS = ["https://overpass-api.de/api/interpreter", "https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"], WIKIDATA_URL = "https://query.wikidata.org/sparql";
 // Sık kullanılan sektör kelimeleri: [Türkçe, İngilizce, firma türü]. Kullanıcı hangisini yazarsa yazsın ikisiyle de aranır;
 // firma türü varsa "Tüm işletmeler" araması o türe daraltılır (tüm ülkeyi taramak harita sunucusunda zaman aşımına düşüyor).
 const SOZLUK = [
@@ -1164,7 +1166,7 @@ const SOZLUK = [
   ["kablo", "cable", ""], ["batarya", "battery", ""], ["akü", "battery", ""], ["trafo", "transformer", ""], ["jeneratör", "generator", ""], ["inverter", "inverter", ""],
   ["inşaat", "construction", "muhendislik"], ["mühendislik", "engineering", "muhendislik"], ["mimarlık", "architect", "muhendislik"], ["yapı", "building", "yapi"], ["hırdavat", "hardware", "yapi"],
   ["otel", "hotel", "otel-resort"], ["turizm", "tourism", "otel-resort"], ["restoran", "restaurant", "restoran"], ["catering", "catering", "restoran"],
-  ["yazılım", "software", "bilisim"], ["bilişim", "information technology", "bilisim"], ["telekom", "telecom", "bilisim"],
+  ["veri merkezi", "data center", "veri-merkezi"], ["veri merkezi", "data centre", "veri-merkezi"], ["veri merkezi", "datacenter", "veri-merkezi"], ["barındırma", "hosting", "veri-merkezi"], ["bulut", "cloud", "bilisim"], ["yazılım", "software", "bilisim"], ["bilişim", "information technology", "bilisim"], ["telekom", "telecom", "bilisim"],
   ["danışmanlık", "consulting", "danismanlik"], ["muhasebe", "accounting", "danismanlik"], ["hukuk", "law", "danismanlik"],
   ["sigorta", "insurance", "finans"], ["emlak", "real estate", "finans"], ["gayrimenkul", "real estate", "finans"], ["finans", "finance", "finans"],
   ["ithalat", "import", "ithalat"], ["ihracat", "export", "ithalat"], ["dış ticaret", "trade", "ithalat"],
@@ -1196,7 +1198,9 @@ async function overpass(sorgu, signal) {
       // Aynı sunucunun ikinci denemesi yalnızca "meşgul" yanıtından sonra yapılır (zaman aşımında aynı sorgu yine aşar)
       if (i > 0 && url === OVERPASS_URLS[i - 1]) { if (!mesgul) continue; await new Promise(r => setTimeout(r, 5000)); }
       mesgul = false;
-      const r = await fetch(url, {method: "POST", body: "data=" + encodeURIComponent(sorgu), headers: {"Content-Type": "application/x-www-form-urlencoded"}, signal});
+      // Asılı kalan bir sunucu tüm süreyi yemesin: her deneme en fazla 20 saniye
+      const sinyal = AbortSignal.any ? AbortSignal.any([signal, AbortSignal.timeout(20000)]) : signal;
+      const r = await fetch(url, {method: "POST", body: "data=" + encodeURIComponent(sorgu), headers: {"Content-Type": "application/x-www-form-urlencoded"}, signal: sinyal});
       if (!r.ok) { mesgul = [429, 503, 504].includes(r.status); throw new Error(url + " HTTP " + r.status); }
       const j = await r.json();
       // Zaman aşımında sunucu boş liste ve "remark" döndürür; sonuçsuz sayılmasın, sıradaki sunucu denensin
@@ -1263,6 +1267,15 @@ async function runLive(n, dedupe) {
   const isimde = r => terimler.some(t => trAscii(r.name.toLocaleLowerCase("tr")).includes(trAscii(t)));
   let res = [...m.values()].filter(dedupe).sort((a, b) => (isimde(b) - isimde(a)) || (!!b.email - !!a.email) || (!!b.website - !!a.website) || (b.sources.length - a.sources.length)).slice(0, n);
   const fails = [o.status === "rejected" && "OpenStreetMap", w.status === "rejected" && "Wikidata"].filter(Boolean);
+  // Ücretsiz harita sunucuları büyük ülkelerde sık zaman aşımına düşer; sonuç yoksa aynı arama web aramasıyla yapılır
+  if (!res.length && SERVER) {
+    if (research.durdu) { research.running = false; render(); return; }
+    research.ctl = new AbortController(); // canlı aramanın süre sınırı web aramasını iptal etmesin
+    const tarif = [p.segmentBrief, sec, genel ? "" : tp.label].filter(Boolean).join(" · ").trim() || `${tp.label} firmaları`;
+    await runWeb(n, dedupe, tarif.length >= 5 ? tarif : `${tarif} firmaları`, hedef.en);
+    if (research.results.length) { research.note = "Harita kayıtlarında yeni firma bulunamadı; sonuçlar web aramasından geldi. " + research.note; render(); }
+    return;
+  }
   if (!res.length) {
     research.running = false;
     research.error = fails.length ? GELISTIRICI_HATA : "Bu ülke ve firma türü için yeni firma bulunamadı. Firma türünü veya anahtar kelimeyi değiştirip tekrar deneyin.";
@@ -1474,7 +1487,7 @@ document.addEventListener("click", e => {
   if (ds.setst) { const [id, st] = ds.setst.split(":"); commit(() => { const l = leadById(id); if (l) { l.status = st; l.nextAt = ""; log(id, STATUS[st].t); } }); return; }
   if (ds.ri !== undefined) { research.results[Number(ds.ri)]._sel = t.checked; return; }
   if (t.id === "runRes") { runResearch(); return; }
-  if (t.id === "stopRes") { research.ctl?.abort(); return; }
+  if (t.id === "stopRes") { research.durdu = true; research.ctl?.abort(); return; }
   if (t.id === "selAllRes") { research.results.forEach(r => r._sel = true); render(); return; }
   if (t.id === "addRes") { addResults(); return; }
   if (t.id === "addResIntro") { addResults(true); return; }
