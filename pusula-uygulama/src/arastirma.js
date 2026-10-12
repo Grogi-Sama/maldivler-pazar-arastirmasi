@@ -19,7 +19,7 @@ export async function gemini(env, istem, {json = true, sicaklik = 0.3} = {}) {
       headers: {"Content-Type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY},
       body: JSON.stringify({contents: [{role: "user", parts: [{text: istem}]}], generationConfig: {temperature: sicaklik, ...(json ? {responseMimeType: "application/json"} : {})}}),
     });
-    if (r.status !== 404) break;
+    if (![404, 503].includes(r.status)) break; // model yoksa ya da anlık yoğunsa (503) sıradaki model
   }
   if (r.status === 429) throw new ServisHatasi("Yapay zekâ kotası doldu; biraz sonra tekrar deneyin.", 429);
   if (!r.ok) {
@@ -135,7 +135,7 @@ export async function mxVar(eposta) {
 const alanAdi = w => String(w || "").replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/.*$/, "").toLowerCase();
 
 // Web araştırması: Tavily sonuçları → yapay zekâ yalnızca bu sonuçlarda geçen kuruluşları çıkarır → site + MX
-export async function webArastir(env, {tarif, bolge, mod, adet = 10, sirket = {}, haric = []}) {
+export async function webArastir(env, {tarif, bolge, mod, adet = 10, sirket = {}, haric = [], sorgu: planSorgu = ""}) {
   adet = Math.max(3, Math.min(20, Number(adet) || 10));
   const hedef = mod === "supplier" ? "suppliers manufacturers distributors" : "companies";
   // Google araması açıksa önce o; sonuç gelmezse Tavily (ücretsiz paket: ayda 1.000 sorgu, araştırma başına 1 sorgu)
@@ -146,7 +146,8 @@ export async function webArastir(env, {tarif, bolge, mod, adet = 10, sirket = {}
   } catch (e) { console.warn("Google araması:", e.message); }
   if (sonuclar.length < 3 && env.TAVILY_API_KEY) {
     kaynakAdi = "Tavily";
-    const sorgu = `${tarif} ${bolge} ${mod === "supplier" ? "üretici tedarikçi firmaları" : "firmaları"}`.slice(0, 380);
+    // Arama planı varsa onun hazırladığı (ülkenin dilindeki) cümle kullanılır
+    const sorgu = (String(planSorgu || "").trim() || `${tarif} ${bolge} ${mod === "supplier" ? "üretici tedarikçi firmaları" : "firmaları"}`).slice(0, 380);
     sonuclar = await tavily(env, sorgu, 15).catch(e => { if (e.durum === 503 || e.durum === 429) throw e; return []; });
   }
   const tekil = [...new Map(sonuclar.filter(s => s.url).map(s => [s.url + "|" + s.baslik, s])).values()].slice(0, 20);
@@ -203,4 +204,24 @@ ${tekil.map((s, i) => `[${i}] ${s.baslik}\nURL: ${s.site ? "https://" + s.site :
   }));
   adaylar.sort((x, y) => (!!y.email - !!x.email) || y.score - x.score);
   return {adaylar, kaynak: kaynakAdi, not: `${tekil.length} web sonucundan ${adaylar.length} kuruluş; ${adaylar.filter(a => a.email).length} tanesinin kurumsal adresi kendi sitesinde bulundu.`};
+}
+
+// --- Arama planı ---
+// Kullanıcı ne yazarsa yazsın (lojistik, data, reklam, ambalaj...) yapay zekâ bunu aranabilir parçalara çevirir:
+// firma adlarında geçen kelimeler (Türkçe, İngilizce, ülkenin dili), Wikidata sektör adları ve tek bir web arama cümlesi.
+export async function aramaPlani(env, {ifade, mod, ulkeAd, ulkeKod}) {
+  const istem = `A user of a B2B prospecting tool typed what kind of companies they are looking for. It can be one word, a phrase or a sentence, in any language.
+Input: "${String(ifade).slice(0, 300)}"
+They want: ${mod === "supplier" ? "SUPPLIERS (manufacturers, distributors, wholesalers) of this" : "CUSTOMERS or partners: companies working in this field"}.
+Country: ${ulkeAd} (${ulkeKod}).
+Return JSON only:
+{"konu": short Turkish label of the business type (2-4 words),
+ "terimler": 3 to 6 short lowercase words or 2-word phrases that typically appear INSIDE company names of this type, mixing Turkish, English and the country's main language (e.g. for logistics in Turkey: ["lojistik","logistics","nakliyat","taşımacılık","kargo"]). No generic words like "company", "şirket", "ltd", "group", "ticaret", "sanayi", "holding", "trade", "industry".
+ If the input describes who would BUY or USE a product (e.g. "companies that would buy cables"), describe those buyer industries instead (e.g. electrical contractors, construction companies).
+ "sektor": 2 to 4 lowercase English industry names as used in Wikidata industry labels (e.g. "logistics", "freight transport").
+ "web": one web search query in the country's main language that would find lists or websites of such companies in that country (e.g. "İstanbul Ankara İzmir lojistik firmaları listesi").}`;
+  let p;
+  try { p = JSON.parse(await gemini(env, istem, {sicaklik: 0.2})); } catch (e) { if (e instanceof ServisHatasi) throw e; throw new ServisHatasi("Arama planı okunamadı."); }
+  const temiz = (x, n) => [...new Set((Array.isArray(x) ? x : []).map(t => String(t).toLocaleLowerCase("tr").replace(/[^\p{L}\p{N} &.-]/gu, "").trim()).filter(t => t.length >= 2 && t.length <= 40))].slice(0, n);
+  return {konu: String(p.konu || ifade).slice(0, 60), terimler: temiz(p.terimler, 6), sektor: temiz(p.sektor, 4), web: String(p.web || "").slice(0, 300)};
 }

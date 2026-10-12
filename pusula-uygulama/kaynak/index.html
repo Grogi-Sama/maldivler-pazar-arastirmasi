@@ -431,7 +431,8 @@ function normalize(s) {
   if (!SERVER && s.profile.resSource === "web") s.profile.resSource = "live";
   if (s.profile.resCountry === undefined) s.profile.resCountry = s.demo ? "MV" : "";
   if (!hedefOf(s.profile.resCountry)) s.profile.resCountry = hedefKodu(s.profile.resCountry) || hedefKodu(s.profile.regions);
-  if (s.profile.resType === undefined) s.profile.resType = "otel-resort";
+  if (s.profile.resType === undefined) s.profile.resType = SERVER ? "tumu" : "otel-resort";
+  if (SERVER && s.profile.resType === "anahtar") s.profile.resType = "tumu";
   if (s.profile.resSector === undefined) s.profile.resSector = "";
   if (!Array.isArray(s.gorulen)) s.gorulen = [];
   for (const l of s.leads || []) { if (!Array.isArray(l.sources)) l.sources = []; if (!ROLES[l.rol]) l.rol = guessRole(l); if (!l.kategori) l.kategori = l.segment || l.kind || "Genel"; }
@@ -754,7 +755,7 @@ function vProfil() {
 function vArastir() {
   const p = state.profile, res = research.results, hedef = hedefOf(p.resCountry);
   const body = research.running
-    ? `<div class="card"><div class="think"><span class="dots"><i></i><i></i><i></i></span><span>Pusula hedef pazarı tarıyor ve adayları sınıflandırıyor. Bu 30–90 saniye sürebilir.</span><span class="spacer"></span><button class="btn sm" id="stopRes">Durdur</button></div></div>`
+    ? `<div class="card"><div class="think"><span class="dots"><i></i><i></i><i></i></span><span>${esc(research.asama || "Pusula hedef pazarı tarıyor ve adayları sınıflandırıyor.")} Bu 30–90 saniye sürebilir.</span><span class="spacer"></span><button class="btn sm" id="stopRes">Durdur</button></div></div>`
     : res.length ? `<div class="card grid">
         <div class="row"><h2>${res.length} aday bulundu</h2><span class="spacer"></span><button class="btn sm" id="selAllRes">Tümünü seç</button><button class="btn sm" id="addRes">Yalnızca listeye ekle</button><button class="btn primary sm" id="addResIntro" title="Seçilenleri listeye ekler ve e-postası olanlar için tanışma maillerini hazırlar">Ekle ve tanışma maillerini hazırla</button></div>
         ${research.note ? `<p class="note">${research.note}</p>` : ""}
@@ -770,17 +771,19 @@ function vArastir() {
     `<button class="btn" data-import="1">CSV içe aktar</button>`) + `
   <div class="card grid">
     <div class="row"><div class="seg" role="group" aria-label="Arama türü"><button data-mode="customer" aria-pressed="${p.mode === "customer"}">Müşteri / iş ortağı bul</button><button data-mode="supplier" aria-pressed="${p.mode === "supplier"}">Tedarikçi bul</button></div>${p.mode === "supplier" && !p.buyNeeds && !p.buyNeedsMail ? `<span class="small muted">Tedarikçi mailleri için <button class="linkbtn" data-nav="profil" data-anchor="satinalma">Ayarlar › Ne satın almak istiyoruz</button> alanını doldurun.</span>` : ""}</div>
-    <div class="row"><b class="small">Kaynak</b><div class="seg" role="group" aria-label="Araştırma kaynağı">${SERVER ? `<button data-ressrc="web" aria-pressed="${p.resSource === "web"}">Web araması</button>` : ""}<button data-ressrc="live" aria-pressed="${p.resSource === "live"}">Canlı açık veri</button>${SERVER ? "" : `<button data-ressrc="ai" aria-pressed="${p.resSource === "ai"}">Yapay zekâ bilgisi</button>`}</div>
-      <span class="small muted">${p.resSource === "web" ? "Güncel web sonuçlarından firmalar; e-posta yalnızca firmanın kendi sitesinden alınır, her adayın kaynağı gösterilir." : p.resSource === "live" ? "OpenStreetMap ve Wikidata'dan gerçek kayıtlar; her adayın kaynağı gösterilir." : "Claude'un kendi bilgisi; adresler doğrulanmalı."}</span></div>
+    ${SERVER ? "" : `<div class="row"><b class="small">Kaynak</b><div class="seg" role="group" aria-label="Araştırma kaynağı"><button data-ressrc="live" aria-pressed="${p.resSource === "live"}">Canlı açık veri</button><button data-ressrc="ai" aria-pressed="${p.resSource === "ai"}">Yapay zekâ bilgisi</button></div>
+      <span class="small muted">${p.resSource === "live" ? "OpenStreetMap ve Wikidata'dan gerçek kayıtlar; her adayın kaynağı gösterilir." : "Claude'un kendi bilgisi; adresler doğrulanmalı."}</span></div>`}
+    ${SERVER ? `<label class="f" for="resSector">Ne tür firma arıyorsunuz?<input id="resSector" type="text" data-prof="resSector" placeholder="${p.mode === "supplier" ? "Örn. kablo üreticisi, ambalaj, endüstriyel boya" : "Örn. lojistik, reklam ajansı, data center, inşaat firması"}" value="${esc(p.resSector)}"></label>` : ""}
     <div class="form">
       <label class="f" for="resCountry">Ülke veya bölge<select id="resCountry" data-prof="resCountry"><option value="" ${hedef ? "" : "selected"} disabled>Seçin…</option>
-        <optgroup label="${p.resSource === "live" ? "Bölgeler (yalnızca web aramasında)" : "Bölgeler"}">${BOLGELER.map(b => `<option value="${b.k}" ${p.resCountry === b.k ? "selected" : ""} ${p.resSource === "live" ? "disabled" : ""}>${esc(b.tr)}</option>`).join("")}</optgroup>
+        <optgroup label="${!SERVER && p.resSource === "live" ? "Bölgeler (yalnızca web aramasında)" : "Bölgeler"}">${BOLGELER.map(b => `<option value="${b.k}" ${p.resCountry === b.k ? "selected" : ""} ${!SERVER && p.resSource === "live" ? "disabled" : ""}>${esc(b.tr)}</option>`).join("")}</optgroup>
         <optgroup label="Ülkeler">${ULKELER.map(u => `<option value="${u.k}" ${p.resCountry === u.k ? "selected" : ""}>${esc(u.tr)}</option>`).join("")}</optgroup></select></label>
-    ${p.resSource === "live" ? `
-      <label class="f" for="resType">Firma türü (harita kaydına göre)<select id="resType" data-prof="resType">${[...new Set(Object.values(OSM_TYPES).map(v => v.g))].map(g => `<optgroup label="${esc(g)}">${Object.entries(OSM_TYPES).filter(([, v]) => v.g === g).map(([k, v]) => `<option value="${k}" ${p.resType === k ? "selected" : ""}>${esc(v.label)}</option>`).join("")}</optgroup>`).join("")}</select></label>
+    ${SERVER || p.resSource === "live" ? `
+      <label class="f" for="resType">Firma türü${SERVER ? " (isteğe bağlı)" : " (harita kaydına göre)"}<select id="resType" data-prof="resType">${[...new Set(Object.values(OSM_TYPES).map(v => v.g))].map(g => `<optgroup label="${esc(g)}">${Object.entries(OSM_TYPES).filter(([k, v]) => v.g === g && !(SERVER && k === "anahtar")).map(([k, v]) => `<option value="${k}" ${p.resType === k ? "selected" : ""}>${esc(SERVER && k === "tumu" ? "Otomatik (yazdığınızdan anlaşılır)" : v.label)}</option>`).join("")}</optgroup>`).join("")}</select></label>` : ""}
+    ${!SERVER && p.resSource === "live" ? `
       <label class="f" for="resSector">Anahtar kelime (isimde / sektörde geçen; ör. cable, battery, kablo)<input id="resSector" type="text" data-prof="resSector" placeholder="Örn. energy, hotel, construction" value="${esc(p.resSector)}"></label>` : ""}
     </div>
-    <label class="f" for="brief">Kimi arıyoruz?<textarea id="brief" rows="4">${esc(p.segmentBrief)}</textarea></label>
+    <label class="f" for="brief">${SERVER ? "Hedefinizi bir cümleyle anlatın (isteğe bağlı)" : "Kimi arıyoruz?"}<textarea id="brief" rows="${SERVER ? 2 : 4}" placeholder="${SERVER ? "Örn. Kablo satıyoruz; büyük şantiyesi olan inşaat firmalarını arıyoruz." : ""}">${esc(p.segmentBrief)}</textarea></label>
     <div class="form">
       <label class="f" for="resKat">Kategori (havuzda bu adla gruplanır)<input id="resKat" type="text" list="katList2" placeholder="${p.mode === "supplier" ? "Örn. Batarya üreticisi, Kablo üreticisi" : "Örn. Resort, EPC firması"}" value=""><datalist id="katList2">${[...new Set(state.leads.filter(l => rolOf(l) === (p.mode === "supplier" ? "supplier" : rolOf(l))).map(l => l.kategori).filter(Boolean))].map(c => `<option value="${esc(c)}">`).join("")}</datalist></label>
       <label class="f" for="campaign">Kampanya adı (adayları gruplar)<input id="campaign" type="text" placeholder="Örn. ${esc(hedef?.tr || "Maldivler")} – 2026 Q4" value=""></label>
@@ -1580,33 +1583,184 @@ ${res.map((r, i) => `${i}. ${r.name} | ${r.kind} | ${r.region} | web: ${r.websit
   research.note = `Canlı açık veriden ${res.length} kayıt (${["OpenStreetMap", "Wikidata"].filter(x => !fails.includes(x)).join(" + ")}). ${res.filter(r => r.email).length} firmanın kurumsal adresi kayıtta yayımlanmış; diğerlerinin adresi tam sürümde firmanın kendi sitesinden okunacak.`;
   research.running = false; render();
 }
-async function runWeb(n, dedupe, brief, region) {
+// Web araması (sunucuda, 1 Tavily sorgusu). Sonuçları döndürür; ekranı çağıran günceller.
+// Hata: kullanıcının düzeltebileceği uyarılar (400, kota) aynen, diğerleri "geliştiriciyle iletişime geçin".
+async function webAra(n, dedupe, brief, region, sorgu = "") {
   const p = state.profile;
   try {
     const r = await fetch("/api/arastir-web", {method: "POST", headers: {"Content-Type": "application/json"}, signal: research.ctl.signal,
-      body: JSON.stringify({tarif: brief, bolge: region, mod: p.mode, adet: n, sirket: {ad: p.company, sektor: p.sector, urunler: p.productsMail || p.products}, haric: [...state.leads.map(l => l.name), ...state.suppress, ...state.gorulen.filter(k => k.startsWith("n:")).slice(-200).map(k => k.slice(2))]})});
-    if (r.status === 401) { location.href = "/giris"; return; }
+      body: JSON.stringify({tarif: brief, bolge: region, mod: p.mode, adet: n, sorgu, sirket: {ad: p.company, sektor: p.sector, urunler: p.productsMail || p.products}, haric: [...state.leads.map(l => l.name), ...state.suppress, ...state.gorulen.filter(k => k.startsWith("n:")).slice(-200).map(k => k.slice(2))]})});
+    if (r.status === 401) { location.href = "/giris"; return {adaylar: [], hata: ""}; }
     const j = await r.json();
     if (j.kota) kota = j.kota;
-    // Kullanıcının düzeltebileceği uyarılar (400, kota) aynen gösterilir; servis hatalarında yalnızca geliştiriciye yönlendirilir
-    if (!r.ok) { console.warn("Pusula web araması:", r.status, j.hata); throw new Error((r.status === 400 || j.kota) && j.hata ? j.hata : GELISTIRICI_HATA); }
-    research.results = (j.adaylar || []).filter(dedupe).map(a => ({...a, _sel: !!a.email && a.priority !== "C"})); hatirla(research.results);
-    research.note = j.not + " E-posta adresleri yapay zekâdan değil, yalnızca firmaların kendi sitelerinden alındı.";
-    if (!research.results.length) research.error = "Yeni aday bulunamadı. Tarifi ya da bölgeyi değiştirip tekrar deneyin.";
+    if (!r.ok) { console.warn("Pusula web araması:", r.status, j.hata); return {adaylar: [], hata: (r.status === 400 || j.kota) && j.hata ? j.hata : GELISTIRICI_HATA}; }
+    return {adaylar: (j.adaylar || []).filter(dedupe).map(a => ({...a, _sel: !!a.email && a.priority !== "C"})), not: j.not || ""};
   } catch (e) {
-    // Yalnızca yukarıda bizim attığımız hatalar (Error) aynen gösterilir; ağ ve yanıt okuma hataları geliştiriciye yönlendirilir
-    if (e.name !== "AbortError" && e.name !== "Error") console.warn("Pusula web araması:", e);
-    research.error = e.name === "AbortError" ? "" : e.name === "Error" ? e.message : GELISTIRICI_HATA;
+    if (e.name !== "AbortError") console.warn("Pusula web araması:", e);
+    return {adaylar: [], hata: e.name === "AbortError" ? "" : GELISTIRICI_HATA};
   }
+}
+async function runWeb(n, dedupe, brief, region, sorgu = "") {
+  const w = await webAra(n, dedupe, brief, region, sorgu);
+  research.results = w.adaylar; hatirla(w.adaylar);
+  research.note = w.adaylar.length ? w.not + " E-posta adresleri yapay zekâdan değil, yalnızca firmaların kendi sitelerinden alındı." : "";
+  research.error = w.hata || (w.adaylar.length ? "" : "Yeni firma bulunamadı. Aradığınız firma türünü farklı kelimelerle yazıp tekrar deneyin.");
   research.running = false; render();
 }
+
+/* ---------- Akıllı arama (kendi adresindeki sürüm) ----------
+   Kullanıcı ne yazarsa yazsın: 1) yapay zekâ ifadeyi arama planına çevirir (sunucuda önbellekli), 2) ücretsiz açık kayıtlar
+   taranır (Nominatim ad araması + Wikidata; belirli bir firma türü seçildiyse harita etiketleri), 3) web sitesi olanların
+   kurumsal adresi sunucuda sitesinden okunur, 4) istenen sayı dolmazsa eksik kalan kadarı web aramasıyla tamamlanır. */
+const bekle = ms => new Promise(r => setTimeout(r, ms));
+async function planAl(ifade, hedef) {
+  try {
+    const r = await fetch("/api/arama-plani", {method: "POST", headers: {"Content-Type": "application/json"}, signal: research.ctl.signal,
+      body: JSON.stringify({ifade, mod: state.profile.mode, ulkeAd: hedef.en, ulkeKod: hedef.k})});
+    if (r.ok) { const j = await r.json(); if (j.terimler?.length) return j; }
+  } catch (e) { if (e.name === "AbortError") throw e; console.warn("Pusula arama planı:", e); }
+  // Yapay zekâ yanıt vermezse yerleşik sözlük
+  const {terimler} = anahtarTerimler(ifade);
+  return {konu: ifade, terimler: terimler.length ? terimler : [ifade.toLocaleLowerCase("tr")], sektor: [], web: ""};
+}
+// Nominatim (OpenStreetMap'in arama servisi): ülke çapında, firma adında geçen kelimeyle hızlı arama.
+// Kullanım kuralı gereği saniyede en fazla 1 istek gönderilir.
+const NOMINATIM_URL = "https://nominatim.openstreetmap.org/search";
+const FIRMA_DEGIL_SINIF = /^(highway|railway|public_transport|place|boundary|natural|landuse|waterway|route|bridge|tunnel|aeroway|historic|military|power|barrier|emergency|leisure)$/;
+const FIRMA_DEGIL_TUR = /^(bus_stop|bus_station|stop_position|platform|parking|parking_entrance|place_of_worship|toilets|bench|fountain|townhall|police|post_office|government|grave_yard|kindergarten|school|park|playground|ferry_terminal|fuel|atm|vending_machine|charging_station)$/;
+const SINIF_ADI = {office: "Ofis", shop: "Mağaza / bayi", craft: "Atölye", industrial: "Sanayi tesisi", man_made: "Tesis", amenity: "İşletme", tourism: "Turizm işletmesi", healthcare: "Sağlık kuruluşu", building: "Bina"};
+async function nominatimAra(terimler, hedef, signal) {
+  const ham = [];
+  // 3 harften kısa kelimeler (ör. "bi") ad aramasında alakasız çok kayıt getirir
+  for (const [i, t] of terimler.filter(t => t.length >= 3).slice(0, 4).entries()) {
+    if (signal.aborted) break;
+    if (i) await bekle(1100);
+    try {
+      const r = await fetch(`${NOMINATIM_URL}?q=${encodeURIComponent(t)}&countrycodes=${hedef.k.toLowerCase()}&format=jsonv2&extratags=1&addressdetails=1&limit=50&accept-language=tr`, {signal});
+      if (r.ok) ham.push(...await r.json());
+    } catch (e) { if (signal.aborted) break; console.warn("Pusula Nominatim:", e); }
+  }
+  return ham.filter(x => x.name && !FIRMA_DEGIL_SINIF.test(x.category) && !FIRMA_DEGIL_TUR.test(x.type)).map(x => {
+    const t = x.extratags || {}, a = x.address || {};
+    const email = (t.email || t["contact:email"] || "").split(";")[0].trim().toLowerCase();
+    return {name: x.name, kind: SINIF_ADI[x.category] || "İşletme", region: [a.city || a.town || a.province || a.state || a.county, hedef.tr].filter(Boolean).join(", "),
+      website: (t.website || t["contact:website"] || "").replace(/^https?:\/\//, "").replace(/\/$/, ""), email, emailSource: email ? "OpenStreetMap kaydında yayımlanmış adres" : "",
+      sources: [{ad: "OpenStreetMap", url: `https://www.openstreetmap.org/${x.osm_type}/${x.osm_id}`}]};
+  });
+}
+async function wikidataAra(plan, hedef, n, signal) {
+  const terim = [...new Set([...plan.sektor, ...plan.terimler])].slice(0, 8);
+  if (!terim.length) return [];
+  const wf = terim.map(t => `CONTAINS(LCASE(?sl), "${q(t)}")`).join(" || ");
+  const wq = `SELECT DISTINCT ?firma ?firmaLabel ?web ?sektorLabel ?merkezLabel WHERE { ?ulke wdt:P297 "${hedef.k}". ?firma wdt:P17 ?ulke; wdt:P856 ?web; wdt:P452 ?sektor. OPTIONAL { ?firma wdt:P159 ?merkez. } ?sektor rdfs:label ?sl. FILTER(LANG(?sl) IN ("en", "tr") && (${wf})) SERVICE wikibase:label { bd:serviceParam wikibase:language "tr,en". } } LIMIT ${Math.min(1000, n * 3 + state.gorulen.length)}`;
+  const sinyal = AbortSignal.any ? AbortSignal.any([signal, AbortSignal.timeout(20000)]) : signal;
+  const r = await fetch(`${WIKIDATA_URL}?format=json&query=${encodeURIComponent(wq)}`, {headers: {Accept: "application/sparql-results+json"}, signal: sinyal});
+  if (!r.ok) throw new Error("Wikidata HTTP " + r.status);
+  return ((await r.json()).results?.bindings || []).filter(b => b.firmaLabel?.value && !/^Q\d+$/.test(b.firmaLabel.value)).map(b => ({name: b.firmaLabel.value, kind: b.sektorLabel?.value || "Şirket",
+    region: [b.merkezLabel?.value, hedef.tr].filter(Boolean).join(", "), website: (b.web?.value || "").replace(/^https?:\/\//, "").replace(/\/$/, ""), email: "", emailSource: "", sources: [{ad: "Wikidata", url: b.firma.value}]}));
+}
+// Belirli bir firma türü seçildiyse (ör. Otel / resort) harita etiketleriyle arama; küçük ülkelerde çok iyi sonuç verir
+async function etiketAra(tp, terimler, hedef, n, signal) {
+  const isimF = terimler.length ? `["name"~"${q(osmRegex(terimler))}",i]` : "";
+  const oq = `[out:json][timeout:25];area["ISO3166-1"="${hedef.k}"][admin_level=2]->.a;(${tp.f.map(f => `nwr${f}${isimF}(area.a);`).join("")});out center tags ${Math.min(2000, n * 4 + state.gorulen.length)};`;
+  const j = await overpass(oq, signal);
+  return (j.elements || []).filter(e => (e.tags || {}).name).map(e => {
+    const t = e.tags, email = (t.email || t["contact:email"] || "").split(";")[0].trim().toLowerCase();
+    return {name: t["name:en"] || t.name, kind: tp.label.split(" /")[0], region: [t["addr:city"] || t["addr:island"] || t["addr:place"], hedef.tr].filter(Boolean).join(", "),
+      website: (t.website || t["contact:website"] || "").replace(/^https?:\/\//, "").replace(/\/$/, ""), email, emailSource: email ? "OpenStreetMap kaydında yayımlanmış adres" : "",
+      sources: [{ad: "OpenStreetMap", url: `https://www.openstreetmap.org/${e.type}/${e.id}`}]};
+  });
+}
+// Web sitesi olup e-postası olmayan firmaların kurumsal adresi sunucuda kendi sitesinden okunur (ücretsiz)
+async function sitedenEposta(liste) {
+  const bos = liste.filter(r => r.website && !r.email);
+  if (!bos.length) return;
+  try {
+    const r = await fetch("/api/site-eposta", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({siteler: bos.map(x => x.website)}), signal: research.ctl.signal});
+    if (!r.ok) return;
+    const {sonuc = []} = await r.json();
+    for (const s of sonuc) for (const x of bos) {
+      if (x.website.replace(/^www\./, "").split("/")[0].toLowerCase() !== s.site.replace(/^www\./, "")) continue;
+      if (s.adres) { x.email = s.adres; x.emailSource = `Firmanın sitesinde yayımlanmış adres (${s.kaynak})${s.mx === true ? " · alan adı mail kabul ediyor (MX)" : ""}`; x.verified = s.mx === true; x.sources.push({ad: "Firma sitesi", url: "https://" + s.site}); }
+    }
+  } catch (e) { if (e.name !== "AbortError") console.warn("Pusula site e-posta:", e); }
+}
+async function siniflandir(res, turk) {
+  for (const r of res) {
+    if (r.verified === undefined) r.verified = false;
+    Object.assign(r, {segment: "Sınıflandırılmadı", priority: r.email ? "B" : "C", score: (r.email ? 55 : 35) + (r.website ? 10 : 0) + (r.sources.length > 1 ? 10 : 0), why: `${r.sources.map(x => x.ad).join(" + ")} kaydı${r.website ? ", web sitesi var" : ""}${r.email ? ", kurumsal adres yayımlanmış" : "; e-posta adresi bulunamadı"}.`, hook: "", lang: turk ? "Türkçe" : "", _sel: !!r.email});
+  }
+  if (!sample || !res.length) return;
+  const p = state.profile;
+  try {
+    const out = await sample.json(`You classify B2B prospects for ${p.company} (${p.sector}; products: ${p.products}). Goal: ${p.mode === "supplier" ? "find suppliers" : "find customers or partners"}. Target: ${p.segmentBrief || p.resSector}.
+Use ONLY the facts given per firm below. Do not invent emails, numbers, projects or relationships. If facts are too thin, keep score under 50 and leave hook empty. If a firm clearly does not match the target (e.g. a public office or a shop unrelated to the target), give priority C and score under 20.
+Return JSON array of {"i","segment" (short Turkish label),"priority":"A|B|C","score":0-100,"why":"one Turkish sentence based on the facts","hook":"one factual English opening sentence or empty"}.
+${res.map((r, i) => `${i}. ${r.name} | ${r.kind} | ${r.region} | web: ${r.website || "-"} | sources: ${r.sources.map(x => x.ad).join(", ")}`).join("\n")}`, {signal: research.ctl.signal, modelTier: "quick"});
+    if (Array.isArray(out)) for (const c of out) { const r = res[Number(c.i)]; if (!r) continue; Object.assign(r, {segment: String(c.segment || r.segment), priority: ["A", "B", "C"].includes(c.priority) ? c.priority : r.priority, score: Math.max(0, Math.min(100, Number(c.score) || r.score)), why: String(c.why || r.why), hook: isTr(r.lang) ? "" : String(c.hook || "")}); r._sel = !!r.email && r.priority !== "C"; }
+  } catch (e) { /* sınıflandırma olmadan da sonuçlar gösterilir */ }
+}
+async function runAkilli(n, dedupe, brief, hedef) {
+  const p = state.profile, ifade = (p.resSector || "").trim() || brief;
+  const asama = t => { research.asama = t; render(); };
+  if (ifade.length < 2) { research.running = false; research.error = "Ne tür firma aradığınızı yazın (ör. lojistik, reklam ajansı, kablo üreticisi)."; render(); return; }
+  const tp = OSM_TYPES[p.resType], ozelTur = !!tp && !["tumu", "anahtar"].includes(p.resType);
+  let plan;
+  try { asama("Aramanız anlaşılıyor…"); plan = await planAl(ifade, hedef); } catch (e) { research.running = false; research.asama = ""; render(); return; }
+  research.plan = plan;
+  let serbest = [], hatalar = 0;
+  if (hedef.ulke) {
+    asama(`Açık kayıtlarda "${plan.konu}" aranıyor…`);
+    const sig = research.ctl.signal;
+    const parca = await Promise.allSettled([nominatimAra(plan.terimler, hedef, sig), wikidataAra(plan, hedef, n, sig), ozelTur ? etiketAra(tp, (p.resSector || "").trim() ? plan.terimler : [], hedef, n, sig) : Promise.resolve([])]);
+    for (const x of parca) if (x.status === "fulfilled") serbest.push(...x.value); else { hatalar++; console.warn("Pusula açık kayıt kaynağı yanıt vermedi:", x.reason); }
+    if (research.durdu) { research.running = false; research.asama = ""; render(); return; }
+    // Aynı firma (alan adı veya ad) tek kayıt; kaynaklar birleşir
+    const key = r => (r.website || "").replace(/^www\./, "").split("/")[0].toLowerCase() || r.name.toLocaleLowerCase("tr");
+    const m = new Map();
+    for (const r of serbest) { const k = key(r), x = m.get(k); if (x) { x.sources.push(...r.sources); x.email ||= r.email; x.emailSource ||= r.emailSource; x.website ||= r.website; } else m.set(k, r); }
+    const isimde = r => plan.terimler.some(t => trAscii(r.name.toLocaleLowerCase("tr")).includes(trAscii(t)));
+    serbest = [...m.values()].filter(dedupe).sort((a, b) => (!!b.email - !!a.email) || (!!b.website - !!a.website) || (isimde(b) - isimde(a)) || (b.sources.length - a.sources.length)).slice(0, n);
+    if (serbest.length) {
+      asama("Firmaların sitelerinden e-posta adresleri okunuyor…");
+      await sitedenEposta(serbest);
+      for (const r of serbest) if (r.email && r.verified === undefined) { const ok = await mxOk(r.email); r.verified = ok === true; if (ok === true) r.emailSource += " · alan adı mail kabul ediyor (MX)"; }
+      // Kota: açık kayıtlardan verilen yeni firma sayısı düşülür
+      try {
+        const r = await fetch("/api/kota/kullan", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({adet: serbest.length})});
+        const j = await r.json(); if (j.kota || j.limit) kota = j.kota || j;
+        if (!r.ok) { research.running = false; research.asama = ""; research.error = j.kota ? j.hata : GELISTIRICI_HATA; render(); return; }
+        serbest = serbest.slice(0, j.verilen);
+      } catch (e) { console.warn("Pusula kota:", e); research.running = false; research.asama = ""; research.error = GELISTIRICI_HATA; render(); return; }
+      asama("Firmalar sınıflandırılıyor…");
+      await siniflandir(serbest, hedef.k === "TR");
+      hatirla(serbest);
+    }
+  }
+  // İstenen sayı dolmadıysa eksik kalan kadarı web aramasıyla (bölge seçildiyse doğrudan web)
+  let web = {adaylar: [], not: "", hata: ""};
+  if (serbest.length < n && !research.durdu && kota?.kalan !== 0) {
+    asama("Web'de aranıyor…");
+    research.ctl = new AbortController();
+    const zaten = new Set(serbest.flatMap(firmaAnahtarlari));
+    web = await webAra(n - serbest.length, r => dedupe(r) && !firmaAnahtarlari(r).some(k => zaten.has(k)), brief || `${plan.konu} firmaları`, hedef.en, plan.web);
+    hatirla(web.adaylar);
+  }
+  research.results = [...serbest, ...web.adaylar];
+  research.asama = "";
+  const ePostali = research.results.filter(r => r.email).length;
+  research.note = research.results.length ? `"${plan.konu}" için ${research.results.length} yeni firma: ${serbest.length} tanesi ücretsiz açık kayıtlardan${web.adaylar.length ? `, ${web.adaylar.length} tanesi web aramasından` : ""}. ${ePostali} firmanın kurumsal e-posta adresi bulundu (yalnızca firmaların kendi sitelerinden ya da açık kayıtlardan).` : "";
+  research.error = research.results.length ? "" : web.hata || (hatalar >= 2 ? GELISTIRICI_HATA : `"${plan.konu}" için yeni firma bulunamadı. Farklı kelimelerle (ör. sektör ya da ürün adı) tekrar deneyin.`);
+  research.running = false; render();
+}
+
 async function runResearch() {
   const p = state.profile;
   const brief = $("#brief").value.trim(), hedef = hedefOf(p.resCountry);
   if (SERVER && kota && !kota.kalan) { research = {...research, running: false, error: kotaMesaji()}; render(); return; }
   const n = Math.min(Number($("#howMany").value) || 10, SERVER && kota ? kota.kalan : 99);
   if (!hedef) { research = {...research, running: false, error: "Listeden bir ülke veya bölge seçin."}; render(); return; }
-  if (p.resSource === "live" && !hedef.ulke) { research = {...research, running: false, error: "Canlı açık veri tek bir ülkede arar. Listeden bir ülke seçin ya da bölge araması için Web araması kaynağını kullanın."}; render(); return; }
+  if (!SERVER && p.resSource === "live" && !hedef.ulke) { research = {...research, running: false, error: "Canlı açık veri tek bir ülkede arar. Listeden bir ülke seçin ya da bölge araması için Web araması kaynağını kullanın."}; render(); return; }
   const region = hedef.tr;
   commit(() => { p.segmentBrief = brief; p.regions = region; });
   research = {running: true, results: [], error: "", ctl: new AbortController(), note: "", campaign: ($("#campaign")?.value || "").trim() || region, kategori: ($("#resKat")?.value || "").trim(), mod: p.mode};
@@ -1615,8 +1769,8 @@ async function runResearch() {
   const knownDom = new Set(state.leads.map(l => domainOf(l.email)).filter(Boolean));
   const gorulen = new Set(state.gorulen);
   const dedupe = r => !firmaAnahtarlari(r).some(k => gorulen.has(k)) && !known.includes(String(r.name).toLowerCase()) && !(r.email && (knownDom.has(domainOf(r.email)) || state.suppress.includes("@" + domainOf(r.email)) || state.suppress.includes(String(r.email).toLowerCase())));
+  if (SERVER) return runAkilli(n, dedupe, brief, hedef);
   if (p.resSource === "live") return runLive(n, dedupe);
-  if (p.resSource === "web" && SERVER) return runWeb(n, dedupe, brief, hedef.en);
   if (!sample) {
     await new Promise(r => setTimeout(r, 1400));
     research.results = (p.mode === "supplier" ? FALLBACK_SUPPLIER : FALLBACK).filter(dedupe).map(r => ({...r, _sel: true}));

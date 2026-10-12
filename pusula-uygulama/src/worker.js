@@ -3,7 +3,7 @@
 // Giriş yapılmadan uygulamanın hiçbir sayfası ve verisi açılmaz.
 
 import UYGULAMA from "../public/index.html";
-import {gemini, tavily, webArastir, ServisHatasi} from "./arastirma.js";
+import {gemini, tavily, webArastir, aramaPlani, siteEposta, mxVar, ServisHatasi} from "./arastirma.js";
 import {saglikKontrol} from "./saglik.js";
 import {kullaniciTuru as otonomTur, zamanlanmisTur} from "./otonom.js";
 import {baglantiBaslat, baglantiTamamla, postaDurumu, baglantiKaldir, gonder, PostaHatasi} from "./posta.js";
@@ -100,6 +100,7 @@ async function api(req, env, yol) {
     try { sonuc.tavily = (await tavily(env, "Maldives resort solar battery storage", 2)).map(x => x.baslik); } catch (e) { sonuc.tavily = "HATA: " + e.message; }
     if (new URL(req.url).searchParams.get("modeller")) { try { const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models?pageSize=200", {headers: {"x-goog-api-key": env.GEMINI_API_KEY}}); const j = await r.json(); sonuc.modeller = (j.models || []).filter(m => (m.supportedGenerationMethods || []).includes("generateContent")).map(m => m.name.replace("models/", "")); } catch (e) { sonuc.modeller = "HATA: " + e.message; } }
     if (new URL(req.url).searchParams.get("saglik")) sonuc.saglik = await saglikKontrol(env, "teshis", new URL(req.url).searchParams.get("saglik"));
+    if (new URL(req.url).searchParams.get("plan")) { const u = new URL(req.url).searchParams; try { sonuc.plan = await aramaPlani(env, {ifade: u.get("plan"), mod: u.get("mod") || "customer", ulkeAd: u.get("ulkeAd") || "Türkiye", ulkeKod: u.get("ulkeKod") || "TR"}); } catch (e) { sonuc.plan = "HATA: " + e.message; } }
     const g = new URL(req.url).searchParams.get("arastir");
     const qp = new URL(req.url).searchParams;
     if (g) { try { sonuc.arastir = await webArastir(env, {tarif: g, bolge: qp.get("bolge") || "Maldives", mod: qp.get("mod") || "customer", adet: Number(qp.get("adet")) || 6, sirket: {ad: "Karea Enerji", sektor: "solar inverters and battery energy storage distributor", urunler: "Huawei and HYXI inverters and ESS"}}); } catch (e) { sonuc.arastir = "HATA: " + e.message; } }
@@ -191,6 +192,29 @@ async function api(req, env, yol) {
       return json({metin: await gemini(env, String(istem), {json: jsonIste !== false})});
     }
     if (yol === "/api/kota") return json(await kotaDurumu(env, k.id));
+    // Arama planı: aynı ifade + ülke + arama türü için bir kez üretilir, D1'de saklanır (yapay zekâ çağrısı tekrarlanmaz)
+    if (yol === "/api/arama-plani" && req.method === "POST") {
+      const {ifade = "", mod = "customer", ulkeAd = "", ulkeKod = ""} = await req.json().catch(() => ({}));
+      const ifd = String(ifade).trim().toLocaleLowerCase("tr").replace(/\s+/g, " ").slice(0, 300);
+      if (ifd.length < 2) return hata("Ne tür firma aradığınızı yazın.");
+      const anahtar = `${mod === "supplier" ? "s" : "c"}|${String(ulkeKod).slice(0, 12)}|${ifd}`;
+      const kayit = await env.DB.prepare("SELECT plan FROM arama_plani WHERE anahtar = ?").bind(anahtar).first();
+      if (kayit) return json(JSON.parse(kayit.plan));
+      const plan = await aramaPlani(env, {ifade: ifd, mod, ulkeAd: String(ulkeAd).slice(0, 80), ulkeKod: String(ulkeKod).slice(0, 12)});
+      await env.DB.prepare("INSERT OR REPLACE INTO arama_plani (anahtar, plan, olusturma) VALUES (?, ?, ?)").bind(anahtar, JSON.stringify(plan), new Date().toISOString()).run();
+      return json(plan);
+    }
+    // Ücretsiz kaynaklardan gelen firmaların kurumsal adresi kendi sitelerinden okunur (yalnızca info@, sales@ gibi rol adresleri)
+    if (yol === "/api/site-eposta" && req.method === "POST") {
+      const {siteler = []} = await req.json().catch(() => ({}));
+      const liste = [...new Set((Array.isArray(siteler) ? siteler : []).map(x => String(x).replace(/^https?:\/\//, "").replace(/\/.*$/, "").toLowerCase()).filter(x => /^[a-z0-9.-]+\.[a-z]{2,}$/.test(x)))].slice(0, 20);
+      const sonuc = await Promise.all(liste.map(async site => {
+        const s = await siteEposta(site);
+        if (!s.adres) return {site, acildi: !!s.acildi};
+        return {site, acildi: true, adres: s.adres, kaynak: s.kaynak, mx: await mxVar(s.adres)};
+      }));
+      return json({sonuc});
+    }
     // Canlı açık veri araması tarayıcıda yapılır; bulunan yeni firma sayısı buradan düşülür, verilebilecek adet döner
     if (yol === "/api/kota/kullan" && req.method === "POST") {
       const {adet = 0} = await req.json().catch(() => ({}));
