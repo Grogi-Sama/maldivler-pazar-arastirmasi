@@ -89,6 +89,12 @@ function hedefKodu(ad) {
   const x = [...ULKELER, ...BOLGELER].find(h => [h.tr, h.en].some(n => n.toLocaleLowerCase("tr") === s));
   return x ? x.k : "";
 }
+// İştirak şirketleri: her şirketin kendi bilgileri, imzası, mail şablonları ve Outlook hesabı (gonderen) vardır.
+// Firma hangi şirketimizden yazılıyorsa (l.sirketId) mail o şirketin bilgileriyle hazırlanır ve onun hesabından gider.
+const SIRKET_ALANLARI = ["company", "website", "sector", "country", "products", "value", "productsMail", "valueMail", "productsShort", "productsShortTr", "language",
+  "buyNeeds", "buyNeedsMail", "buyShort", "buyShortTr", "senderName", "senderTitle", "senderEmail", "signature", "signatureTr", "sigMode", "sigImg", "templates"];
+function sirketOf(l) { const s = state.sirketler || []; return s.find(x => x.id === l?.sirketId) || s[0] || null; }
+function profilOf(l) { const s = sirketOf(l); return s ? {...state.profile, ...s} : state.profile; }
 function demoState() {
   const S = "2026-10-06";
   const L = (name, kind, segment, region, email, website, priority, score, why, status, step, hook) => ({
@@ -169,6 +175,15 @@ function normalize(s) {
   if (s.profile.productsShort === undefined) s.profile.productsShort = "";
   if (s.profile.productsShortTr === undefined) s.profile.productsShortTr = "";
   if (!s.profile.templates) s.profile.templates = {};
+  // Eski çalışma alanı: tek şirket bilgileri ilk şirkete taşınır
+  if (!Array.isArray(s.sirketler) || !s.sirketler.length) s.sirketler = [{id: uid(), ad: s.profile.company || "Şirketim", gonderen: "", ...JSON.parse(JSON.stringify(Object.fromEntries(SIRKET_ALANLARI.map(k => [k, s.profile[k] ?? ""]))))}];
+  for (const c of s.sirketler) {
+    if (!c.templates || typeof c.templates !== "object") c.templates = {};
+    if (!["text", "image", "both"].includes(c.sigMode)) c.sigMode = "text";
+    if (typeof c.sigImg !== "string") c.sigImg = "";
+    if (typeof c.gonderen !== "string") c.gonderen = "";
+    if (!c.ad) c.ad = c.company || "Şirket";
+  }
   if (s.profile.valueMail === undefined) s.profile.valueMail = "";
   s.leads = s.leads || []; s.drafts = s.drafts || []; s.log = s.log || []; s.suppress = s.suppress || [];
   for (const l of s.leads) {
@@ -197,7 +212,7 @@ async function realSend(d) {
   const l = leadById(d.leadId) || {};
   try {
     const r = await fetch("/api/posta/gonder", {method: "POST", headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({kime: recipientFor(d), firmaEposta: l.email || "", konu: d.subject, metin: d.body, imza: sigImgOn() && d.type !== "reply" ? state.profile.sigImg : ""})});
+      body: JSON.stringify({kime: recipientFor(d), firmaEposta: l.email || "", konu: d.subject, metin: d.body, imza: sigImgOn(l) && d.type !== "reply" ? profilOf(l).sigImg : "", gonderen: sirketOf(l)?.gonderen || ""})});
     if (r.status === 401 && !(await r.clone().json().catch(() => ({}))).hata?.includes("Microsoft")) { location.href = "/giris"; return false; }
     const j = await r.json().catch(() => ({}));
     if (!r.ok) { toast(j.hata || "Gönderilemedi."); return false; }
@@ -372,15 +387,29 @@ function vGuide() {
 }
 
 /* ---------- Ayarlar ---------- */
+let sirketDuzId = null;
+const duzenlenen = () => state.sirketler.find(c => c.id === sirketDuzId) || state.sirketler[0];
 function vProfil() {
-  const p = state.profile, snd = p.sending, h = p.health;
+  const dz = duzenlenen(), p = {...state.profile, ...dz}, snd = p.sending, h = p.health;
+  const hesaplar = posta?.hesaplar || [];
   const f = (id, label, val, type = "text", full = false) => `<label class="f ${full ? "full" : ""}" for="p_${id}">${label}<input id="p_${id}" type="${type}" data-prof="${id}" value="${esc(val)}"></label>`;
   const ta = (id, label, val, rows = 3) => `<label class="f full" for="p_${id}">${label}<textarea id="p_${id}" rows="${rows}" data-prof="${id}">${esc(val)}</textarea></label>`;
   const num = (id, label, val, min, max) => `<label class="f" for="s_${id}">${label}<input id="s_${id}" type="number" min="${min}" max="${max}" data-snd="${id}" value="${val}"></label>`;
   return head("Ayarlar", "Pusula araştırmayı, mailleri ve gönderim temposunu bu bilgilere göre ayarlar. Değişiklikler otomatik kaydedilir.",
     state.demo ? `<button class="btn" id="fresh">Kendi çalışma alanımı başlat</button>` : "") + `
-  <div class="card grid">
-    <div class="row"><h2>Şirketim ve hedefim</h2><span class="spacer"></span>
+  <div class="card grid" id="sirketler">
+    <div class="row"><h2>Şirketlerim</h2><span class="spacer"></span><button class="btn sm" id="sirketEkle">+ Şirket ekle</button></div>
+    <p class="small muted" style="margin:0">Her şirketin kendi bilgileri, imzası, mail şablonları${SERVER ? " ve Outlook hesabı" : ""} vardır. Tanışma maili hazırlarken hangi şirketinizden gönderileceğini seçersiniz; o firmaya giden takipler de aynı şirketten gider.</p>
+    ${state.sirketler.length > 1 ? `<div class="seg sirketsec" role="group" aria-label="Düzenlenen şirket">${state.sirketler.map(c => `<button data-sirketduz="${c.id}" aria-pressed="${c.id === dz.id}">${esc(c.ad)}</button>`).join("")}</div>` : ""}
+    <div class="form">
+      <label class="f" for="sk_ad">Kısa ad (listelerde görünür)<input id="sk_ad" type="text" data-sirket="ad" value="${esc(dz.ad)}"></label>
+      ${SERVER ? `<label class="f" for="sk_gon">Gönderen Outlook hesabı<select id="sk_gon" data-sirket="gonderen"><option value="" ${dz.gonderen ? "" : "selected"}>${hesaplar.length === 1 ? `Bağlı hesap (${esc(hesaplar[0].eposta)})` : "Seçin…"}</option>${hesaplar.map(x => `<option value="${esc(x.eposta)}" ${dz.gonderen === x.eposta ? "selected" : ""}>${esc(x.eposta)}</option>`).join("")}${dz.gonderen && !hesaplar.some(x => x.eposta === dz.gonderen) ? `<option value="${esc(dz.gonderen)}" selected>${esc(dz.gonderen)} (bağlı değil)</option>` : ""}</select></label>` : ""}
+    </div>
+    <div class="row">${SERVER ? `<button class="btn sm ${hesaplar.length ? "" : "primary"}" data-msbagla="${dz.id}">${hesaplar.length ? "Bu şirket için başka bir Outlook hesabı bağla" : "Outlook hesabını bağla"}</button>` : ""}<span class="spacer"></span>${state.sirketler.length > 1 ? `<button class="btn ghost sm" data-sirketsil="${dz.id}">Bu şirketi sil</button>` : ""}</div>
+    ${state.sirketler.length > 1 ? `<p class="note" style="margin:0">Aşağıdaki şirket bilgileri, imza ve mail şablonları <b>${esc(dz.ad)}</b> içindir.</p>` : ""}
+  </div>
+  <div class="card grid" style="margin-top:14px">
+    <div class="row"><h2>${state.sirketler.length > 1 ? esc(dz.ad) + " – bilgiler ve hedef" : "Şirketim ve hedefim"}</h2><span class="spacer"></span>
     </div>
     <div class="form">
       ${f("company", "Şirket adı", p.company)}${f("website", "Web sitesi", p.website)}
@@ -403,7 +432,7 @@ function vProfil() {
     </div>
   </div>
   <div class="card grid" style="margin-top:14px">
-    <h2>Gönderen ve imza</h2>
+    <h2>${state.sirketler.length > 1 ? esc(dz.ad) + " – gönderen ve imza" : "Gönderen ve imza"}</h2>
     <div class="form">${f("senderName", "Ad soyad", p.senderName)}${f("senderTitle", "Unvan", p.senderTitle)}${f("senderEmail", "Gönderen e-posta", p.senderEmail, "email")}<span></span>${ta("signature", "İmza – yabancı dildeki mailler için", p.signature, 8)}${ta("signatureTr", "İmza – Türkçe mailler için", p.signatureTr, 8)}</div>
     <div class="grid" id="imza" style="gap:10px">
       <div class="row"><b>İmza türü</b><div class="seg" role="group" aria-label="İmza türü">${[["text", "Yazılı"], ["image", "Görsel"], ["both", "Yazılı + görsel"]].map(([k, t]) => `<button data-sigmode="${k}" aria-pressed="${p.sigMode === k}">${t}</button>`).join("")}</div></div>
@@ -413,9 +442,9 @@ function vProfil() {
     </div>
   </div>
   <div class="card grid" style="margin-top:14px" id="sablonlar">
-    <div class="row"><h2>Mail şablonları</h2><span class="spacer"></span><div class="seg" role="group" aria-label="Şablon dili">${LANGS.map(x => `<button data-tpllang="${x}" aria-pressed="${tplLang === x}">${x}</button>`).join("")}</div></div>
+    <div class="row"><h2>${state.sirketler.length > 1 ? esc(dz.ad) + " – mail şablonları" : "Mail şablonları"}</h2><span class="spacer"></span><div class="seg" role="group" aria-label="Şablon dili">${LANGS.map(x => `<button data-tpllang="${x}" aria-pressed="${tplLang === x}">${x}</button>`).join("")}</div></div>
     <p class="small muted" style="margin:0">Kendi üslubunuzla yazın; süslü parantezli alanlar her firmaya göre dolar: <span class="mono">${VARS_HELP}</span>. İmza otomatik eklenir. ${SERVER ? "Yapay zekâ" : "Claude"} ile kişiselleştirme bu şablonu temel alır.</p>
-    ${["intro", "f1", "f2", "close", "intro_supplier", "f1_supplier", "f2_supplier", "close_supplier"].map(k => { const t = tplFor(tplLang, k); const nm = k.endsWith("_supplier") ? `Tedarikçi – ${stepLabel(k.replace("_supplier", ""))}` : `Müşteri / iş ortağı – ${stepLabel(k)}`; return `<details ${k === "intro" ? "open" : ""}><summary style="cursor:pointer;font-weight:600;padding:6px 0">${esc(nm)}</summary><div class="grid" style="gap:8px;padding:6px 0 10px">
+    ${["intro", "f1", "f2", "close", "intro_supplier", "f1_supplier", "f2_supplier", "close_supplier"].map(k => { const t = tplFor(tplLang, k, p); const nm = k.endsWith("_supplier") ? `Tedarikçi – ${stepLabel(k.replace("_supplier", ""))}` : `Müşteri / iş ortağı – ${stepLabel(k)}`; return `<details ${k === "intro" ? "open" : ""}><summary style="cursor:pointer;font-weight:600;padding:6px 0">${esc(nm)}</summary><div class="grid" style="gap:8px;padding:6px 0 10px">
       <label class="f" for="t_${k}_s">Konu<input id="t_${k}_s" type="text" data-tpl="${tplLang}|${k}|subject" value="${esc(t.subject)}"></label>
       <label class="f" for="t_${k}_b">Metin<textarea id="t_${k}_b" rows="9" data-tpl="${tplLang}|${k}|body">${esc(t.body)}</textarea></label></div></details>`; }).join("")}
     <div class="row"><button class="btn sm" data-tplreset="${tplLang}">${tplLang} şablonlarını varsayılana döndür</button></div>
@@ -438,9 +467,11 @@ function vProfil() {
     <p class="small muted" style="margin:0">Yapay zekâ (Gemini) ve web araması (Tavily) Pusula sunucusunda çalışır; anahtarlar tarayıcıya hiç gelmez.</p>
     <div id="connOut" class="small"></div>
     <div class="conn-ms">
-      <div class="row"><b>Outlook (Microsoft 365)</b><span class="spacer"></span>${posta?.bagli ? `<span class="pill st-meet">Bağlı</span>` : `<span class="pill st-new">Bağlı değil</span>`}</div>
-      ${posta?.bagli ? `<p class="small" style="margin:0">Gönderen: <b>${esc(posta.eposta)}</b> · bugün ${posta.bugunGonderilen}/${posta.gunlukSinir} mail</p>${posta.kilit ? `<p class="small muted" style="margin:0">🔒 Sunucu test kilidi açık: mailler yalnızca ${posta.testAlicilari.map(esc).join(", ")} adreslerine gidebilir.</p>` : ""}<div class="row"><button class="btn sm" id="msTest">Kendime test maili gönder</button><button class="btn ghost sm" id="msOff">Bağlantıyı kaldır</button></div>`
-        : `<p class="small muted" style="margin:0">Mailler sizin Outlook hesabınızdan, Microsoft'un resmî bağlantısıyla gönderilir; şifreniz Pusula'ya verilmez, izni istediğiniz an kaldırabilirsiniz.</p><div class="row"><a class="btn primary sm" href="/api/microsoft/baglan">Outlook ile bağlan</a></div>`}
+      <div class="row"><b>Outlook (Microsoft 365)</b><span class="spacer"></span>${posta?.bagli ? `<span class="pill st-meet">${posta.hesaplar?.length || 1} hesap bağlı</span>` : `<span class="pill st-new">Bağlı değil</span>`}</div>
+      ${(posta?.hesaplar || []).map(x => `<div class="row small hesap" style="gap:8px"><b>${esc(x.eposta)}</b><span class="muted">bugün ${x.bugunGonderilen}/${posta.gunlukSinir} mail · ${esc(state.sirketler.filter(c => c.gonderen === x.eposta || (!c.gonderen && posta.hesaplar.length === 1)).map(c => c.ad).join(", ") || "hiçbir şirkete atanmadı")}</span><span class="spacer"></span><button class="btn sm" data-mstest="${esc(x.eposta)}">Test maili</button><button class="btn ghost sm" data-msoff="${esc(x.eposta)}">Kaldır</button></div>`).join("")}
+      ${posta?.bagli && posta.kilit ? `<p class="small muted" style="margin:0">🔒 Sunucu test kilidi açık: mailler yalnızca ${posta.testAlicilari.map(esc).join(", ")} adreslerine gidebilir.</p>` : ""}
+      <p class="small muted" style="margin:0">Mailler Outlook hesabınızdan, Microsoft'un resmî bağlantısıyla gönderilir; şifreniz Pusula'ya verilmez. Her iştirak şirketiniz için ayrı hesap bağlayabilirsiniz. Günlük güvenlik sınırı hesap başınadır ve gece 00:00'da yenilenir.</p>
+      <div class="row"><a class="btn ${posta?.bagli ? "" : "primary"} sm" href="/api/microsoft/baglan">${posta?.bagli ? "Başka bir Outlook hesabı bağla" : "Outlook ile bağlan"}</a></div>
     </div>
   </div>` : ""}
   <div class="card grid" style="margin-top:14px" id="testmodu">
@@ -518,7 +549,7 @@ function vArastir() {
       <label class="f" for="campaign">Kampanya adı (adayları gruplar)<input id="campaign" type="text" placeholder="Örn. ${esc(hedef?.tr || "Maldivler")} – 2026 Q4" value=""></label>
       <label class="f" for="howMany">Kaç aday?<select id="howMany">${[5, 10, 15, 20].map(n => `<option ${n === 10 ? "selected" : ""}>${n}</option>`).join("")}</select></label>
     </div>
-    <div class="row"><button class="btn primary" id="runRes" ${research.running || (SERVER && kota && !kota.kalan) ? "disabled" : ""}>Araştırmayı başlat</button><span class="small muted">Her aramada daha önce verilmemiş yeni firmalar gelir.</span><span class="spacer"></span>${SERVER && kota ? `<span class="kota ${kota.kalan ? "" : "bitti"}" title="Günlük arama kotası: bir günde verilen yeni firma sayısı">Bugün kalan: <b>${kota.kalan}</b> / ${kota.limit} yeni firma</span>` : ""}</div>
+    <div class="row"><button class="btn primary" id="runRes" ${research.running || (SERVER && kota && !kota.kalan) ? "disabled" : ""}>Araştırmayı başlat</button><span class="small muted">Her aramada daha önce verilmemiş yeni firmalar gelir.</span><span class="spacer"></span>${SERVER && kota ? `<span class="kota ${kota.kalan ? "" : "bitti"}" title="Günlük arama kotası: bir günde verilen yeni firma sayısı. Haklar gece 00:00'da yenilenir.">Bugün kalan: <b>${kota.kalan}</b> / ${kota.limit} yeni firma</span>` : ""}</div>
     ${SERVER && kota && !kota.kalan && !research.error ? `<p class="note">${kotaMesaji()}</p>` : ""}
     ${research.error ? `<p class="note"><b>Araştırma tamamlanamadı.</b> ${esc(research.error)}</p>` : ""}
   </div>
@@ -567,7 +598,7 @@ function vAdaylar() {
   // Panelden tek bir duruma (ör. "Görüşme") gelinmişse o da listede görünsün
   const tekDurum = filters.status !== "Tümü" && !DURUM_GRUP[filters.status] && STATUS[filters.status] ? opt("status", filters.status, STATUS[filters.status].t) : "";
   return head("Adaylar", "Bulduğunuz firmalar. Ayrıntı için firma adına dokunun; sağdaki düğme sıradaki işi yapar.",
-    `<button class="btn ghost sm" data-import="1">İçe aktar</button><button class="btn ghost sm" id="exportCsv">Dışa aktar</button><button class="btn primary" id="introSel" ${selected.size ? "" : "disabled"}>Tanışma maili hazırla (${selected.size})</button>`) + `
+    `<button class="btn ghost sm" data-import="1">İçe aktar</button><button class="btn ghost sm" id="exportCsv">Dışa aktar</button>${SERVER && derinAdaylari().length ? `<button class="btn sm" id="derinBtn" ${derin.running ? "disabled" : ""} title="E-postası bulunamayan firmaların sitelerini derinlemesine tarar">Detaylı e-posta sorgula (${derinAdaylari().length})</button>` : ""}<button class="btn primary" id="introSel" ${selected.size ? "" : "disabled"}>Tanışma maili hazırla (${selected.size})</button>`) + `
   <div class="card grid">
     ${roleTabs(k => k === "all" ? state.leads.length : state.leads.filter(l => rolOf(l) === k).length)}
     <div class="filtre">
@@ -579,13 +610,14 @@ function vAdaylar() {
       ${aktif ? `<button class="btn ghost sm" id="clrF">Filtreleri temizle</button>` : ""}
     </div>
   </div>
+  ${SERVER && (derin.running || derin.son) ? `<div class="card derin" style="margin-top:14px"><div class="row">${derin.running ? `<span class="dots"><i></i><i></i><i></i></span>` : ""}<b>Detaylı e-posta sorgusu</b><span class="small muted">${derin.taranan || 0}/${derin.toplam || 0} firma tarandı · ${derin.bulunan || 0} adres bulundu</span><span class="spacer"></span>${kota?.derin ? `<span class="kota ${kota.derin.kalan ? "" : "bitti"}" title="Haklar gece 00:00'da yenilenir">Bugün kalan: <b>${kota.derin.kalan}</b> / ${kota.derin.limit} yeni adres</span>` : ""}${derin.running ? `<button class="btn sm" id="derinDur">Durdur</button>` : `<button class="btn ghost sm" id="derinKapat">Kapat</button>`}</div>${derin.son ? `<p class="small muted" style="margin:6px 0 0">${esc(derin.son)}</p>` : ""}</div>` : ""}
   <div class="card" style="margin-top:14px">
     ${list.length ? `<div class="row small muted" style="padding:0 4px 8px"><label class="row" for="selAll"><input type="checkbox" id="selAll" ${list.every(l => selected.has(l.id)) ? "checked" : ""}> Tümünü seç</label><span class="spacer"></span>${list.length} firma</div>
     <div class="leads">${list.map(l => `<div class="aday">
       <input type="checkbox" id="l_${l.id}" data-sel="${l.id}" ${selected.has(l.id) ? "checked" : ""} aria-label="${esc(l.name)} seç" ${isSuppressed(l) ? "disabled" : ""}>
       <span class="prio p-${l.priority}" title="Öncelik ${l.priority} · uyum puanı ${l.score}">${l.priority}</span>
       <div class="govde">
-        <div class="ust"><button class="nmbtn" data-open="${l.id}">${esc(l.name)}</button>${filters.rol === "all" ? `<span class="pill rol-${rolOf(l)}">${ROLE1[rolOf(l)]}</span>` : ""}</div>
+        <div class="ust"><button class="nmbtn" data-open="${l.id}">${esc(l.name)}</button>${state.sirketler.length > 1 && l.sirketId ? `<span class="pill kat" title="Bu firmaya yazan şirketiniz">${esc(sirketOf(l)?.ad || "")}</span>` : ""}${filters.rol === "all" ? `<span class="pill rol-${rolOf(l)}">${ROLE1[rolOf(l)]}</span>` : ""}</div>
         <div class="meta">${[l.kind, l.region].filter(Boolean).map(esc).join(" · ")}${l.email ? "" : ` · <span class="uyari">e-posta yok</span>`}${l.email && !l.verified ? ` · <span class="uyari" title="Göndermeden önce web sitesinden kontrol edin">adres doğrulanmadı</span>` : ""}${isSuppressed(l) ? ` · <span class="uyari">yazılmayacak</span>` : ""}</div>
         ${l.why ? `<div class="why" title="${esc(l.why)}">${esc(l.why)}</div>` : ""}
       </div>
@@ -595,6 +627,48 @@ function vAdaylar() {
       </div></div>`).join("")}</div>`
     : `<div class="empty"><h3>${state.leads.length ? "Bu filtreye uyan firma yok" : "Henüz aday yok"}</h3><p>${state.leads.length ? "Filtreleri temizleyin ya da yeni bir araştırma başlatın." : "Araştır ekranından aday bulun ya da elinizdeki listeyi içe aktarın."}</p><div class="row" style="justify-content:center">${aktif ? `<button class="btn" id="clrF">Filtreleri temizle</button>` : ""}<button class="btn primary" data-nav="arastir">Araştır</button><button class="btn" data-import="1">Liste içe aktar</button></div></div>`}
   </div>`;
+}
+
+/* ---------- Detaylı e-posta sorgusu ----------
+   E-postası olmayan firmalar sırayla sunucuda derin taranır (site bulunur, iletişim/künye/KVKK sayfaları okunur).
+   Günde en fazla 5 yeni adres (sunucuda sayılır, gece 00:00'da yenilenir). Aynı firma 14 gün içinde tekrar taranmaz. */
+let derin = {running: false, dur: false};
+const ulkeKoduOf = l => hedefKodu(String(l.region || "").split(",").pop());
+const derinAdaylari = () => state.leads.filter(l => !l.email && !isSuppressed(l) && !["no", "optout"].includes(l.status) && !(l.derinTarih && l.derinTarih > addDays(todayISO(), -14)))
+  .sort((a, b) => a.priority.localeCompare(b.priority) || b.score - a.score);
+async function derinSorgu() {
+  const liste = derinAdaylari();
+  if (!liste.length) { toast("Taranacak firma yok (e-postası olmayan ve son 14 günde taranmamış firma kalmadı)."); return; }
+  derin = {running: true, dur: false, toplam: liste.length, taranan: 0, bulunan: 0, son: ""}; render();
+  for (const l of liste) {
+    if (derin.dur) { derin.son = "Durduruldu."; break; }
+    derin.son = `${l.name} taranıyor…`; render();
+    let j;
+    try {
+      const r = await fetch("/api/eposta-derin", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({ad: l.name, site: l.website || "", ulkeKod: ulkeKoduOf(l)})});
+      if (r.status === 401) { location.href = "/giris"; return; }
+      j = await r.json();
+      if (j.derin && kota) kota.derin = j.derin;
+      if (r.status === 429) { derin.son = j.hata; break; }
+      if (!r.ok) { console.warn("Pusula detaylı sorgu:", r.status, j.hata); derin.son = "Detaylı sorgu tamamlanamadı. " + GELISTIRICI_HATA; break; }
+    } catch (e) { console.warn("Pusula detaylı sorgu:", e); derin.son = "Detaylı sorgu tamamlanamadı. " + GELISTIRICI_HATA; break; }
+    derin.taranan++;
+    commit(() => {
+      const x = leadById(l.id); if (!x) return;
+      x.derinTarih = todayISO();
+      if (j.site && !x.website) x.website = j.site;
+      if (j.adres) {
+        x.email = j.adres; x.verified = !!j.mx; derin.bulunan++;
+        x.emailSource = `Firmanın sitesinde yayımlanmış adres (${j.kaynak})${j.mx ? " · alan adı mail kabul ediyor (MX)" : ""}${j.siteNotu ? " · site: " + j.siteNotu : ""}`;
+        x.sources = [...(x.sources || []), {ad: "Firma sitesi", url: "https://" + j.site}];
+        log(x.id, "Detaylı sorguda e-posta bulundu: " + j.adres);
+      } else log(x.id, "Detaylı e-posta sorgusu: " + (j.neden || "adres bulunamadı"));
+    });
+    if (kota?.derin && !kota.derin.kalan) { derin.son = `Bugünkü detaylı sorgu hakkınız (${kota.derin.limit} yeni adres) doldu. Haklar gece 00:00'da yenilenir.`; break; }
+  }
+  derin.running = false;
+  if (!derin.son || derin.son.endsWith("taranıyor…")) derin.son = derin.bulunan ? `${derin.taranan} firma tarandı, ${derin.bulunan} firmanın e-posta adresi bulundu.` : `${derin.taranan} firma tarandı; sitelerinde yayımlanmış kurumsal adres bulunamadı.`;
+  render(); toast(derin.son);
 }
 
 /* ---------- Aday ayrıntısı ---------- */
@@ -653,7 +727,7 @@ function quality(d) {
   if (subj.length > 60 || subj.split(/\s+/).length > 9) { s -= 10; issues.push(["Konu satırı uzun (60 karakter / 9 kelime altı önerilir)", false]); } else issues.push(["Konu satırı kısa", true]);
   if (/^(re|fw|fwd):/i.test(subj) && d.type === "intro") { s -= 15; issues.push(["İlk mailde 'Re:' / 'Fwd:' yanıltıcı sayılır", false]); }
   const hay = (subj + " " + main).toLowerCase();
-  const names = [l.name, state.profile.company, state.profile.senderName].filter(Boolean).flatMap(n => String(n).split(/[\s()]+/)).filter(w => w.length > 1);
+  const names = [l.name, profilOf(l).company, profilOf(l).senderName].filter(Boolean).flatMap(n => String(n).split(/[\s()]+/)).filter(w => w.length > 1);
   const plain = names.reduce((t, w) => t.split(w).join(" "), subj + " " + main);
   const hits = TRIGGERS.filter(w => new RegExp("(?<![\\p{L}\\p{N}])" + w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "u").test(hay));
   if (hits.length) { s -= Math.min(30, hits.length * 8); issues.push(["Spam kelimesi: " + hits.join(", "), false]); } else issues.push(["Spam tetikleyici kelime yok", true]);
@@ -663,8 +737,8 @@ function quality(d) {
   if ((plain.match(/\b[A-ZÇĞİÖŞÜ]{4,}\b/g) || []).filter(w => !["HYXI", "EPC", "ESS", "HVAC", "B2B", "CEO", "MWh", "LUNA"].includes(w)).length > 1) { s -= 10; issues.push(["BÜYÜK HARFLİ kelimeler", false]); }
   if (l.name && !hay.includes(String(l.name).split(/[ (]/)[0].toLowerCase())) { s -= 10; issues.push(["Firmaya özel bir ifade yok", false]); } else issues.push(["Kişiselleştirilmiş", true]);
   if (!OPTOUT_RE.test(body)) { s -= 15; issues.push(["Listeden çıkma cümlesi yok", false]); } else issues.push(["Listeden çıkma cümlesi var", true]);
-  if (sigImgOn()) issues.push(["Görsel imza eklenecek", true]);
-  else if (state.profile.senderName && !body.includes(state.profile.senderName)) { s -= 5; issues.push(["İmza eksik", false]); }
+  if (sigImgOn(l)) issues.push(["Görsel imza eklenecek", true]);
+  else if (profilOf(l).senderName && !body.includes(profilOf(l).senderName)) { s -= 5; issues.push(["İmza eksik", false]); }
   if (!isTr(leadLang(l)) && /[ğşıİ]|\b(ve|için|bir|ile)\b/.test(plain)) { s -= 20; issues.push(["Dil karışık: " + leadLang(l) + " mailde Türkçe ifade var", false]); }
   if (isTr(leadLang(l)) && /\b(the|and|we|our|your|with)\b/i.test(plain)) { s -= 20; issues.push(["Dil karışık: Türkçe mailde İngilizce ifade var", false]); }
   if (l.email && !l.verified) { s -= 10; issues.push(["E-posta adresi doğrulanmadı", false]); }
@@ -683,15 +757,16 @@ function vMailler() {
   return head("Mailler", "Taslaklar kısa, kişisel ve düz metin. Teslim puanına bakın, gerekirse düzenleyin, gönderin.",
     `${dueSched.length ? `<button class="btn" id="sendDue">Zamanı gelenleri gönder (${dueSched.length})</button>` : ""}${ready.length ? `<button class="btn primary" id="sendAll">Tümünü güvenli hızda gönder (${ready.length})</button>` : ""}`) + `
   ${testOn() ? `<p class="note test"><b>Test modu açık.</b> Araştırma ve taslaklar gerçek firmalar için hazırlanıyor; gönderimde alıcı olarak yalnızca sizin adresleriniz (${state.test.addresses.map(esc).join(", ")}) kullanılır. "Outlook'ta aç" maili bu adrese yazılmış hâlde açar. <button class="btn ghost sm" data-nav="profil" data-anchor="testmodu">Değiştir</button></p>` : ""}
-  ${SERVER ? (realMail() ? `<p class="note"><b>Gerçek gönderim açık.</b> Mailler <b>${esc(posta.eposta)}</b> hesabınızdan gönderilir ve Outlook'taki "Gönderilmiş Öğeler" klasörünüze düşer. ${posta.kilit ? `Sunucudaki test kilidi açık: mailler yalnızca ${posta.testAlicilari.map(esc).join(", ")} adreslerine gidebilir.` : ""} Bugün ${posta.bugunGonderilen}/${posta.gunlukSinir}.</p>` : `<p class="note"><b>Outlook bağlı değil.</b> Gerçek gönderim için <button class="linkbtn" data-nav="profil" data-anchor="baglantilar">Ayarlar › Bağlantılar</button> bölümünden Outlook hesabınızı bağlayın. Bağlanana kadar "Gönder" yalnızca işaretleme yapar.</p>`) : ""}
+  ${SERVER ? (realMail() ? `<p class="note"><b>Gerçek gönderim açık.</b> Mailler ${(posta.hesaplar || []).length > 1 ? "her şirketin kendi Outlook hesabından" : `<b>${esc(posta.eposta)}</b> hesabınızdan`} gönderilir ve Outlook'taki "Gönderilmiş Öğeler" klasörünüze düşer. ${posta.kilit ? `Sunucudaki test kilidi açık: mailler yalnızca ${posta.testAlicilari.map(esc).join(", ")} adreslerine gidebilir.` : ""} Bugün ${posta.bugunGonderilen}/${posta.gunlukSinir}.</p>` : `<p class="note"><b>Outlook bağlı değil.</b> Gerçek gönderim için <button class="linkbtn" data-nav="profil" data-anchor="baglantilar">Ayarlar › Bağlantılar</button> bölümünden Outlook hesabınızı bağlayın. Bağlanana kadar "Gönder" yalnızca işaretleme yapar.</p>`) : ""}
   ${SERVER ? "" : `<p class="note"><b>Demo modu:</b> Bu sürüm mail göndermez; "Gönder" firmayı işaretler ve sıradaki adımı takvime koyar. Tam sürümde mailler Outlook veya Gmail hesabınızdan, ${state.profile.sending.minGap}–${state.profile.sending.maxGap} dk rastgele aralıklarla ve günde en fazla ${state.profile.sending.dailyLimit} adet gider. Bugün kalan hak: <b>${left}</b>.</p>`}
   ${mailBusy ? `<div class="card" style="margin-top:14px"><div class="think"><span class="dots"><i></i><i></i><i></i></span>Taslaklar ${AI()} ile kişiselleştiriliyor…</div></div>` : ""}
   <div class="grid" style="margin-top:14px">
   ${ds.length ? ds.map(d => { const l = leadById(d.leadId) || {}; return `<div class="card draft">
     <div class="hd"><span class="pill ${d.type === "intro" ? "st-draft" : d.type === "reply" ? "st-meet" : "st-reply"}">${esc(stepLabel(d.type))}</span><b>${esc(l.name || "—")}</b>${state.auto.on && d.type !== "reply" ? (autoCheck(d) ? `<span class="pill st-reply" title="Otonom gönderim bu maili göndermeyecek">Kontrol: ${esc(autoCheck(d))}</span>` : `<span class="pill st-sent">Otonom gidecek</span>`) : ""}${d.scheduledFor ? `<span class="sched">Planlandı: ${fmtDate(d.scheduledFor)} ${String(state.profile.sending.startHour).padStart(2, "0")}:00</span>` : ""}<span class="spacer"></span>${testOn() ? `<span class="mailto mto" title="Firmanın adresi: ${esc(l.email || "yok")}"><span>Kime: <b>${esc(recipientFor(d))}</b> <span class="pill st-reply">test</span></span><span class="small muted">Firma: ${esc(l.email || "e-posta yok")}</span></span>` : `<span class="mailto">${esc(l.email || "e-posta yok")}</span>`}</div>
+    ${state.sirketler.length > 1 ? `<label class="small row" style="gap:8px" for="ds_${d.id}">Gönderen şirket<select id="ds_${d.id}" data-dsirket="${d.id}" style="width:auto">${state.sirketler.map(c => `<option value="${c.id}" ${sirketOf(l)?.id === c.id ? "selected" : ""}>${esc(c.ad)}${c.gonderen ? " · " + esc(c.gonderen) : ""}</option>`).join("")}</select></label>` : ""}
     <label class="f" for="s_${d.id}">Konu<input id="s_${d.id}" type="text" data-dsub="${d.id}" value="${esc(d.subject)}"></label>
     <label class="f" for="b_${d.id}">Metin<textarea id="b_${d.id}" data-dbody="${d.id}">${esc(d.body)}</textarea></label>
-    ${sigImgOn() && d.type !== "reply" ? `<div class="sigline"><img class="sigprev sm" src="${state.profile.sigImg}" alt=""><span class="small muted">Görsel imza bu maile eklenecek. ("Outlook'ta aç" ile açılan maile görsel taşınmaz; orada Outlook imzanızı seçin.)</span></div>` : ""}
+    ${sigImgOn(l) && d.type !== "reply" ? `<div class="sigline"><img class="sigprev sm" src="${profilOf(l).sigImg}" alt=""><span class="small muted">Görsel imza bu maile eklenecek. ("Outlook'ta aç" ile açılan maile görsel taşınmaz; orada Outlook imzanızı seçin.)</span></div>` : ""}
     <div id="q_${d.id}">${qualityHtml(d)}</div>
     <div class="row"><button class="btn primary" data-send="${d.id}">Gönder</button><a class="btn" target="_blank" rel="noopener" href="${esc(mailtoFor(d))}" title="Outlook'ta yeni mail olarak açar">Outlook'ta aç</a><button class="btn" data-copy="${d.id}">Metni kopyala</button><span class="spacer"></span><button class="btn ghost sm" data-ai="${d.id}">${SERVER ? "Yapay zekâ" : "Claude"} ile yeniden yaz</button><button class="btn ghost sm" data-del="${d.id}">Sil</button></div>
   </div>`; }).join("") : `<div class="card empty"><h3>Hazır taslak yok</h3><p>Adaylar ekranında firmaları seçip "Tanışma maili hazırla"ya basın; takip mailleri Takip ekranından hazırlanır.</p><button class="btn primary" data-nav="adaylar">Adaylara git</button></div>`}
@@ -749,14 +824,14 @@ const DEFAULT_TPL = {
   },
 };
 const VARS_HELP = "{firma} · {giris} · {urunler} · {urunler_kisa} · {degerler} · {gonderen} · {sirket} · {ilk_tarih}";
-function leadLang(l) { return (l && l.lang) || state.profile.language || "English"; }
+function leadLang(l) { return (l && l.lang) || profilOf(l).language || "English"; }
 function isTr(lang) { return /^t(r|ürkçe|urkish)/i.test(lang || ""); }
-function tplFor(lang, key) {
-  const set = state.profile.templates?.[lang] || DEFAULT_TPL[lang] || DEFAULT_TPL[isTr(lang) ? "Türkçe" : "English"];
+function tplFor(lang, key, p = profilOf(null)) {
+  const set = p.templates?.[lang] || DEFAULT_TPL[lang] || DEFAULT_TPL[isTr(lang) ? "Türkçe" : "English"];
   return set[key] || DEFAULT_TPL[isTr(lang) ? "Türkçe" : "English"][key];
 }
 function fill(text, l) {
-  const p = state.profile, tr = isTr(leadLang(l));
+  const p = profilOf(l), tr = isTr(leadLang(l));
   const sup = rolOf(l) === "supplier";
   const prod = sup ? (tr ? (p.buyNeeds || p.buyNeedsMail) : (p.buyNeedsMail || p.buyNeeds)) : tr ? (p.products || p.productsMail) : (p.productsMail || p.products);
   const val = tr ? (p.value || p.valueMail) : (p.valueMail || p.value);
@@ -773,12 +848,12 @@ function fill(text, l) {
   });
 }
 // İmza: yazılı, görsel ya da ikisi. Görsel modda metne yalnızca kapanış satırı ("En iyi dileklerimle,") girer; görsel gönderimde eklenir.
-const sigImgOn = () => state.profile.sigMode !== "text" && !!state.profile.sigImg;
-function sigText(l) { const p = state.profile; return isTr(leadLang(l)) ? (p.signatureTr || p.signature) : p.signature; }
-function sigFor(l) { const t = sigText(l) || ""; return state.profile.sigMode === "image" && state.profile.sigImg ? t.split("\n")[0] : t; }
+const sigImgOn = l => { const p = profilOf(l); return p.sigMode !== "text" && !!p.sigImg; };
+function sigText(l) { const p = profilOf(l); return isTr(leadLang(l)) ? (p.signatureTr || p.signature) : p.signature; }
+function sigFor(l) { const t = sigText(l) || "", p = profilOf(l); return p.sigMode === "image" && p.sigImg ? t.split("\n")[0] : t; }
 function renderTpl(l, key) {
   const k = rolOf(l) === "supplier" && ["intro", "f1", "f2", "close"].includes(key) ? key + "_supplier" : key;
-  const t = tplFor(leadLang(l), k);
+  const t = tplFor(leadLang(l), k, profilOf(l));
   return {subject: fill(t.subject, l), body: fill(t.body, l) + "\n\n" + sigFor(l)};
 }
 function shortSubj(s) {
@@ -794,13 +869,23 @@ function addDraft(l, type) {
   if (type === "intro" && l.status === "new") l.status = "draft";
   return true;
 }
-function makeIntros(ids) {
+// Birden fazla şirket varsa küçük bir pencereden seçilir; tek şirket varsa sormadan devam edilir
+let sirketSecimi = "";
+function sirketSec(devam) {
+  const s = state.sirketler;
+  if (s.length <= 1) return devam(s[0]?.id);
+  sirketSecimi = s.find(x => x.id === state.profile.sonSirket) ? state.profile.sonSirket : s[0].id;
+  confirmDlg("Hangi şirketinizden gönderilsin?", `<span class="secimler">${s.map(c => `<label class="check"><input type="radio" name="sirketSecim" value="${c.id}" ${c.id === sirketSecimi ? "checked" : ""}><span><b>${esc(c.ad)}</b><small>${esc([c.company, c.gonderen || (SERVER ? "Outlook hesabı seçilmemiş" : "")].filter(Boolean).join(" · "))}</small></span></label>`).join("")}</span><span class="small muted" style="display:block;margin-top:8px">Bu firmalara giden takip mailleri de aynı şirketten gider.</span>`,
+    "Devam", () => { state.profile.sonSirket = sirketSecimi; devam(sirketSecimi); });
+}
+function makeIntros(ids, sirketId) {
   let n = 0, blocked = 0; const made = [];
   commit(() => {
     for (const id of ids) {
       const l = leadById(id); if (!l) continue;
       if (isSuppressed(l) || l.status === "optout") { blocked++; continue; }
       if (l.step >= 0) continue;
+      if (sirketId) l.sirketId = sirketId;
       if (addDraft(l, "intro")) { n++; made.push(state.drafts[state.drafts.length - 1].id); }
     }
     selected.clear(); view = "mailler";
@@ -829,7 +914,7 @@ function makeNext(ids) {
 
 async function aiPolish(draftIds) {
   if (!sample || !draftIds.length) return;
-  const p = state.profile;
+  const p = profilOf(leadById(state.drafts.find(x => x.id === draftIds[0])?.leadId));
   const items = draftIds.map(id => { const d = state.drafts.find(x => x.id === id); const l = leadById(d.leadId); return {draftId: id, step: stepLabel(d.type), stepKey: d.type, language: leadLang(l), company: l.name, kind: l.kind, region: l.region, segment: l.segment, notes: [l.hook, l.why, l.notes].filter(Boolean).join(" "), firstEmailDate: l.sentAt, currentDraft: d.body.slice(0, 1500)}; });
   mailBusy = true; render();
   try {
@@ -865,7 +950,7 @@ async function handleReply(id) {
   let r = classifyLocal(txt), draft = null;
   if (sample) {
     try {
-      const p = state.profile;
+      const p = profilOf(l);
       const out = await sample.json(
 `A prospect replied to our B2B outreach. Classify the reply and draft our answer.
 Us: ${p.senderName}, ${p.company} (${p.country}); products: ${p.products}; value: ${p.value}.
@@ -936,7 +1021,7 @@ async function tick() {
   }
   drawQueue();
   if (queue.length) qTimer = setTimeout(tick, gapMs());
-  else { qTimer = null; setTimeout(() => $("#layer").querySelector(".queue")?.remove(), 1500); toast(realMail() ? `Mailler ${posta.eposta} hesabından gönderildi; sıradaki adımlar takvimde.` : "Mailler gönderildi olarak işaretlendi; sıradaki adımlar takvimde."); }
+  else { qTimer = null; setTimeout(() => $("#layer").querySelector(".queue")?.remove(), 1500); toast(realMail() ? `Mailler ${(posta.hesaplar || []).length > 1 ? "şirketlerinizin Outlook hesaplarından" : posta.eposta + " hesabından"} gönderildi; sıradaki adımlar takvimde.` : "Mailler gönderildi olarak işaretlendi; sıradaki adımlar takvimde."); }
 }
 function drawQueue() {
   const done = qTotal - queue.length, sn = state.profile.sending;
@@ -995,7 +1080,7 @@ function loadSigImage(file) {
     URL.revokeObjectURL(url);
     const data = c.toDataURL("image/jpeg", 0.88);
     if (data.length > 400000) { toast("Görsel çok büyük; daha sade bir imza görseli deneyin."); return; }
-    commit(() => { state.profile.sigImg = data; if (state.profile.sigMode === "text") state.profile.sigMode = "image"; });
+    commit(() => { const c = duzenlenen(); c.sigImg = data; if (c.sigMode === "text") c.sigMode = "image"; });
     toast("Görsel imza kaydedildi.");
   };
   img.onerror = () => { URL.revokeObjectURL(url); toast("Görsel okunamadı."); };
@@ -1127,9 +1212,9 @@ function hatirla(liste) {
 let kota = null;
 async function kotaYukle() {
   if (!SERVER) return;
-  try { const r = await fetch("/api/kota"); if (r.ok) { kota = await r.json(); if (view === "arastir") render(); } } catch (e) {}
+  try { const r = await fetch("/api/kota"); if (r.ok) { kota = await r.json(); if (["arastir", "adaylar"].includes(view)) render(); } } catch (e) {}
 }
-const kotaMesaji = () => `Bugünkü arama kotanız (${kota.limit} yeni firma) doldu. Yarın devam edebilirsiniz.`;
+const kotaMesaji = () => `Bugünkü arama kotanız (${kota.limit} yeni firma) doldu. Haklar gece 00:00'da yenilenir.`;
 // Firma türleri (OpenStreetMap etiketleri). "Tüm işletmeler" ve "isimde anahtar kelime" seçenekleri her türü kapsar.
 const OSM_TYPES = {
   "tumu": {g: "Genel", label: "Tüm işletmeler (ofis, mağaza, atölye, sanayi)", f: ['["office"]["name"]', '["craft"]["name"]', '["industrial"]["name"]', '["man_made"="works"]["name"]', '["shop"]["name"]']},
@@ -1545,7 +1630,7 @@ function addResults(tanisma) {
     view = "adaylar"; filters = {segment: "Tümü", status: "Tümü", prio: "Tümü", q: "", campaign: "Tümü", rol: rolOf(leadById(yeni[0])), kategori: "Tümü"};
   });
   // Tek düğme akışı: e-postası olanlar için tanışma taslakları hazırlanır ve Mailler ekranına geçilir
-  if (tanisma) { const mailli = yeni.filter(id => leadById(id)?.email); if (mailli.length) { makeIntros(mailli); if (mailli.length < yeni.length) toast(`${yeni.length} firma eklendi; ${mailli.length} tanışma maili hazır. ${yeni.length - mailli.length} firmanın e-postası yok, Adaylar'dan ekleyebilirsiniz.`); return; } }
+  if (tanisma) { const mailli = yeni.filter(id => leadById(id)?.email); if (mailli.length) { sirketSec(sid => { makeIntros(mailli, sid); if (mailli.length < yeni.length) toast(`${yeni.length} firma eklendi; ${mailli.length} tanışma maili hazır. ${yeni.length - mailli.length} firmanın e-postası yok; Adaylar'daki "Detaylı e-posta sorgula" ile aratabilirsiniz.`); }); return; } }
   toast(`${pick.length} aday listeye eklendi.`);
 }
 
@@ -1618,7 +1703,7 @@ function confirmDlg(title, text, okLabel, onOk) {
   back.addEventListener("click", e => { if (e.target === back || e.target.closest("[data-x]")) back.remove(); if (e.target.closest("[data-ok]")) { back.remove(); onOk(); } });
   $("#layer").append(back); back.querySelector("[data-ok]").focus();
 }
-function go(v, anchor) { view = v; if (v === "arastir") kotaYukle(); closeLead(); try { localStorage.setItem("pusula.view", view); } catch (x) {} render(); if (anchor) document.getElementById(anchor)?.scrollIntoView({block: "start"}); else window.scrollTo(0, 0); }
+function go(v, anchor) { view = v; if (v === "arastir" || v === "adaylar") kotaYukle(); closeLead(); try { localStorage.setItem("pusula.view", view); } catch (x) {} render(); if (anchor) document.getElementById(anchor)?.scrollIntoView({block: "start"}); else window.scrollTo(0, 0); }
 
 /* ---------- olaylar ---------- */
 document.addEventListener("click", e => {
@@ -1631,11 +1716,14 @@ document.addEventListener("click", e => {
   if (ds.open) { openLead = ds.open; drawLead(); return; }
   if (ds.closelead) { closeLead(); return; }
   if (ds.sel) { t.checked ? selected.add(ds.sel) : selected.delete(ds.sel); const b = $("#introSel"); if (b) { b.disabled = !selected.size; b.textContent = `Tanışma maili hazırla (${selected.size})`; } return; }
+  if (t.id === "derinBtn") { derinSorgu(); return; }
+  if (t.id === "derinDur") { derin.dur = true; return; }
+  if (t.id === "derinKapat") { derin = {running: false, dur: false}; render(); return; }
   if (t.id === "clrF") { Object.assign(filters, {q: "", status: "Tümü", prio: "Tümü", kategori: "Tümü", campaign: "Tümü", segment: "Tümü"}); render(); return; }
   if (t.id === "selAll") { filteredLeads().filter(l => !isSuppressed(l)).forEach(l => t.checked ? selected.add(l.id) : selected.delete(l.id)); render(); return; }
-  if (t.id === "introSel") { makeIntros([...selected]); return; }
-  if (ds.bulkintro) { makeIntros(ds.bulkintro.split(",").filter(Boolean)); return; }
-  if (ds.intro1) { closeLead(); makeIntros([ds.intro1]); return; }
+  if (t.id === "introSel") { const ids = [...selected]; sirketSec(sid => makeIntros(ids, sid)); return; }
+  if (ds.bulkintro) { const ids = ds.bulkintro.split(",").filter(Boolean); sirketSec(sid => makeIntros(ids, sid)); return; }
+  if (ds.intro1) { const id = ds.intro1; closeLead(); sirketSec(sid => makeIntros([id], sid)); return; }
   if (ds.next) { makeNext([ds.next]); if (openLead) drawLead(); return; }
   if (t.id === "prepDue") { const t0 = todayISO(); makeNext(state.leads.filter(l => l.status === "sent" && l.nextAt && l.nextAt <= t0).map(l => l.id)); return; }
   if (ds.setst) { const [id, st] = ds.setst.split(":"); commit(() => { const l = leadById(id); if (l) { l.status = st; l.nextAt = ""; log(id, STATUS[st].t); } }); return; }
@@ -1671,7 +1759,10 @@ document.addEventListener("click", e => {
   if (ds.dellead) { const id = ds.dellead; confirmDlg("Adayı sil", "Aday, taslakları ve geçmişi silinir.", "Sil", () => commit(() => { state.leads = state.leads.filter(l => l.id !== id); state.drafts = state.drafts.filter(d => d.leadId !== id); state.log = state.log.filter(x => x.leadId !== id); closeLead(); })); return; }
   if (ds.health) { state.profile.health[ds.health] = t.checked; persist(); return; }
   if (ds.verify) { commit(() => { const l = leadById(ds.verify); l.verified = t.checked; if (t.checked) log(l.id, "E-posta doğrulandı"); }); return; }
-  if (ds.tplreset) { commit(() => { delete state.profile.templates[ds.tplreset]; }); toast("Şablonlar varsayılana döndü."); return; }
+  if (t.id === "sirketEkle") { commit(() => { const kaynak = duzenlenen(); const yeni = {...JSON.parse(JSON.stringify(kaynak)), id: uid(), ad: "Yeni şirket", company: "", website: "", gonderen: "", products: "", productsMail: "", value: "", valueMail: "", productsShort: "", productsShortTr: ""}; state.sirketler.push(yeni); sirketDuzId = yeni.id; }); toast("Yeni şirket eklendi. Bilgilerini doldurun; imza ve şablonlar kopyalandı, dilediğiniz gibi düzenleyin."); return; }
+  if (ds.sirketduz) { sirketDuzId = ds.sirketduz; render(); return; }
+  if (ds.sirketsil) { const id = ds.sirketsil, c = state.sirketler.find(x => x.id === id); confirmDlg("Şirketi sil", `<b>${esc(c?.ad || "")}</b> ve şablonları silinir. Bu şirkete bağlı firmalar ilk şirketinize geçer; hazır taslaklar değişmez.`, "Sil", () => commit(() => { state.sirketler = state.sirketler.filter(x => x.id !== id); for (const l of state.leads) if (l.sirketId === id) delete l.sirketId; sirketDuzId = null; })); return; }
+  if (ds.tplreset) { commit(() => { delete duzenlenen().templates[ds.tplreset]; }); toast("Şablonlar varsayılana döndü."); return; }
   if (ds.tpllang) { tplLang = ds.tpllang; render(); return; }
   if (ds.sndchk) { state.profile.sending[ds.sndchk] = t.checked; persist(); return; }
   if (ds.autochk) { commit(() => { state.auto[ds.autochk] = t.checked; }); return; }
@@ -1681,12 +1772,14 @@ document.addEventListener("click", e => {
       .catch(() => { out.textContent = "Sunucuya ulaşılamadı."; }).finally(() => { t.disabled = false; });
     return;
   }
-  if (t.id === "msOff") { confirmDlg("Outlook bağlantısını kaldır", "Pusula artık sizin adınıza mail gönderemez. İstediğiniz zaman yeniden bağlayabilirsiniz.", "Kaldır", () => fetch("/api/posta/kaldir", {method: "POST"}).then(() => { toast("Outlook bağlantısı kaldırıldı."); loadPosta(); })); return; }
-  if (t.id === "msTest") {
+  if (ds.msoff) { const e = ds.msoff; confirmDlg("Outlook bağlantısını kaldır", `<b>${esc(e)}</b> hesabından artık mail gönderilmez. Bu hesabı kullanan şirketlerin mailleri, yeni bir hesap seçilene kadar gönderilemez.`, "Kaldır", () => fetch("/api/posta/kaldir", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({eposta: e})}).then(() => { toast("Outlook bağlantısı kaldırıldı."); loadPosta(); })); return; }
+  if (ds.msbagla) { try { localStorage.setItem("pusula.baglanacakSirket", ds.msbagla); } catch (e) {} location.href = "/api/microsoft/baglan"; return; }
+  if (ds.mstest) {
     const to = (posta?.testAlicilari || [])[0] || state.test.addresses[0];
     if (!to) { toast("Test adresi tanımlı değil."); return; }
+    const hs = ds.mstest, c = state.sirketler.find(x => x.gonderen === hs) || state.sirketler[0], pp = {...state.profile, ...c};
     t.disabled = true;
-    fetch("/api/posta/gonder", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({kime: to, konu: "Pusula test maili", metin: `Merhaba,\n\nBu mail Pusula'dan ${posta.eposta} hesabınız üzerinden gönderilen bir test mailidir.\n\nGönderim zamanı: ${new Date().toLocaleString("tr-TR")}\n\n${sigImgOn() ? (state.profile.signatureTr || "").split("\n")[0] : state.profile.signatureTr || ""}`, imza: sigImgOn() ? state.profile.sigImg : ""})})
+    fetch("/api/posta/gonder", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({kime: to, gonderen: hs, konu: "Pusula test maili", metin: `Merhaba,\n\nBu mail Pusula'dan ${hs} hesabınız üzerinden gönderilen bir test mailidir.\n\nGönderim zamanı: ${new Date().toLocaleString("tr-TR")}\n\n${pp.sigMode !== "text" && pp.sigImg ? (pp.signatureTr || "").split("\n")[0] : pp.signatureTr || ""}`, imza: pp.sigMode !== "text" && pp.sigImg ? pp.sigImg : ""})})
       .then(async r => { const j = await r.json().catch(() => ({})); toast(r.ok ? `Test maili ${to} adresine gönderildi. Gelen kutunuzu kontrol edin.` : (j.hata || "Gönderilemedi.")); if (r.ok) loadPosta(); })
       .catch(() => toast("Sunucuya ulaşılamadı.")).finally(() => { t.disabled = false; });
     return;
@@ -1695,8 +1788,8 @@ document.addEventListener("click", e => {
   if (t.id === "warmOk") { commit(() => { state.profile.healthWarmupOk = t.checked; state.profile.health.warmup = t.checked || state.profile.health.warmup; }); runHealth(true); return; }
   if (t.id === "logout") { fetch("/api/cikis", {method: "POST"}).finally(() => { location.href = "/giris"; }); return; }
   if (ds.ressrc) { commit(() => { state.profile.resSource = ds.ressrc; }); return; }
-  if (ds.sigmode) { commit(() => { state.profile.sigMode = ds.sigmode; }); return; }
-  if (t.id === "sigDel") { commit(() => { state.profile.sigImg = ""; }); toast("Görsel imza kaldırıldı."); return; }
+  if (ds.sigmode) { commit(() => { duzenlenen().sigMode = ds.sigmode; }); return; }
+  if (t.id === "sigDel") { commit(() => { duzenlenen().sigImg = ""; }); toast("Görsel imza kaldırıldı."); return; }
   if (t.id === "autoOn") { autoEnable(); return; }
   if (t.id === "testOn") { commit(() => { state.test.on = true; log("", "Test modu açıldı"); }); toast("Test modu açık: mailler yalnızca sizin adreslerinize gider."); return; }
   if (t.id === "testOff") { confirmDlg("Test modunu kapat", "Bundan sonra gönderilen mailler <b>gerçek firma adreslerine</b> gidecek. Emin misiniz?", "Kapat", () => commit(() => { state.test.on = false; log("", "Test modu kapatıldı"); })); return; }
@@ -1706,10 +1799,11 @@ document.addEventListener("click", e => {
 let qTimerUI;
 document.addEventListener("input", e => {
   const t = e.target, ds = t.dataset;
-  if (ds.prof) { state.profile[ds.prof] = t.value; persist(); return; }
+  if (ds.prof) { if (SIRKET_ALANLARI.includes(ds.prof) && view === "profil") duzenlenen()[ds.prof] = t.value; else state.profile[ds.prof] = t.value; persist(); return; }
+  if (ds.sirket) { duzenlenen()[ds.sirket] = t.value; persist(); return; }
   if (ds.snd) { const v = Number(t.value); if (Number.isFinite(v) && v > 0) { state.profile.sending[ds.snd] = v; persist(); } return; }
   if (ds.seqday) { const v = Number(t.value); if (Number.isFinite(v) && v >= 0) { state.profile.sequence[Number(ds.seqday)].day = v; persist(); } return; }
-  if (ds.tpl) { const [lang, key, fld] = ds.tpl.split("|"); const P = state.profile; P.templates[lang] = P.templates[lang] || JSON.parse(JSON.stringify(DEFAULT_TPL[lang])); P.templates[lang][key][fld] = t.value; persist(); return; }
+  if (ds.tpl) { const [lang, key, fld] = ds.tpl.split("|"); const P = duzenlenen(); P.templates[lang] = P.templates[lang] || JSON.parse(JSON.stringify(DEFAULT_TPL[lang])); P.templates[lang][key][fld] = t.value; persist(); return; }
   if (t.matches("[data-testadr]")) { state.test.addresses = t.value.split(/[\n,;]/).map(x => x.trim().toLowerCase()).filter(x => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x)); persist(); return; }
   if (ds.supp) { state.suppress = t.value.split("\n").map(x => x.trim().toLowerCase()).filter(Boolean); persist(); return; }
   if (ds.lead) { const l = leadById(openLead); if (l) { l[ds.lead] = ds.lead === "email" ? t.value.trim() : t.value; persist(); } return; }
@@ -1722,12 +1816,17 @@ document.addEventListener("input", e => {
   if (t.id === "q") { filters.q = t.value; const pos = t.selectionStart; render(); const q = $("#q"); q.focus(); q.setSelectionRange(pos, pos); }
 });
 document.addEventListener("change", e => {
+  if (e.target.name === "sirketSecim") { sirketSecimi = e.target.value; return; }
   const ds = e.target.dataset;
   if (ds.status) { commit(() => { const l = leadById(ds.status); if (l) { l.status = e.target.value; if (["reply", "meet", "no", "optout"].includes(l.status)) l.nextAt = ""; if (l.status === "optout" && l.email && !state.suppress.includes(l.email.toLowerCase())) state.suppress.push(l.email.toLowerCase()); log(l.id, STATUS[l.status].t); } }); }
   if (ds.auto) { commit(() => { state.auto[ds.auto] = Number(e.target.value); }); return; }
   if (e.target.id === "sigFile") { loadSigImage(e.target.files[0]); return; }
   if (e.target.id === "campSel") { filters.campaign = e.target.value; render(); return; }
   if (ds.fsel) { filters[ds.fsel] = e.target.value; render(); return; }
+  if (ds.sirket) { render(); return; }
+  if (ds.dsirket) { const d = state.drafts.find(x => x.id === ds.dsirket), l = d && leadById(d.leadId); if (!l) return;
+    commit(() => { l.sirketId = e.target.value; if (["intro", "f1", "f2", "close"].includes(d.type)) { const t = renderTpl(l, d.type); d.subject = t.subject; d.body = t.body; } });
+    toast(`Gönderen şirket: ${sirketOf(l)?.ad}. Taslak bu şirketin şablonu ve imzasıyla yeniden hazırlandı.`); return; }
   if (ds.leadsel) { commit(() => { const l = leadById(openLead); if (l) l[ds.leadsel] = e.target.value; }); return; }
   if (ds.lead || ds.prof) render();
 });
@@ -1751,6 +1850,10 @@ setInterval(() => { if (SERVER && document.visibilityState === "visible") server
       const qp = new URLSearchParams(location.search);
       if (qp.get("ms")) { view = "profil"; render(); setTimeout(() => document.getElementById("baglantilar")?.scrollIntoView({block: "start"}), 100); toast(qp.get("ms") === "baglandi" ? "Outlook hesabınız bağlandı." : "Outlook bağlanamadı: " + (qp.get("neden") || "bilinmeyen hata")); history.replaceState(null, "", "/"); }
       if (j.veri) { state = normalize(j.veri); srvVer = j.surum; render(); } else persist();
+      const msHesap = qp.get("ms") === "baglandi" ? qp.get("hesap") : "";
+      if (msHesap) { let bek = ""; try { bek = localStorage.getItem("pusula.baglanacakSirket") || ""; localStorage.removeItem("pusula.baglanacakSirket"); } catch (e) {}
+        const c = state.sirketler.find(x => x.id === bek) || state.sirketler.find(x => !x.gonderen);
+        if (c && c.gonderen !== msHesap) { commit(() => { c.gonderen = msHesap; }); toast(`${msHesap} hesabı ${c.ad} şirketine atandı.`); } }
       setStoreNote();
     } catch (e) { setStoreNote("Sunucuya bağlanılamadı; değişiklikler kaydedilmeyebilir."); }
     return;

@@ -225,3 +225,80 @@ Return JSON only:
   const temiz = (x, n) => [...new Set((Array.isArray(x) ? x : []).map(t => String(t).toLocaleLowerCase("tr").replace(/[^\p{L}\p{N} &.-]/gu, "").trim()).filter(t => t.length >= 2 && t.length <= 40))].slice(0, n);
   return {konu: String(p.konu || ifade).slice(0, 60), terimler: temiz(p.terimler, 6), sektor: temiz(p.sektor, 4), web: String(p.web || "").slice(0, 300)};
 }
+
+// --- Detaylı e-posta sorgusu (ücretsiz) ---
+// 1) Site bilinmiyorsa: Wikidata'daki resmî site kaydı, olmazsa firma adından olası alan adları (sayfadaki adla doğrulanır)
+// 2) Site derin taranır: ana sayfadaki iletişim/künye/hakkımızda/KVKK bağlantıları, site haritası ve bilinen yollar (en çok 12 sayfa)
+// 3) Gizlenmiş adresler de okunur (mailto, Cloudflare e-posta koruması, "[at]" yazımı)
+// Kural değişmez: yalnızca firmanın kendi alan adındaki kurumsal rol adresi alınır; kişisel adres alınmaz, adres tahmin edilmez.
+const ILETISIM_YOLU = /(iletisim|ileti%c5%9fim|contact|kontakt|impressum|bize-ulasin|ulasim|hakkimizda|hakk%c4%b1m%c4%b1zda|about|kvkk|gizlilik|privacy|legal|kunye|k%c3%bcnye|imprint)/i;
+const SABIT_YOLLAR = ["/iletisim", "/contact", "/contact-us", "/bize-ulasin", "/tr/iletisim", "/en/contact", "/hakkimizda", "/about", "/kvkk", "/impressum", "/kontakt"];
+function cfCoz(hex) { // Cloudflare e-posta koruması (data-cfemail)
+  try { const k = parseInt(hex.slice(0, 2), 16); let s = ""; for (let i = 2; i < hex.length; i += 2) s += String.fromCharCode(parseInt(hex.slice(i, i + 2), 16) ^ k); return s; } catch { return ""; }
+}
+function sayfaMetni(html) {
+  const cf = [...String(html).matchAll(/data-cfemail="([0-9a-f]+)"/gi)].map(m => cfCoz(m[1])).join(" ");
+  const mailto = [...String(html).matchAll(/mailto:([^"'?\s>]+)/gi)].map(m => decodeURIComponent(m[1])).join(" ");
+  return `${html} ${cf} ${mailto}`.replace(/\s*\[\s*(at|@)\s*\]\s*|\s*\(\s*(at|@)\s*\)\s*|\s+at\s+(?=[a-z0-9-]+\s*(\[\s*dot\s*\]|\.)\s*[a-z])/gi, "@").replace(/\s*\[\s*dot\s*\]\s*|\s*\(\s*dot\s*\)\s*/gi, ".");
+}
+async function wikidataSite(ad) {
+  try {
+    const s = await (await fetch(`https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${encodeURIComponent(ad)}&language=tr&uselang=tr&type=item&limit=3&format=json`, {headers: {"User-Agent": "PusulaBot/0.1"}, signal: AbortSignal.timeout(6000)})).json();
+    const ids = (s.search || []).map(x => x.id).slice(0, 3);
+    if (!ids.length) return "";
+    const e = await (await fetch(`https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${ids.join("|")}&props=claims&format=json`, {headers: {"User-Agent": "PusulaBot/0.1"}, signal: AbortSignal.timeout(6000)})).json();
+    for (const id of ids) { const w = e.entities?.[id]?.claims?.P856?.[0]?.mainsnak?.datavalue?.value; if (w) return alanAdi(w); }
+  } catch {}
+  return "";
+}
+function alanAdayi(ad, ulkeKod) {
+  const kelime = sade(ad).split(/\s+/).filter(k => k.length >= 2 && !GENEL_KELIME.test(k) && !/^(dijital|digital|ajans|agency|turkiye|turkey|istanbul|ankara|izmir|merkez)$/.test(k));
+  if (!kelime.length) return [];
+  const govde = [...new Set([kelime.slice(0, 2).join(""), kelime[0], kelime.slice(0, 3).join(""), kelime.slice(0, 2).join("-")])].filter(g => g.length >= 3);
+  const uz = ulkeKod === "TR" ? [".com.tr", ".com"] : ulkeKod && ulkeKod.length === 2 ? [".com", "." + ulkeKod.toLowerCase()] : [".com"];
+  return govde.flatMap(g => uz.map(u => g + u)).slice(0, 6);
+}
+async function siteBul(ad, ulkeKod) {
+  const w = await wikidataSite(ad);
+  if (w) return {site: w, nasil: "Wikidata'daki resmî site kaydı"};
+  const ilk = sade(ad).split(/\s+/).find(k => k.length >= 3 && !GENEL_KELIME.test(k)) || "";
+  for (const alan of alanAdayi(ad, ulkeKod)) {
+    const html = await sayfa(`https://${alan}`, 5000);
+    // Sitenin gerçekten bu firmaya ait olduğunu sayfadaki adla doğrula (park edilmiş alan adlarını eler)
+    if (html && ilk && sade(html.slice(0, 200_000)).includes(ilk) && !/domain (is )?for sale|alan ad[ıi] sat[ıi]l[ıi]k|parked|buy this domain/i.test(html.slice(0, 50_000)))
+      return {site: alan, nasil: "Firma adından bulunan ve sayfa içeriğiyle doğrulanan site"};
+  }
+  return {site: ""};
+}
+export async function derinEposta({ad, site = "", ulkeKod = ""}) {
+  let alan = alanAdi(site), siteNotu = "";
+  if (!alan) { const b = await siteBul(ad, ulkeKod); alan = b.site; siteNotu = b.nasil || ""; }
+  if (!alan) return {bulunamadi: true, neden: "Firmanın web sitesi bulunamadı."};
+  const kok = `https://${alan}`, ziyaret = new Set(), kuyruk = [kok];
+  let acildi = false, kisisel = false, sayac = 0;
+  while (kuyruk.length && sayac < 12) {
+    const url = kuyruk.shift(); if (ziyaret.has(url)) continue; ziyaret.add(url); sayac++;
+    const html = await sayfa(url, 6000);
+    if (html === null) { if (url === kok && !acildi) { for (const y of SABIT_YOLLAR.slice(0, 3)) kuyruk.push(kok + y); } continue; }
+    acildi = true;
+    const e = epostalariBul(sayfaMetni(html), alan), kurumsal = e.find(x => x.rol);
+    if (kurumsal) {
+      const mx = await mxVar(kurumsal.adres);
+      return {adres: kurumsal.adres, kaynak: url, site: alan, siteNotu, mx: mx === true};
+    }
+    if (e.length) kisisel = true;
+    if (url === kok) {
+      // Ana sayfadaki iletişim benzeri bağlantılar öne, sonra bilinen yollar ve site haritası
+      const linkler = [...html.matchAll(/href=["']([^"'#]+)["']/gi)].map(m => m[1]).filter(h => ILETISIM_YOLU.test(h))
+        .map(h => { try { const u = new URL(h, kok); return u.hostname.replace(/^www\./, "") === alan.replace(/^www\./, "") ? u.origin + u.pathname : ""; } catch { return ""; } }).filter(Boolean);
+      kuyruk.push(...new Set(linkler), ...SABIT_YOLLAR.map(y => kok + y));
+      const harita = await sayfaHam(kok + "/sitemap.xml");
+      if (harita) kuyruk.push(...[...harita.matchAll(/<loc>([^<]+)<\/loc>/gi)].map(m => m[1].trim()).filter(u => ILETISIM_YOLU.test(u)).slice(0, 5));
+    }
+  }
+  if (!acildi) return {bulunamadi: true, site: alan, siteNotu, neden: "Web sitesi açılmadı."};
+  return {bulunamadi: true, site: alan, siteNotu, neden: kisisel ? "Sitede yalnızca kişisel adresler var (kişisel adres alınmaz)." : "Sitede kurumsal e-posta adresi yayımlanmamış."};
+}
+async function sayfaHam(url) {
+  try { const r = await fetch(url, {headers: {"User-Agent": "Mozilla/5.0 (compatible; PusulaBot/0.1)"}, signal: AbortSignal.timeout(5000)}); return r.ok ? (await r.text()).slice(0, 300_000) : null; } catch { return null; }
+}

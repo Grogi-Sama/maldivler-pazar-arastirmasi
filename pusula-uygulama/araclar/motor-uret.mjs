@@ -9,7 +9,7 @@ for (const n of ast.body) {
   if (n.type === "FunctionDeclaration") tanim[n.id.name] = src.slice(n.start, n.end);
   else if (n.type === "VariableDeclaration") for (const d of n.declarations) if (d.id.type === "Identifier") tanim[d.id.name] = src.slice(n.start, n.end);
 }
-const AL = ["ROLES", "rolOf", "esc", "uid", "addDays", "fmtDate", "domainOf", "CONTACTED", "STATUS", "DEFAULT_SEQ", "TRIGGERS", "OPTOUT_RE", "OPT_EN", "short", "LANGS", "DEFAULT_TPL",
+const AL = ["SIRKET_ALANLARI", "sirketOf", "profilOf", "ROLES", "rolOf", "esc", "uid", "addDays", "fmtDate", "domainOf", "CONTACTED", "STATUS", "DEFAULT_SEQ", "TRIGGERS", "OPTOUT_RE", "OPT_EN", "short", "LANGS", "DEFAULT_TPL",
   "log", "leadById", "seq", "stepLabel", "isSuppressed", "testOn", "recipientFor", "sentToday", "quality", "leadLang", "isTr", "tplFor", "fill",
   "sigImgOn", "sigText", "sigFor", "renderTpl", "shortSubj", "addDraft", "markSent", "isOptoutToday", "autoQuota", "autoCheck", "autoPrepare", "autoPlan"];
 const eksik = AL.filter(a => !tanim[a]);
@@ -21,7 +21,7 @@ export function motor(state, {bugun}) {
   const SERVER = true, queue = [];
   const todayISO = () => bugun;
 ${govde}
-  return {renderTpl, addDraft, markSent, autoCheck, autoPrepare, autoPlan, autoQuota, quality, recipientFor, isOptoutToday, leadById, log, sigImgOn, testOn, seq};
+  return {renderTpl, addDraft, markSent, autoCheck, autoPrepare, autoPlan, autoQuota, quality, recipientFor, isOptoutToday, leadById, log, sigImgOn, testOn, seq, sirketOf, profilOf};
 }
 `;
 fs.writeFileSync(cikti, out);

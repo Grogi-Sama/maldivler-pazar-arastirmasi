@@ -3,10 +3,10 @@
 // Giriş yapılmadan uygulamanın hiçbir sayfası ve verisi açılmaz.
 
 import UYGULAMA from "../public/index.html";
-import {gemini, tavily, webArastir, aramaPlani, siteEposta, mxVar, ServisHatasi} from "./arastirma.js";
+import {gemini, tavily, webArastir, aramaPlani, siteEposta, mxVar, derinEposta, ServisHatasi} from "./arastirma.js";
 import {saglikKontrol} from "./saglik.js";
 import {kullaniciTuru as otonomTur, zamanlanmisTur} from "./otonom.js";
-import {baglantiBaslat, baglantiTamamla, postaDurumu, baglantiKaldir, gonder, PostaHatasi} from "./posta.js";
+import {baglantiBaslat, baglantiTamamla, postaDurumu, baglantiKaldir, gonder, PostaHatasi, bugunTR} from "./posta.js";
 import IKON_192 from "../marka/ikon-192.png";
 import IKON_512 from "../marka/ikon-512.png";
 import IKON_MASKABLE from "../marka/ikon-maskable-512.png";
@@ -67,7 +67,6 @@ async function oturum(req, env) {
 
 // Günlük arama kotası: kullanıcıya bir günde verilen yeni firma sayısı (Türkiye saatiyle). Sınır Cloudflare'de GUNLUK_KOTA ile değişir.
 const GUNLUK_KOTA = 50;
-const bugunTR = () => new Date(Date.now() + 3 * 36e5).toISOString().slice(0, 10);
 async function kotaDurumu(env, kullaniciId) {
   const limit = Number(env.GUNLUK_KOTA) || GUNLUK_KOTA, gun = bugunTR();
   const r = await env.DB.prepare("SELECT adet FROM arama_kotasi WHERE kullanici_id = ? AND gun = ?").bind(kullaniciId, gun).first();
@@ -80,7 +79,22 @@ async function kotaKullan(env, kullaniciId, adet) {
   if (verilen) await env.DB.prepare("INSERT INTO arama_kotasi (kullanici_id, gun, adet) VALUES (?, ?, ?) ON CONFLICT(kullanici_id, gun) DO UPDATE SET adet = adet + excluded.adet").bind(kullaniciId, d.gun, verilen).run();
   return {...d, kullanilan: d.kullanilan + verilen, kalan: d.kalan - verilen, verilen};
 }
-const kotaDoldu = d => `Bugünkü arama kotanız (${d.limit} yeni firma) doldu. Yarın devam edebilirsiniz.`;
+const kotaDoldu = d => `Bugünkü arama kotanız (${d.limit} yeni firma) doldu. Haklar gece 00:00'da yenilenir.`;
+
+// Genel günlük sayaçlar (Türkiye saatiyle gece 00:00'da sıfırlanır)
+async function sayacOku(env, kullaniciId, tur) {
+  return (await env.DB.prepare("SELECT adet FROM gunluk_sayac WHERE kullanici_id = ? AND gun = ? AND tur = ?").bind(kullaniciId, bugunTR(), tur).first())?.adet || 0;
+}
+async function sayacArtir(env, kullaniciId, tur, adet = 1) {
+  await env.DB.prepare("INSERT INTO gunluk_sayac (kullanici_id, gun, tur, adet) VALUES (?, ?, ?, ?) ON CONFLICT(kullanici_id, gun, tur) DO UPDATE SET adet = adet + excluded.adet").bind(kullaniciId, bugunTR(), tur, adet).run();
+}
+// Detaylı e-posta sorgusu: günde en fazla 5 YENİ adres bulunur; boşa giden denemeler de makul bir sınırla tutulur
+const DERIN_BULMA = 5, DERIN_DENEME = 40;
+async function derinDurum(env, kullaniciId) {
+  const bulunan = await sayacOku(env, kullaniciId, "eposta_bulunan"), deneme = await sayacOku(env, kullaniciId, "eposta_deneme");
+  const limit = Number(env.DERIN_EPOSTA_KOTA) || DERIN_BULMA;
+  return {limit, bulunan, kalan: Math.max(0, limit - bulunan), deneme, denemeKalan: Math.max(0, DERIN_DENEME - deneme)};
+}
 
 async function denemeSayisi(env, ip) {
   await env.DB.prepare("DELETE FROM giris_denemesi WHERE zaman < ?").bind(Date.now() - DENEME_PENCERE_MS).run();
@@ -171,7 +185,7 @@ async function api(req, env, yol) {
       const h = await env.DB.prepare("SELECT eposta FROM posta_hesabi WHERE kullanici_id = ?").bind(k.id).first();
       return json(await saglikKontrol(env, k.id, new URL(req.url).searchParams.get("alan") || h?.eposta || k.eposta));
     }
-    if (yol === "/api/posta/kaldir" && req.method === "POST") { await baglantiKaldir(env, k.id); return json({tamam: true}); }
+    if (yol === "/api/posta/kaldir" && req.method === "POST") { const {eposta = ""} = await req.json().catch(() => ({})); await baglantiKaldir(env, k.id, eposta); return json({tamam: true}); }
     if (yol === "/api/posta/gonder" && req.method === "POST") {
       const metin = await req.text();
       if (metin.length > 600_000) return hata("Mail çok büyük.", 413);
@@ -191,7 +205,19 @@ async function api(req, env, yol) {
       if (!istem || String(istem).length > 60000) return hata("Geçersiz istek.");
       return json({metin: await gemini(env, String(istem), {json: jsonIste !== false})});
     }
-    if (yol === "/api/kota") return json(await kotaDurumu(env, k.id));
+    if (yol === "/api/kota") return json({...await kotaDurumu(env, k.id), derin: await derinDurum(env, k.id)});
+    // Detaylı e-posta sorgusu: tek firma; site bilinmiyorsa bulunur, iletişim/künye/KVKK sayfaları derin taranır
+    if (yol === "/api/eposta-derin" && req.method === "POST") {
+      const d = await derinDurum(env, k.id);
+      if (!d.kalan) return json({hata: `Bugünkü detaylı e-posta sorgusu hakkınız (${d.limit} yeni adres) doldu. Haklar gece 00:00'da yenilenir.`, derin: d}, 429);
+      if (!d.denemeKalan) return json({hata: "Bugün çok sayıda firma tarandı; detaylı sorgu yarın devam edebilir. Haklar gece 00:00'da yenilenir.", derin: d}, 429);
+      const {ad = "", site = "", ulkeKod = ""} = await req.json().catch(() => ({}));
+      if (String(ad).trim().length < 2) return hata("Firma adı gerekli.");
+      await sayacArtir(env, k.id, "eposta_deneme");
+      const sonuc = await derinEposta({ad: String(ad).slice(0, 120), site: String(site).slice(0, 200), ulkeKod: String(ulkeKod).slice(0, 4)});
+      if (sonuc.adres) await sayacArtir(env, k.id, "eposta_bulunan");
+      return json({...sonuc, derin: await derinDurum(env, k.id)});
+    }
     // Arama planı: aynı ifade + ülke + arama türü için bir kez üretilir, D1'de saklanır (yapay zekâ çağrısı tekrarlanmaz)
     if (yol === "/api/arama-plani" && req.method === "POST") {
       const {ifade = "", mod = "customer", ulkeAd = "", ulkeKod = ""} = await req.json().catch(() => ({}));

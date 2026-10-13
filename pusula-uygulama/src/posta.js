@@ -5,7 +5,10 @@
 // Yalnızca iş / okul hesapları (Microsoft 365). Aynı adresle açılmış kişisel Microsoft hesabına yönlenmeyi önler.
 const MS_YETKI = "https://login.microsoftonline.com/organizations/oauth2/v2.0";
 const KAPSAM = "offline_access User.Read Mail.Send";
-const GUNLUK_SERT_SINIR = 50; // uygulama ayarından bağımsız, sunucudaki üst sınır
+const GUNLUK_SERT_SINIR = 50; // hesap başına; uygulama ayarından bağımsız, sunucudaki üst sınır
+// Gün, Türkiye saatiyle gece 00:00'da başlar (tüm günlük sınırlar buna göre sıfırlanır)
+export const bugunTR = () => new Date(Date.now() + 3 * 36e5).toISOString().slice(0, 10);
+const gunBasiUTC = () => new Date(`${bugunTR()}T00:00:00+03:00`).toISOString();
 const enc = new TextEncoder(), dec = new TextDecoder();
 const b64 = buf => btoa(String.fromCharCode(...new Uint8Array(buf)));
 const unb64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
@@ -63,20 +66,42 @@ export async function baglantiTamamla(req, env, kullaniciId) {
   if (!t.refresh_token) return "/?ms=hata&neden=" + encodeURIComponent("Microsoft yenileme anahtarı vermedi.");
   const me = await (await fetch("https://graph.microsoft.com/v1.0/me?$select=mail,userPrincipalName", {headers: {Authorization: `Bearer ${t.access_token}`}})).json();
   const eposta = String(me.mail || me.userPrincipalName || "").toLowerCase();
-  await env.DB.prepare("INSERT INTO posta_hesabi (kullanici_id, saglayici, eposta, yenileme_sifreli, baglanma) VALUES (?, 'microsoft', ?, ?, ?) ON CONFLICT(kullanici_id) DO UPDATE SET saglayici = excluded.saglayici, eposta = excluded.eposta, yenileme_sifreli = excluded.yenileme_sifreli, baglanma = excluded.baglanma")
+  // Aynı kullanıcı birden fazla hesap bağlayabilir (iştirak şirketleri); aynı hesap yeniden bağlanırsa güncellenir
+  await env.DB.prepare("INSERT INTO posta_hesabi (kullanici_id, saglayici, eposta, yenileme_sifreli, baglanma) VALUES (?, 'microsoft', ?, ?, ?) ON CONFLICT(kullanici_id, eposta) DO UPDATE SET saglayici = excluded.saglayici, yenileme_sifreli = excluded.yenileme_sifreli, baglanma = excluded.baglanma")
     .bind(kullaniciId, eposta, await sifrele(env, t.refresh_token), new Date().toISOString()).run();
-  return "/?ms=baglandi";
+  return "/?ms=baglandi&hesap=" + encodeURIComponent(eposta);
 }
 
+async function bugunGonderilen(env, kullaniciId, eposta) {
+  // Eski kayıtlarda gönderen yok; tek hesap varken onlar da sayılır
+  return (await env.DB.prepare("SELECT COUNT(*) AS n FROM gonderim_kaydi WHERE kullanici_id = ? AND durum = 'gonderildi' AND zaman >= ? AND (gonderen = ? OR gonderen IS NULL)").bind(kullaniciId, gunBasiUTC(), eposta).first()).n;
+}
 export async function postaDurumu(env, kullaniciId) {
-  const h = await env.DB.prepare("SELECT saglayici, eposta, baglanma FROM posta_hesabi WHERE kullanici_id = ?").bind(kullaniciId).first();
-  const gun = new Date().toISOString().slice(0, 10);
-  const bugun = (await env.DB.prepare("SELECT COUNT(*) AS n FROM gonderim_kaydi WHERE kullanici_id = ? AND durum = 'gonderildi' AND zaman >= ?").bind(kullaniciId, gun).first()).n;
-  return {bagli: !!h, saglayici: h?.saglayici || "", eposta: h?.eposta || "", baglanma: h?.baglanma || "", kilit: kilitAcik(env), testAlicilari: kilitAcik(env) ? testAlicilari(env) : [], bugunGonderilen: bugun, gunlukSinir: GUNLUK_SERT_SINIR};
+  const {results = []} = await env.DB.prepare("SELECT saglayici, eposta, baglanma FROM posta_hesabi WHERE kullanici_id = ? ORDER BY baglanma").bind(kullaniciId).all();
+  const hesaplar = [];
+  for (const h of results) hesaplar.push({eposta: h.eposta, saglayici: h.saglayici, baglanma: h.baglanma, bugunGonderilen: await bugunGonderilen(env, kullaniciId, h.eposta)});
+  const ilk = hesaplar[0];
+  return {bagli: !!ilk, hesaplar, saglayici: ilk?.saglayici || "", eposta: ilk?.eposta || "", baglanma: ilk?.baglanma || "", kilit: kilitAcik(env), testAlicilari: kilitAcik(env) ? testAlicilari(env) : [],
+    bugunGonderilen: hesaplar.reduce((a, h) => a + h.bugunGonderilen, 0), gunlukSinir: GUNLUK_SERT_SINIR};
 }
 
-export async function baglantiKaldir(env, kullaniciId) {
-  await env.DB.prepare("DELETE FROM posta_hesabi WHERE kullanici_id = ?").bind(kullaniciId).run();
+// eposta verilirse yalnızca o hesap, verilmezse kullanıcının tüm hesapları kaldırılır
+export async function baglantiKaldir(env, kullaniciId, eposta = "") {
+  if (eposta) await env.DB.prepare("DELETE FROM posta_hesabi WHERE kullanici_id = ? AND eposta = ?").bind(kullaniciId, String(eposta).toLowerCase()).run();
+  else await env.DB.prepare("DELETE FROM posta_hesabi WHERE kullanici_id = ?").bind(kullaniciId).run();
+}
+// Gönderilecek hesap: şirketin seçtiği adres; seçilmemişse ve tek hesap varsa o
+async function hesapSec(env, kullaniciId, gonderen) {
+  const {results = []} = await env.DB.prepare("SELECT * FROM posta_hesabi WHERE kullanici_id = ? ORDER BY baglanma").bind(kullaniciId).all();
+  if (!results.length) throw new PostaHatasi("Önce Ayarlar › Bağlantılar'dan Outlook hesabınızı bağlayın.", 409);
+  const g = String(gonderen || "").trim().toLowerCase();
+  if (g) {
+    const h = results.find(x => x.eposta === g);
+    if (!h) throw new PostaHatasi(`${g} hesabı bağlı değil. Ayarlar › Bağlantılar'dan bu hesabı bağlayın ya da şirketin gönderen hesabını değiştirin.`, 409);
+    return h;
+  }
+  if (results.length === 1) return results[0];
+  throw new PostaHatasi("Bu şirket için gönderen Outlook hesabı seçilmemiş (Ayarlar › Şirketlerim).", 409);
 }
 
 const kac = x => String(x).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -86,20 +111,17 @@ function htmlGovde(metin, imzaVar) {
 }
 
 // Tek mail gönderimi. kime: uygulamanın hesapladığı alıcı; kilit açıkken listede değilse reddedilir.
-export async function gonder(req, env, kullaniciId, {kime, firmaEposta = "", konu, metin, imza}) {
+export async function gonder(req, env, kullaniciId, {kime, firmaEposta = "", konu, metin, imza, gonderen = ""}) {
   kime = String(kime || "").trim().toLowerCase();
   if (!kime || !konu || !metin) throw new PostaHatasi("Alıcı, konu ve metin gerekli.");
   if (kilitAcik(env) && !testAlicilari(env).includes(kime)) throw new PostaHatasi(`Test kilidi açık: yalnızca ${testAlicilari(env).join(", ")} adreslerine gönderilebilir.`, 403);
-  const gun = new Date().toISOString().slice(0, 10);
-  const bugun = (await env.DB.prepare("SELECT COUNT(*) AS n FROM gonderim_kaydi WHERE kullanici_id = ? AND durum = 'gonderildi' AND zaman >= ?").bind(kullaniciId, gun).first()).n;
-  if (bugun >= GUNLUK_SERT_SINIR) throw new PostaHatasi(`Günlük güvenlik sınırına (${GUNLUK_SERT_SINIR}) ulaşıldı.`, 429);
-  const h = await env.DB.prepare("SELECT * FROM posta_hesabi WHERE kullanici_id = ?").bind(kullaniciId).first();
-  if (!h) throw new PostaHatasi("Önce Ayarlar > Bağlantılar'dan Outlook hesabınızı bağlayın.", 409);
+  const h = await hesapSec(env, kullaniciId, gonderen);
+  if (await bugunGonderilen(env, kullaniciId, h.eposta) >= GUNLUK_SERT_SINIR) throw new PostaHatasi(`${h.eposta} için günlük güvenlik sınırına (${GUNLUK_SERT_SINIR}) ulaşıldı. Haklar gece 00:00'da yenilenir.`, 429);
 
   let yenileme;
   try { yenileme = await coz(env, h.yenileme_sifreli); } catch { throw new PostaHatasi("Outlook bağlantısı okunamadı; Ayarlar › Bağlantılar'dan yeniden bağlanın.", 401); }
   const t = await tokenAl(req, env, {grant_type: "refresh_token", refresh_token: yenileme});
-  if (t.refresh_token) await env.DB.prepare("UPDATE posta_hesabi SET yenileme_sifreli = ? WHERE kullanici_id = ?").bind(await sifrele(env, t.refresh_token), kullaniciId).run();
+  if (t.refresh_token) await env.DB.prepare("UPDATE posta_hesabi SET yenileme_sifreli = ? WHERE kullanici_id = ? AND eposta = ?").bind(await sifrele(env, t.refresh_token), kullaniciId, h.eposta).run();
 
   const imzaM = /^data:(image\/(?:jpeg|png));base64,([A-Za-z0-9+/=]+)$/.exec(imza || "");
   const message = {
@@ -109,7 +131,7 @@ export async function gonder(req, env, kullaniciId, {kime, firmaEposta = "", kon
     ...(imzaM ? {attachments: [{"@odata.type": "#microsoft.graph.fileAttachment", name: "imza." + (imzaM[1].endsWith("png") ? "png" : "jpg"), contentType: imzaM[1], contentBytes: imzaM[2], isInline: true, contentId: "imza"}]} : {}),
   };
   const r = await fetch("https://graph.microsoft.com/v1.0/me/sendMail", {method: "POST", headers: {Authorization: `Bearer ${t.access_token}`, "Content-Type": "application/json"}, body: JSON.stringify({message, saveToSentItems: true})});
-  const kayit = (durum, hataMetni = null) => env.DB.prepare("INSERT INTO gonderim_kaydi (kullanici_id, zaman, alici, firma_eposta, konu, durum, hata) VALUES (?, ?, ?, ?, ?, ?, ?)").bind(kullaniciId, new Date().toISOString(), kime, firmaEposta, String(konu).slice(0, 250), durum, hataMetni).run();
+  const kayit = (durum, hataMetni = null) => env.DB.prepare("INSERT INTO gonderim_kaydi (kullanici_id, zaman, alici, firma_eposta, konu, durum, hata, gonderen) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind(kullaniciId, new Date().toISOString(), kime, firmaEposta, String(konu).slice(0, 250), durum, hataMetni, h.eposta).run();
   if (r.status === 202) { await kayit("gonderildi"); return {tamam: true, gonderen: h.eposta, alici: kime}; }
   const m = (await r.text()).slice(0, 300);
   await kayit("hata", `${r.status} ${m}`);

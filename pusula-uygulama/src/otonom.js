@@ -38,7 +38,7 @@ export async function kullaniciTuru(env, kullaniciId, {zorla = false} = {}) {
   if (!satir) return {durum: "alan-yok"};
   const veri0 = JSON.parse(satir.veri);
   if (!veri0.auto?.on) return {durum: "kapali"};
-  const hesap = await env.DB.prepare("SELECT eposta FROM posta_hesabi WHERE kullanici_id = ?").bind(kullaniciId).first();
+  const hesap = await env.DB.prepare("SELECT eposta FROM posta_hesabi WHERE kullanici_id = ? LIMIT 1").bind(kullaniciId).first();
   if (!hesap) return {durum: "posta-yok"};
 
   const sn = veri0.profile?.sending || {};
@@ -68,9 +68,10 @@ export async function kullaniciTuru(env, kullaniciId, {zorla = false} = {}) {
   const m = motor(veri, {bugun: an.tarih});
   const d = veri.drafts.find(x => x.id === plan[0]);
   const l = m.leadById(d.leadId) || {};
-  const imza = m.sigImgOn() && d.type !== "reply" ? veri.profile.sigImg : "";
+  // Firma hangi şirketimizden yazılıyorsa o şirketin imzası ve Outlook hesabı kullanılır
+  const imza = m.sigImgOn(l) && d.type !== "reply" ? m.profilOf(l).sigImg : "";
   try {
-    await gonder({url: env.UYGULAMA_URL || "https://pusula.onurtopuz02.workers.dev/"}, env, kullaniciId, {kime: m.recipientFor(d), firmaEposta: l.email || "", konu: d.subject, metin: d.body, imza});
+    await gonder({url: env.UYGULAMA_URL || "https://pusula.onurtopuz02.workers.dev/"}, env, kullaniciId, {kime: m.recipientFor(d), firmaEposta: l.email || "", konu: d.subject, metin: d.body, imza, gonderen: m.sirketOf(l)?.gonderen || ""});
   } catch (e) {
     const durdur = e instanceof PostaHatasi && [401, 403, 409].includes(e.durum);
     await alanGuncelle(env, kullaniciId, v => {
@@ -97,7 +98,7 @@ export async function kullaniciTuru(env, kullaniciId, {zorla = false} = {}) {
 
 // Zamanlanmış görev: otonom gönderimi açık ve Outlook'u bağlı tüm kullanıcılar
 export async function zamanlanmisTur(env) {
-  const { results } = await env.DB.prepare("SELECT c.kullanici_id FROM calisma_alani c JOIN posta_hesabi p ON p.kullanici_id = c.kullanici_id").all();
+  const { results } = await env.DB.prepare("SELECT DISTINCT c.kullanici_id FROM calisma_alani c JOIN posta_hesabi p ON p.kullanici_id = c.kullanici_id").all();
   const sonuc = [];
   for (const r of results || []) {
     try { sonuc.push(await kullaniciTuru(env, r.kullanici_id)); } catch (e) { console.error("otonom", r.kullanici_id, e); }

@@ -3,6 +3,10 @@
 export function motor(state, {bugun}) {
   const SERVER = true, queue = [];
   const todayISO = () => bugun;
+const SIRKET_ALANLARI = ["company", "website", "sector", "country", "products", "value", "productsMail", "valueMail", "productsShort", "productsShortTr", "language",
+  "buyNeeds", "buyNeedsMail", "buyShort", "buyShortTr", "senderName", "senderTitle", "senderEmail", "signature", "signatureTr", "sigMode", "sigImg", "templates"];
+function sirketOf(l) { const s = state.sirketler || []; return s.find(x => x.id === l?.sirketId) || s[0] || null; }
+function profilOf(l) { const s = sirketOf(l); return s ? {...state.profile, ...s} : state.profile; }
 const ROLES = {customer: "Müşteriler", supplier: "Tedarikçiler", partner: "İş ortakları"};
 const rolOf = l => ROLES[l.rol] ? l.rol : "customer";
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -80,7 +84,7 @@ function quality(d) {
   if (subj.length > 60 || subj.split(/\s+/).length > 9) { s -= 10; issues.push(["Konu satırı uzun (60 karakter / 9 kelime altı önerilir)", false]); } else issues.push(["Konu satırı kısa", true]);
   if (/^(re|fw|fwd):/i.test(subj) && d.type === "intro") { s -= 15; issues.push(["İlk mailde 'Re:' / 'Fwd:' yanıltıcı sayılır", false]); }
   const hay = (subj + " " + main).toLowerCase();
-  const names = [l.name, state.profile.company, state.profile.senderName].filter(Boolean).flatMap(n => String(n).split(/[\s()]+/)).filter(w => w.length > 1);
+  const names = [l.name, profilOf(l).company, profilOf(l).senderName].filter(Boolean).flatMap(n => String(n).split(/[\s()]+/)).filter(w => w.length > 1);
   const plain = names.reduce((t, w) => t.split(w).join(" "), subj + " " + main);
   const hits = TRIGGERS.filter(w => new RegExp("(?<![\\p{L}\\p{N}])" + w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "u").test(hay));
   if (hits.length) { s -= Math.min(30, hits.length * 8); issues.push(["Spam kelimesi: " + hits.join(", "), false]); } else issues.push(["Spam tetikleyici kelime yok", true]);
@@ -90,22 +94,22 @@ function quality(d) {
   if ((plain.match(/\b[A-ZÇĞİÖŞÜ]{4,}\b/g) || []).filter(w => !["HYXI", "EPC", "ESS", "HVAC", "B2B", "CEO", "MWh", "LUNA"].includes(w)).length > 1) { s -= 10; issues.push(["BÜYÜK HARFLİ kelimeler", false]); }
   if (l.name && !hay.includes(String(l.name).split(/[ (]/)[0].toLowerCase())) { s -= 10; issues.push(["Firmaya özel bir ifade yok", false]); } else issues.push(["Kişiselleştirilmiş", true]);
   if (!OPTOUT_RE.test(body)) { s -= 15; issues.push(["Listeden çıkma cümlesi yok", false]); } else issues.push(["Listeden çıkma cümlesi var", true]);
-  if (sigImgOn()) issues.push(["Görsel imza eklenecek", true]);
-  else if (state.profile.senderName && !body.includes(state.profile.senderName)) { s -= 5; issues.push(["İmza eksik", false]); }
+  if (sigImgOn(l)) issues.push(["Görsel imza eklenecek", true]);
+  else if (profilOf(l).senderName && !body.includes(profilOf(l).senderName)) { s -= 5; issues.push(["İmza eksik", false]); }
   if (!isTr(leadLang(l)) && /[ğşıİ]|\b(ve|için|bir|ile)\b/.test(plain)) { s -= 20; issues.push(["Dil karışık: " + leadLang(l) + " mailde Türkçe ifade var", false]); }
   if (isTr(leadLang(l)) && /\b(the|and|we|our|your|with)\b/i.test(plain)) { s -= 20; issues.push(["Dil karışık: Türkçe mailde İngilizce ifade var", false]); }
   if (l.email && !l.verified) { s -= 10; issues.push(["E-posta adresi doğrulanmadı", false]); }
   s = Math.max(0, Math.min(100, s));
   return {s, issues, cls: s >= 80 ? "sc-good" : s >= 60 ? "sc-mid" : "sc-bad"};
 }
-function leadLang(l) { return (l && l.lang) || state.profile.language || "English"; }
+function leadLang(l) { return (l && l.lang) || profilOf(l).language || "English"; }
 function isTr(lang) { return /^t(r|ürkçe|urkish)/i.test(lang || ""); }
-function tplFor(lang, key) {
-  const set = state.profile.templates?.[lang] || DEFAULT_TPL[lang] || DEFAULT_TPL[isTr(lang) ? "Türkçe" : "English"];
+function tplFor(lang, key, p = profilOf(null)) {
+  const set = p.templates?.[lang] || DEFAULT_TPL[lang] || DEFAULT_TPL[isTr(lang) ? "Türkçe" : "English"];
   return set[key] || DEFAULT_TPL[isTr(lang) ? "Türkçe" : "English"][key];
 }
 function fill(text, l) {
-  const p = state.profile, tr = isTr(leadLang(l));
+  const p = profilOf(l), tr = isTr(leadLang(l));
   const sup = rolOf(l) === "supplier";
   const prod = sup ? (tr ? (p.buyNeeds || p.buyNeedsMail) : (p.buyNeedsMail || p.buyNeeds)) : tr ? (p.products || p.productsMail) : (p.productsMail || p.products);
   const val = tr ? (p.value || p.valueMail) : (p.valueMail || p.value);
@@ -121,12 +125,12 @@ function fill(text, l) {
     return atStart && typeof v === "string" ? v.charAt(0).toLocaleUpperCase(tr ? "tr-TR" : "en") + v.slice(1) : v;
   });
 }
-const sigImgOn = () => state.profile.sigMode !== "text" && !!state.profile.sigImg;
-function sigText(l) { const p = state.profile; return isTr(leadLang(l)) ? (p.signatureTr || p.signature) : p.signature; }
-function sigFor(l) { const t = sigText(l) || ""; return state.profile.sigMode === "image" && state.profile.sigImg ? t.split("\n")[0] : t; }
+const sigImgOn = l => { const p = profilOf(l); return p.sigMode !== "text" && !!p.sigImg; };
+function sigText(l) { const p = profilOf(l); return isTr(leadLang(l)) ? (p.signatureTr || p.signature) : p.signature; }
+function sigFor(l) { const t = sigText(l) || "", p = profilOf(l); return p.sigMode === "image" && p.sigImg ? t.split("\n")[0] : t; }
 function renderTpl(l, key) {
   const k = rolOf(l) === "supplier" && ["intro", "f1", "f2", "close"].includes(key) ? key + "_supplier" : key;
-  const t = tplFor(leadLang(l), k);
+  const t = tplFor(leadLang(l), k, profilOf(l));
   return {subject: fill(t.subject, l), body: fill(t.body, l) + "\n\n" + sigFor(l)};
 }
 function shortSubj(s) {
@@ -181,5 +185,5 @@ function autoPlan() {
   ok.sort((x, y) => (x.type === "intro") - (y.type === "intro") || (leadById(y.leadId).score - leadById(x.leadId).score));
   return ok.slice(0, autoQuota());
 }
-  return {renderTpl, addDraft, markSent, autoCheck, autoPrepare, autoPlan, autoQuota, quality, recipientFor, isOptoutToday, leadById, log, sigImgOn, testOn, seq};
+  return {renderTpl, addDraft, markSent, autoCheck, autoPrepare, autoPlan, autoQuota, quality, recipientFor, isOptoutToday, leadById, log, sigImgOn, testOn, seq, sirketOf, profilOf};
 }
