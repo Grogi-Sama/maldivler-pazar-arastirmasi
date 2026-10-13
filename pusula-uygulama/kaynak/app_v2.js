@@ -165,7 +165,7 @@ function normalize(s) {
   if (SERVER && s.profile.resSource === "ai") s.profile.resSource = "web";
   if (!SERVER && s.profile.resSource === "web") s.profile.resSource = "live";
   if (s.profile.resCountry === undefined) s.profile.resCountry = s.demo ? "MV" : "";
-  if (!hedefOf(s.profile.resCountry)) s.profile.resCountry = hedefKodu(s.profile.resCountry) || hedefKodu(s.profile.regions);
+  if (s.profile.resCountry && !hedefOf(s.profile.resCountry)) s.profile.resCountry = hedefKodu(s.profile.resCountry);
   if (s.profile.resType === undefined) s.profile.resType = SERVER ? "tumu" : "otel-resort";
   if (SERVER && s.profile.resType === "anahtar") s.profile.resType = "tumu";
   if (s.profile.resSector === undefined) s.profile.resSector = "";
@@ -527,6 +527,7 @@ function vArastir() {
           <div class="em c-em">${esc(r.email || (r.sources?.length ? "e-posta siteden okunacak" : "e-posta doğrulanmalı"))}${r.email && r.verified ? ` <span class="pill st-sent">MX ✓</span>` : ""}</div>
           <span class="mono muted">${r.score}</span>
           <div class="why">${esc(r.why)}${srcLinks(r.sources)}</div></div>`).join("")}</div></div>` : "";
+  if (SERVER) return aramaEkrani(p, body);
   return head("Araştır", p.mode === "supplier" ? "Ürün ihtiyacınızı tarif edin; Pusula tedarikçi adaylarını bulup sınıflandırsın." : "Hedef müşterinizi tarif edin; Pusula potansiyel müşteri listesini çıkarıp önceliklendirsin.",
     `<button class="btn" data-import="1">CSV içe aktar</button>`) + `
   <div class="card grid">
@@ -553,6 +554,39 @@ function vArastir() {
     ${SERVER && kota && !kota.kalan && !research.error ? `<p class="note">${kotaMesaji()}</p>` : ""}
     ${research.error ? `<p class="note"><b>Araştırma tamamlanamadı.</b> ${esc(research.error)}</p>` : ""}
   </div>
+  <div style="margin-top:14px">${body}</div>`;
+}
+
+// Tek arama kutusu: kullanıcı ne aradığını kendi cümlesiyle yazar; ülke ve şehir isteğe bağlıdır (yazılırsa metinden de anlaşılır).
+// Kim arandığı (müşteri / tedarikçi / iş ortağı), arama açıları ve kelimeler yapay zekânın arama planından gelir.
+const ROL_ADI = {customer: "Müşteri arıyorsunuz", supplier: "Tedarikçi arıyorsunuz", partner: "İş ortağı arıyorsunuz"};
+const ORNEK_ARAMALAR = ["İzmir'deki lojistik firmaları", "Veri merkezi müşterileri", "Yüksek elektrik tüketen fabrikalar", "Kablo üreticisi tedarikçiler"];
+function aramaEkrani(p, body) {
+  const kotaBitti = kota && !kota.kalan, pl = research.plan;
+  const yer = pl ? [pl.sehir, hedefOf(p.resCountry)?.tr || hedefOf(pl.ulke)?.tr || (pl.ulke ? "" : "dünya geneli")].filter(Boolean).join(", ") : "";
+  return head("Araştır", "Ne aradığınızı kendi cümlenizle yazın; Pusula anlayıp en uygun firmaları bulsun.", `<button class="btn ghost sm" data-import="1">Liste içe aktar</button>`) + `
+  <div class="card arama">
+    <textarea id="aramaMetni" rows="2" aria-label="Ne arıyorsunuz?" placeholder="Ne arıyorsunuz? Örn. “C&amp;I ESS ürünüm için yüksek elektrik tüketen fabrikalar”, “İzmir'deki lojistik firmaları”, “veri merkezi tedarikçileri”">${esc(p.segmentBrief)}</textarea>
+    <div class="arama-alt">
+      <select id="resCountry" data-prof="resCountry" aria-label="Ülke veya bölge"><option value="" ${p.resCountry ? "" : "selected"}>Ülke: otomatik</option>
+        <optgroup label="Bölgeler">${BOLGELER.map(b => `<option value="${b.k}" ${p.resCountry === b.k ? "selected" : ""}>${esc(b.tr)}</option>`).join("")}</optgroup>
+        <optgroup label="Ülkeler">${ULKELER.map(u => `<option value="${u.k}" ${p.resCountry === u.k ? "selected" : ""}>${esc(u.tr)}</option>`).join("")}</optgroup></select>
+      <input id="resCity" type="text" data-prof="resCity" placeholder="Şehir (isteğe bağlı)" aria-label="Şehir" value="${esc(p.resCity || "")}">
+      <select id="howMany" aria-label="Kaç firma">${[5, 10, 15, 20].map(n => `<option value="${n}" ${n === 10 ? "selected" : ""}>${n} firma</option>`).join("")}</select>
+      <span class="spacer"></span>
+      ${kota ? `<span class="kota ${kota.kalan ? "" : "bitti"}" title="Bir günde verilen yeni firma sayısı. Haklar gece 00:00'da yenilenir.">Bugün kalan: <b>${kota.kalan}</b> / ${kota.limit}</span>` : ""}
+      <button class="btn primary" id="runRes" ${research.running || kotaBitti ? "disabled" : ""}>${research.running ? "Aranıyor…" : "Ara"}</button>
+    </div>
+    <details class="gelismis"><summary>Gelişmiş seçenekler</summary><div class="form">
+      <label class="f" for="resType">Firma türü<select id="resType" data-prof="resType">${[...new Set(Object.values(OSM_TYPES).map(v => v.g))].map(g => `<optgroup label="${esc(g)}">${Object.entries(OSM_TYPES).filter(([k, v]) => v.g === g && k !== "anahtar").map(([k, v]) => `<option value="${k}" ${p.resType === k ? "selected" : ""}>${esc(k === "tumu" ? "Otomatik (yazdığınızdan anlaşılır)" : v.label)}</option>`).join("")}</optgroup>`).join("")}</select></label>
+      <label class="f" for="resKat">Kategori (boş bırakılırsa aramanın konusu)<input id="resKat" type="text" list="katList2" placeholder="Örn. Resort, EPC firması" value=""><datalist id="katList2">${[...new Set(state.leads.map(l => l.kategori).filter(Boolean))].map(c => `<option value="${esc(c)}">`).join("")}</datalist></label>
+      <label class="f" for="campaign">Kampanya adı (boş bırakılırsa konu ve yer)<input id="campaign" type="text" placeholder="Örn. İzmir lojistik – 2026 Q4" value=""></label>
+    </div></details>
+    ${!research.running && !research.results.length && !research.error ? `<div class="ornekler"><span class="small muted">Örnek:</span>${ORNEK_ARAMALAR.map(o => `<button class="chip" data-ornek="${esc(o)}">${esc(o)}</button>`).join("")}</div>` : ""}
+  </div>
+  ${pl && !research.running && (research.results.length || research.error) ? `<p class="anlasilan"><b>Pusula şöyle anladı:</b> ${esc(ROL_ADI[pl.rol] || ROL_ADI.customer)} · ${esc(pl.konu)}${yer ? " · " + esc(yer) : ""}${pl.acilar?.length > 1 ? ` · ${pl.acilar.length} açıdan arandı: ${pl.acilar.map(a => esc(a.baslik)).join(", ")}` : ""}.${pl.anlasilan ? ` <span class="muted">${esc(pl.anlasilan)}</span>` : ""}</p>` : ""}
+  ${kotaBitti && !research.error ? `<p class="note">${kotaMesaji()}</p>` : ""}
+  ${research.error ? `<p class="note"><b>Araştırma tamamlanamadı.</b> ${esc(research.error)}</p>` : ""}
   <div style="margin-top:14px">${body}</div>`;
 }
 
@@ -1381,7 +1415,7 @@ async function runLive(n, dedupe) {
   for (const r of res) {
     if (r.email) { const ok = await mxOk(r.email); r.verified = ok === true; if (ok === true) r.emailSource += " · alan adı mail kabul ediyor (MX)"; if (ok === false) r.emailSource += " · alan adı mail kabul etmiyor"; }
     else r.verified = false;
-    Object.assign(r, {segment: "Sınıflandırılmadı", priority: r.email ? "B" : "C", score: (r.email ? 55 : 35) + (r.website ? 10 : 0) + (r.sources.length > 1 ? 10 : 0), why: `${r.sources.map(x => x.ad).join(" + ")} kaydı${r.website ? ", web sitesi var" : ""}${r.email ? ", kurumsal adres yayımlanmış" : "; e-posta tam sürümde firmanın sitesinden okunacak"}.`, hook: "", lang: kod === "TR" ? "Türkçe" : "", _sel: !!r.email});
+    Object.assign(r, {segment: r.segment || "Sınıflandırılmadı", priority: r.email ? "B" : "C", score: (r.email ? 55 : 35) + (r.website ? 10 : 0) + (r.sources.length > 1 ? 10 : 0), why: `${r.sources.map(x => x.ad).join(" + ")} kaydı${r.website ? ", web sitesi var" : ""}${r.email ? ", kurumsal adres yayımlanmış" : "; e-posta tam sürümde firmanın sitesinden okunacak"}.`, hook: "", lang: kod === "TR" ? "Türkçe" : "", _sel: !!r.email});
   }
   // Claude varsa yalnızca bu bilgilerle sınıflandırır; e-posta veya bilgi uydurmaz.
   if (sample) {
@@ -1400,7 +1434,7 @@ ${res.map((r, i) => `${i}. ${r.name} | ${r.kind} | ${r.region} | web: ${r.websit
 // Web araması (sunucuda, 1 Tavily sorgusu). Sonuçları döndürür; ekranı çağıran günceller.
 // Hata: kullanıcının düzeltebileceği uyarılar (400, kota) aynen, diğerleri "geliştiriciyle iletişime geçin".
 async function webAra(n, dedupe, brief, region, sorgu = "") {
-  const p = state.profile;
+  const p = {...aktifSirket(), mode: research.mod || state.profile.mode};
   try {
     const r = await fetch("/api/arastir-web", {method: "POST", headers: {"Content-Type": "application/json"}, signal: research.ctl.signal,
       body: JSON.stringify({tarif: brief, bolge: region, mod: p.mode, adet: n, sorgu, sirket: {ad: p.company, sektor: p.sector, urunler: p.productsMail || p.products}, haric: [...state.leads.map(l => l.name), ...state.suppress, ...state.gorulen.filter(k => k.startsWith("n:")).slice(-200).map(k => k.slice(2))]})});
@@ -1427,15 +1461,18 @@ async function runWeb(n, dedupe, brief, region, sorgu = "") {
    taranır (Nominatim ad araması + Wikidata; belirli bir firma türü seçildiyse harita etiketleri), 3) web sitesi olanların
    kurumsal adresi sunucuda sitesinden okunur, 4) istenen sayı dolmazsa eksik kalan kadarı web aramasıyla tamamlanır. */
 const bekle = ms => new Promise(r => setTimeout(r, ms));
-async function planAl(ifade, hedef) {
+const aktifSirket = () => ({...state.profile, ...(state.sirketler.find(x => x.id === state.profile.sonSirket) || state.sirketler[0] || {})});
+async function planAl(ifade, hedef, sehir) {
+  const c = aktifSirket();
   try {
     const r = await fetch("/api/arama-plani", {method: "POST", headers: {"Content-Type": "application/json"}, signal: research.ctl.signal,
-      body: JSON.stringify({ifade, mod: state.profile.mode, ulkeAd: hedef.en, ulkeKod: hedef.k})});
-    if (r.ok) { const j = await r.json(); if (j.terimler?.length) return j; }
+      body: JSON.stringify({ifade, ulkeAd: hedef?.en || "", ulkeKod: hedef?.ulke ? hedef.k : "", sehir, sirket: {ad: c.company, sektor: c.sector, urunler: c.productsMail || c.products, alim: c.buyNeedsMail || c.buyNeeds}})});
+    if (r.ok) { const j = await r.json(); if (j.acilar?.length || j.terimler?.length) return j; }
   } catch (e) { if (e.name === "AbortError") throw e; console.warn("Pusula arama planı:", e); }
   // Yapay zekâ yanıt vermezse yerleşik sözlük
   const {terimler} = anahtarTerimler(ifade);
-  return {konu: ifade, terimler: terimler.length ? terimler : [ifade.toLocaleLowerCase("tr")], sektor: [], web: ""};
+  const t = terimler.length ? terimler : [ifade.toLocaleLowerCase("tr")];
+  return {rol: /tedarik|supplier|üretici|satan/i.test(ifade) ? "supplier" : "customer", ulke: "", sehir, konu: ifade.slice(0, 60), anlasilan: "", acilar: [{baslik: ifade.slice(0, 60), terimler: t, web: ""}], sektor: [], terimler: t, web: ""};
 }
 // Nominatim (OpenStreetMap'in arama servisi): ülke çapında, firma adında geçen kelimeyle hızlı arama.
 // Kullanım kuralı gereği saniyede en fazla 1 istek gönderilir.
@@ -1443,15 +1480,15 @@ const NOMINATIM_URL = "https://nominatim.openstreetmap.org/search";
 const FIRMA_DEGIL_SINIF = /^(highway|railway|public_transport|place|boundary|natural|landuse|waterway|route|bridge|tunnel|aeroway|historic|military|power|barrier|emergency|leisure)$/;
 const FIRMA_DEGIL_TUR = /^(bus_stop|bus_station|stop_position|platform|parking|parking_entrance|place_of_worship|toilets|bench|fountain|townhall|police|post_office|government|grave_yard|kindergarten|school|park|playground|ferry_terminal|fuel|atm|vending_machine|charging_station)$/;
 const SINIF_ADI = {office: "Ofis", shop: "Mağaza / bayi", craft: "Atölye", industrial: "Sanayi tesisi", man_made: "Tesis", amenity: "İşletme", tourism: "Turizm işletmesi", healthcare: "Sağlık kuruluşu", building: "Bina"};
-async function nominatimAra(terimler, hedef, signal) {
+async function nominatimAra(terimler, hedef, signal, sehir = "") {
   const ham = [];
   // 3 harften kısa kelimeler (ör. "bi") ad aramasında alakasız çok kayıt getirir
   for (const [i, t] of terimler.filter(t => t.length >= 3).slice(0, 4).entries()) {
     if (signal.aborted) break;
     if (i) await bekle(1100);
     try {
-      const r = await fetch(`${NOMINATIM_URL}?q=${encodeURIComponent(t)}&countrycodes=${hedef.k.toLowerCase()}&format=jsonv2&extratags=1&addressdetails=1&limit=50&accept-language=tr`, {signal});
-      if (r.ok) ham.push(...await r.json());
+      const r = await fetch(`${NOMINATIM_URL}?q=${encodeURIComponent(sehir ? `${t} ${sehir}` : t)}&countrycodes=${hedef.k.toLowerCase()}&format=jsonv2&extratags=1&addressdetails=1&limit=50&accept-language=tr`, {signal});
+      if (r.ok) ham.push(...(await r.json()).map(x => ({...x, _terim: t})));
     } catch (e) { if (signal.aborted) break; console.warn("Pusula Nominatim:", e); }
   }
   return ham.filter(x => x.name && !FIRMA_DEGIL_SINIF.test(x.category) && !FIRMA_DEGIL_TUR.test(x.type)).map(x => {
@@ -1459,7 +1496,7 @@ async function nominatimAra(terimler, hedef, signal) {
     const email = (t.email || t["contact:email"] || "").split(";")[0].trim().toLowerCase();
     return {name: x.name, kind: SINIF_ADI[x.category] || "İşletme", region: [a.city || a.town || a.province || a.state || a.county, hedef.tr].filter(Boolean).join(", "),
       website: (t.website || t["contact:website"] || "").replace(/^https?:\/\//, "").replace(/\/$/, ""), email, emailSource: email ? "OpenStreetMap kaydında yayımlanmış adres" : "",
-      sources: [{ad: "OpenStreetMap", url: `https://www.openstreetmap.org/${x.osm_type}/${x.osm_id}`}]};
+      sources: [{ad: "OpenStreetMap", url: `https://www.openstreetmap.org/${x.osm_type}/${x.osm_id}`}], _terim: x._terim};
   });
 }
 async function wikidataAra(plan, hedef, n, signal) {
@@ -1502,10 +1539,10 @@ async function sitedenEposta(liste) {
 async function siniflandir(res, turk) {
   for (const r of res) {
     if (r.verified === undefined) r.verified = false;
-    Object.assign(r, {segment: "Sınıflandırılmadı", priority: r.email ? "B" : "C", score: (r.email ? 55 : 35) + (r.website ? 10 : 0) + (r.sources.length > 1 ? 10 : 0), why: `${r.sources.map(x => x.ad).join(" + ")} kaydı${r.website ? ", web sitesi var" : ""}${r.email ? ", kurumsal adres yayımlanmış" : "; e-posta adresi bulunamadı"}.`, hook: "", lang: turk ? "Türkçe" : "", _sel: !!r.email});
+    Object.assign(r, {segment: r.segment || "Sınıflandırılmadı", priority: r.email ? "B" : "C", score: (r.email ? 55 : 35) + (r.website ? 10 : 0) + (r.sources.length > 1 ? 10 : 0), why: `${r.sources.map(x => x.ad).join(" + ")} kaydı${r.website ? ", web sitesi var" : ""}${r.email ? ", kurumsal adres yayımlanmış" : "; e-posta adresi bulunamadı"}.`, hook: "", lang: turk ? "Türkçe" : "", _sel: !!r.email});
   }
   if (!sample || !res.length) return;
-  const p = state.profile;
+  const p = {...aktifSirket(), mode: research.mod};
   try {
     const out = await sample.json(`You classify B2B prospects for ${p.company} (${p.sector}; products: ${p.products}). Goal: ${p.mode === "supplier" ? "find suppliers" : "find customers or partners"}. Target: ${p.segmentBrief || p.resSector}.
 Use ONLY the facts given per firm below. Do not invent emails, numbers, projects or relationships. If facts are too thin, keep score under 50 and leave hook empty. If a firm clearly does not match the target (e.g. a public office or a shop unrelated to the target), give priority C and score under 20.
@@ -1514,27 +1551,48 @@ ${res.map((r, i) => `${i}. ${r.name} | ${r.kind} | ${r.region} | web: ${r.websit
     if (Array.isArray(out)) for (const c of out) { const r = res[Number(c.i)]; if (!r) continue; Object.assign(r, {segment: String(c.segment || r.segment), priority: ["A", "B", "C"].includes(c.priority) ? c.priority : r.priority, score: Math.max(0, Math.min(100, Number(c.score) || r.score)), why: String(c.why || r.why), hook: isTr(r.lang) ? "" : String(c.hook || "")}); r._sel = !!r.email && r.priority !== "C"; }
   } catch (e) { /* sınıflandırma olmadan da sonuçlar gösterilir */ }
 }
-async function runAkilli(n, dedupe, brief, hedef) {
-  const p = state.profile, ifade = (p.resSector || "").trim() || brief;
+async function runAkilli(n, dedupe, ifade, secili, sehirSecili) {
+  const p = state.profile;
   const asama = t => { research.asama = t; render(); };
-  if (ifade.length < 2) { research.running = false; research.error = "Ne tür firma aradığınızı yazın (ör. lojistik, reklam ajansı, kablo üreticisi)."; render(); return; }
   const tp = OSM_TYPES[p.resType], ozelTur = !!tp && !["tumu", "anahtar"].includes(p.resType);
   let plan;
-  try { asama("Aramanız anlaşılıyor…"); plan = await planAl(ifade, hedef); } catch (e) { research.running = false; research.asama = ""; render(); return; }
-  research.plan = plan;
+  try { asama("Aramanız anlaşılıyor…"); plan = await planAl(ifade, secili, sehirSecili); } catch (e) { research.running = false; research.asama = ""; render(); return; }
+  // Ülke: kullanıcının seçtiği, yoksa metinden anlaşılan; hiçbiri yoksa dünya genelinde web araması
+  const hedef = secili || hedefOf(plan.ulke) || null, sehir = sehirSecili || plan.sehir || "";
+  research.plan = plan; research.mod = plan.rol || "customer";
+  research.kategori ||= plan.konu;
+  research.campaign ||= [plan.konu, sehir || hedef?.tr].filter(Boolean).join(" – ");
   let serbest = [], hatalar = 0;
-  if (hedef.ulke) {
-    asama(`Açık kayıtlarda "${plan.konu}" aranıyor…`);
+  if (hedef?.ulke) {
+    asama(`Açık kayıtlarda "${plan.konu}" aranıyor${plan.acilar?.length > 1 ? ` (${plan.acilar.length} açıdan)` : ""}…`);
     const sig = research.ctl.signal;
-    const parca = await Promise.allSettled([nominatimAra(plan.terimler, hedef, sig), wikidataAra(plan, hedef, n, sig), ozelTur ? etiketAra(tp, (p.resSector || "").trim() ? plan.terimler : [], hedef, n, sig) : Promise.resolve([])]);
+    // Her açıdan en fazla 2 kelime (Nominatim kuralı: saniyede 1 istek; toplam en çok 6 istek)
+    const acilar = plan.acilar?.length ? plan.acilar : [{baslik: plan.konu, terimler: plan.terimler}];
+    const terimAci = new Map();
+    for (const a of acilar) for (const t of a.terimler.filter(t => t.length >= 3).slice(0, 2)) if (!terimAci.has(t)) terimAci.set(t, a.baslik);
+    const terimler = [...terimAci.keys()].slice(0, 6);
+    const parca = await Promise.allSettled([
+      nominatimAra(terimler, hedef, sig, sehir).then(l => l.map(r => ({...r, segment: terimAci.get(r._terim) || plan.konu}))),
+      wikidataAra(plan, hedef, n, sig).then(l => l.map(r => ({...r, segment: plan.konu}))).then(l => sehir ? l.filter(r => trAscii(r.region.toLocaleLowerCase("tr")).includes(trAscii(sehir.toLocaleLowerCase("tr")))) : l),
+      ozelTur ? etiketAra(tp, [], hedef, n, sig) : Promise.resolve([])]);
     for (const x of parca) if (x.status === "fulfilled") serbest.push(...x.value); else { hatalar++; console.warn("Pusula açık kayıt kaynağı yanıt vermedi:", x.reason); }
     if (research.durdu) { research.running = false; research.asama = ""; render(); return; }
     // Aynı firma (alan adı veya ad) tek kayıt; kaynaklar birleşir
-    const key = r => (r.website || "").replace(/^www\./, "").split("/")[0].toLowerCase() || r.name.toLocaleLowerCase("tr");
-    const m = new Map();
-    for (const r of serbest) { const k = key(r), x = m.get(k); if (x) { x.sources.push(...r.sources); x.email ||= r.email; x.emailSource ||= r.emailSource; x.website ||= r.website; } else m.set(k, r); }
-    const isimde = r => plan.terimler.some(t => trAscii(r.name.toLocaleLowerCase("tr")).includes(trAscii(t)));
-    serbest = [...m.values()].filter(dedupe).sort((a, b) => (!!b.email - !!a.email) || (!!b.website - !!a.website) || (isimde(b) - isimde(a)) || (b.sources.length - a.sources.length)).slice(0, n);
+    // Aynı firma tek kayıt: alan adı ya da ad (büyük/küçük harf ve Türkçe karakter farkı gözetmeden) eşleşirse kaynaklar birleşir
+    const anahtarlar = r => [(r.website || "").replace(/^www\./, "").split("/")[0].toLowerCase(), trAscii(r.name.toLocaleLowerCase("tr")).replace(/\s+/g, " ").trim()].filter(Boolean);
+    const m = new Map(), tekil = [];
+    for (const r of serbest) {
+      const x = anahtarlar(r).map(k => m.get(k)).find(Boolean);
+      if (x) { x.sources.push(...r.sources); x.email ||= r.email; x.emailSource ||= r.emailSource; x.website ||= r.website; for (const k of anahtarlar(r)) m.set(k, x); }
+      else { tekil.push(r); for (const k of anahtarlar(r)) m.set(k, r); }
+    }
+    const isimde = r => terimler.some(t => trAscii(r.name.toLocaleLowerCase("tr")).includes(trAscii(t)));
+    // Açılar arasında dengeli seçim: her açıdan sırayla, açı içinde önce e-postası ve sitesi olanlar
+    const sira = (a, b) => (!!b.email - !!a.email) || (!!b.website - !!a.website) || (isimde(b) - isimde(a)) || (b.sources.length - a.sources.length);
+    const gruplar = [...tekil.filter(dedupe).reduce((g, r) => g.set(r.segment || "", [...(g.get(r.segment || "") || []), r]), new Map()).values()].map(x => x.sort(sira));
+    gruplar.sort((x, y) => sira(x[0], y[0]));
+    serbest = [];
+    while (serbest.length < n && gruplar.some(x => x.length)) for (const x of gruplar) if (x.length && serbest.length < n) serbest.push(x.shift());
     if (serbest.length) {
       asama("Firmaların sitelerinden e-posta adresleri okunuyor…");
       await sitedenEposta(serbest);
@@ -1557,33 +1615,44 @@ async function runAkilli(n, dedupe, brief, hedef) {
     asama("Web'de aranıyor…");
     research.ctl = new AbortController();
     const zaten = new Set(serbest.flatMap(firmaAnahtarlari));
-    web = await webAra(n - serbest.length, r => dedupe(r) && !firmaAnahtarlari(r).some(k => zaten.has(k)), brief || `${plan.konu} firmaları`, hedef.en, plan.web);
+    web = await webAra(n - serbest.length, r => dedupe(r) && !firmaAnahtarlari(r).some(k => zaten.has(k)), ifade, [sehir, hedef?.en || "worldwide"].filter(Boolean).join(", "), plan.acilar?.[0]?.web || plan.web || "");
     hatirla(web.adaylar);
   }
   research.results = [...serbest, ...web.adaylar];
   research.asama = "";
   const ePostali = research.results.filter(r => r.email).length;
-  research.note = research.results.length ? `"${plan.konu}" için ${research.results.length} yeni firma: ${serbest.length} tanesi ücretsiz açık kayıtlardan${web.adaylar.length ? `, ${web.adaylar.length} tanesi web aramasından` : ""}. ${ePostali} firmanın kurumsal e-posta adresi bulundu (yalnızca firmaların kendi sitelerinden ya da açık kayıtlardan).` : "";
+  research.note = research.results.length ? `${research.results.length} yeni firma: ${serbest.length} tanesi ücretsiz açık kayıtlardan${web.adaylar.length ? `, ${web.adaylar.length} tanesi web aramasından` : ""}. ${ePostali} firmanın kurumsal e-posta adresi bulundu (yalnızca firmaların kendi sitelerinden ya da açık kayıtlardan).` : "";
   research.error = research.results.length ? "" : web.hata || (hatalar >= 2 ? GELISTIRICI_HATA : `"${plan.konu}" için yeni firma bulunamadı. Farklı kelimelerle (ör. sektör ya da ürün adı) tekrar deneyin.`);
   research.running = false; render();
 }
 
+// Listede olan, daha önce gösterilen ya da engellenen firmalar tekrar verilmez
+function tekrarsiz() {
+  const known = state.leads.map(l => l.name.toLowerCase());
+  const knownDom = new Set(state.leads.map(l => domainOf(l.email)).filter(Boolean));
+  const gorulen = new Set(state.gorulen);
+  return r => !firmaAnahtarlari(r).some(k => gorulen.has(k)) && !known.includes(String(r.name).toLowerCase()) && !(r.email && (knownDom.has(domainOf(r.email)) || state.suppress.includes("@" + domainOf(r.email)) || state.suppress.includes(String(r.email).toLowerCase())));
+}
 async function runResearch() {
   const p = state.profile;
-  const brief = $("#brief").value.trim(), hedef = hedefOf(p.resCountry);
   if (SERVER && kota && !kota.kalan) { research = {...research, running: false, error: kotaMesaji()}; render(); return; }
   const n = Math.min(Number($("#howMany").value) || 10, SERVER && kota ? kota.kalan : 99);
+  if (SERVER) {
+    const metin = ($("#aramaMetni")?.value || "").trim(), sehir = ($("#resCity")?.value || "").trim(), secili = hedefOf(p.resCountry);
+    if (metin.length < 2) { research = {...research, running: false, error: "Ne aradığınızı birkaç kelimeyle yazın (ör. İzmir'deki lojistik firmaları)."}; render(); return; }
+    commit(() => { p.segmentBrief = metin; p.resCity = sehir; });
+    research = {running: true, results: [], error: "", ctl: new AbortController(), note: "", campaign: ($("#campaign")?.value || "").trim(), kategori: ($("#resKat")?.value || "").trim(), mod: "customer", plan: null};
+    render();
+    return runAkilli(n, tekrarsiz(), metin, secili, sehir);
+  }
+  const brief = $("#brief").value.trim(), hedef = hedefOf(p.resCountry);
   if (!hedef) { research = {...research, running: false, error: "Listeden bir ülke veya bölge seçin."}; render(); return; }
   if (!SERVER && p.resSource === "live" && !hedef.ulke) { research = {...research, running: false, error: "Canlı açık veri tek bir ülkede arar. Listeden bir ülke seçin ya da bölge araması için Web araması kaynağını kullanın."}; render(); return; }
   const region = hedef.tr;
   commit(() => { p.segmentBrief = brief; p.regions = region; });
   research = {running: true, results: [], error: "", ctl: new AbortController(), note: "", campaign: ($("#campaign")?.value || "").trim() || region, kategori: ($("#resKat")?.value || "").trim(), mod: p.mode};
   render();
-  const known = state.leads.map(l => l.name.toLowerCase());
-  const knownDom = new Set(state.leads.map(l => domainOf(l.email)).filter(Boolean));
-  const gorulen = new Set(state.gorulen);
-  const dedupe = r => !firmaAnahtarlari(r).some(k => gorulen.has(k)) && !known.includes(String(r.name).toLowerCase()) && !(r.email && (knownDom.has(domainOf(r.email)) || state.suppress.includes("@" + domainOf(r.email)) || state.suppress.includes(String(r.email).toLowerCase())));
-  if (SERVER) return runAkilli(n, dedupe, brief, hedef);
+  const dedupe = tekrarsiz();
   if (p.resSource === "live") return runLive(n, dedupe);
   if (!sample) {
     await new Promise(r => setTimeout(r, 1400));
@@ -1625,7 +1694,7 @@ function addResults(tanisma) {
     for (const r of pick) yeni.push(uid()), state.leads.push({id: yeni[yeni.length - 1], name: r.name, kind: r.kind, segment: r.segment, region: r.region, website: r.website || "", email: r.email,
       emailSource: r.emailSource || (r.email ? (sample ? "Yapay zekâ önerisi – doğrulanmalı" : "Kurumsal genel adres (kamuya açık)") : ""), legal: "B2B – meşru menfaat / tacir istisnası",
       priority: r.priority, score: r.score, why: r.why, hook: r.hook || "", lang: r.lang || "", sources: r.sources || [],
-      rol: research.mod === "supplier" ? "supplier" : guessRole(r) === "supplier" ? "customer" : guessRole(r), kategori: research.kategori || r.segment || r.kind || "Genel", campaign: research.campaign || p.regions || "Genel", verified: r.verified !== undefined ? !!r.verified : !sample && !!r.email, status: "new", step: -1, sentAt: "", lastSentAt: "", nextAt: "", notes: ""});
+      rol: research.mod === "supplier" ? "supplier" : research.mod === "partner" ? "partner" : guessRole(r) === "supplier" ? "customer" : guessRole(r), kategori: research.kategori || r.segment || r.kind || "Genel", campaign: research.campaign || p.regions || "Genel", verified: r.verified !== undefined ? !!r.verified : !sample && !!r.email, status: "new", step: -1, sentAt: "", lastSentAt: "", nextAt: "", notes: ""});
     research.results = research.results.filter(r => !r._sel);
     view = "adaylar"; filters = {segment: "Tümü", status: "Tümü", prio: "Tümü", q: "", campaign: "Tümü", rol: rolOf(leadById(yeni[0])), kategori: "Tümü"};
   });
@@ -1716,6 +1785,7 @@ document.addEventListener("click", e => {
   if (ds.open) { openLead = ds.open; drawLead(); return; }
   if (ds.closelead) { closeLead(); return; }
   if (ds.sel) { t.checked ? selected.add(ds.sel) : selected.delete(ds.sel); const b = $("#introSel"); if (b) { b.disabled = !selected.size; b.textContent = `Tanışma maili hazırla (${selected.size})`; } return; }
+  if (ds.ornek) { const a = $("#aramaMetni"); if (a) { a.value = ds.ornek; a.focus(); } return; }
   if (t.id === "derinBtn") { derinSorgu(); return; }
   if (t.id === "derinDur") { derin.dur = true; return; }
   if (t.id === "derinKapat") { derin = {running: false, dur: false}; render(); return; }
@@ -1830,7 +1900,8 @@ document.addEventListener("change", e => {
   if (ds.leadsel) { commit(() => { const l = leadById(openLead); if (l) l[ds.leadsel] = e.target.value; }); return; }
   if (ds.lead || ds.prof) render();
 });
-document.addEventListener("keydown", e => { if (e.key === "Escape") { const dlg = $("#layer").querySelector(".dlg-back"); if (dlg) dlg.remove(); else if (openLead) closeLead(); } });
+document.addEventListener("keydown", e => {
+  if (e.target.id === "aramaMetni" && e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); if (!research.running) runResearch(); return; } if (e.key === "Escape") { const dlg = $("#layer").querySelector(".dlg-back"); if (dlg) dlg.remove(); else if (openLead) closeLead(); } });
 
 /* ---------- başlangıç ---------- */
 if (!SERVER) try { const s = localStorage.getItem("pusula.state"); if (s) state = JSON.parse(s); } catch (e) {}

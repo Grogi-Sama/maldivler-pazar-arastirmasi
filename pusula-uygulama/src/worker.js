@@ -114,7 +114,7 @@ async function api(req, env, yol) {
     try { sonuc.tavily = (await tavily(env, "Maldives resort solar battery storage", 2)).map(x => x.baslik); } catch (e) { sonuc.tavily = "HATA: " + e.message; }
     if (new URL(req.url).searchParams.get("modeller")) { try { const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models?pageSize=200", {headers: {"x-goog-api-key": env.GEMINI_API_KEY}}); const j = await r.json(); sonuc.modeller = (j.models || []).filter(m => (m.supportedGenerationMethods || []).includes("generateContent")).map(m => m.name.replace("models/", "")); } catch (e) { sonuc.modeller = "HATA: " + e.message; } }
     if (new URL(req.url).searchParams.get("saglik")) sonuc.saglik = await saglikKontrol(env, "teshis", new URL(req.url).searchParams.get("saglik"));
-    if (new URL(req.url).searchParams.get("plan")) { const u = new URL(req.url).searchParams; try { sonuc.plan = await aramaPlani(env, {ifade: u.get("plan"), mod: u.get("mod") || "customer", ulkeAd: u.get("ulkeAd") || "Türkiye", ulkeKod: u.get("ulkeKod") || "TR"}); } catch (e) { sonuc.plan = "HATA: " + e.message; } }
+    if (new URL(req.url).searchParams.get("plan")) { const u = new URL(req.url).searchParams; try { sonuc.plan = await aramaPlani(env, {ifade: u.get("plan"), ulkeAd: u.get("ulkeAd") || "", ulkeKod: u.get("ulkeKod") || "", sehir: u.get("sehir") || "", sirket: {ad: "Karea Enerji", sektor: "solar and energy storage distributor", urunler: u.get("urunler") || "Huawei and HYXI solar inverters, C&I and utility battery energy storage systems (ESS)"}}); } catch (e) { sonuc.plan = "HATA: " + e.message; } }
     const g = new URL(req.url).searchParams.get("arastir");
     const qp = new URL(req.url).searchParams;
     if (g) { try { sonuc.arastir = await webArastir(env, {tarif: g, bolge: qp.get("bolge") || "Maldives", mod: qp.get("mod") || "customer", adet: Number(qp.get("adet")) || 6, sirket: {ad: "Karea Enerji", sektor: "solar inverters and battery energy storage distributor", urunler: "Huawei and HYXI inverters and ESS"}}); } catch (e) { sonuc.arastir = "HATA: " + e.message; } }
@@ -220,13 +220,16 @@ async function api(req, env, yol) {
     }
     // Arama planı: aynı ifade + ülke + arama türü için bir kez üretilir, D1'de saklanır (yapay zekâ çağrısı tekrarlanmaz)
     if (yol === "/api/arama-plani" && req.method === "POST") {
-      const {ifade = "", mod = "customer", ulkeAd = "", ulkeKod = ""} = await req.json().catch(() => ({}));
-      const ifd = String(ifade).trim().toLocaleLowerCase("tr").replace(/\s+/g, " ").slice(0, 300);
-      if (ifd.length < 2) return hata("Ne tür firma aradığınızı yazın.");
-      const anahtar = `${mod === "supplier" ? "s" : "c"}|${String(ulkeKod).slice(0, 12)}|${ifd}`;
+      const {ifade = "", ulkeAd = "", ulkeKod = "", sehir = "", sirket = {}} = await req.json().catch(() => ({}));
+      const ifd = String(ifade).trim().toLocaleLowerCase("tr").replace(/\s+/g, " ").slice(0, 400);
+      if (ifd.length < 2) return hata("Ne aradığınızı birkaç kelimeyle yazın.");
+      const sk = {ad: String(sirket.ad || "").slice(0, 80), sektor: String(sirket.sektor || "").slice(0, 160), urunler: String(sirket.urunler || "").slice(0, 400), alim: String(sirket.alim || "").slice(0, 300)};
+      // Plan aynı ifade + ülke + şehir + bizim ürünlerimiz için saklanır (ürünler değişirse yeni plan üretilir)
+      const iz = [...JSON.stringify(sk)].reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 7).toString(36);
+      const anahtar = `v2|${String(ulkeKod).slice(0, 4)}|${String(sehir).toLocaleLowerCase("tr").slice(0, 60)}|${iz}|${ifd}`;
       const kayit = await env.DB.prepare("SELECT plan FROM arama_plani WHERE anahtar = ?").bind(anahtar).first();
       if (kayit) return json(JSON.parse(kayit.plan));
-      const plan = await aramaPlani(env, {ifade: ifd, mod, ulkeAd: String(ulkeAd).slice(0, 80), ulkeKod: String(ulkeKod).slice(0, 12)});
+      const plan = await aramaPlani(env, {ifade: ifd, ulkeAd: String(ulkeAd).slice(0, 80), ulkeKod: String(ulkeKod).slice(0, 4), sehir: String(sehir).slice(0, 60), sirket: sk});
       await env.DB.prepare("INSERT OR REPLACE INTO arama_plani (anahtar, plan, olusturma) VALUES (?, ?, ?)").bind(anahtar, JSON.stringify(plan), new Date().toISOString()).run();
       return json(plan);
     }

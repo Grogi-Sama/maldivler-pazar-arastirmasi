@@ -110,3 +110,17 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 .kota{font-size:13px;color:var(--muted);background:var(--surface-2);border-radius:999px;padding:4px 12px;white-space:nowrap}
 .kota b{color:var(--accent)}
 .kota.bitti b{color:var(--amber)}
+/* Araştır: tek arama kutusu */
+.arama{display:grid;gap:12px;padding:18px}
+.arama textarea#aramaMetni{font-size:17px;line-height:1.45;border-radius:12px;padding:14px 16px;resize:vertical;min-height:62px}
+.arama-alt{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.arama-alt select,.arama-alt input{width:auto;flex:0 1 auto}
+.arama-alt #resCountry{max-width:220px}
+.arama-alt #resCity{max-width:200px}
+.arama-alt #runRes{min-width:96px}
+.arama .gelismis summary{cursor:pointer;font-size:13px;color:var(--muted);padding:2px 0}
+.arama .gelismis .form{margin-top:10px}
+.ornekler{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.anlasilan{margin:12px 2px 0;font-size:14px;line-height:1.5}
+.anlasilan .muted{color:var(--muted)}
+@media (max-width:700px){.arama-alt select,.arama-alt input{flex:1 1 calc(50% - 4px);max-width:none!important;min-width:0}.arama-alt .spacer{display:none}.arama-alt #runRes{flex:1 1 100%}}

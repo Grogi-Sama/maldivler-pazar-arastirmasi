@@ -209,21 +209,39 @@ ${tekil.map((s, i) => `[${i}] ${s.baslik}\nURL: ${s.site ? "https://" + s.site :
 // --- Arama planı ---
 // Kullanıcı ne yazarsa yazsın (lojistik, data, reklam, ambalaj...) yapay zekâ bunu aranabilir parçalara çevirir:
 // firma adlarında geçen kelimeler (Türkçe, İngilizce, ülkenin dili), Wikidata sektör adları ve tek bir web arama cümlesi.
-export async function aramaPlani(env, {ifade, mod, ulkeAd, ulkeKod}) {
-  const istem = `A user of a B2B prospecting tool typed what kind of companies they are looking for. It can be one word, a phrase or a sentence, in any language.
-Input: "${String(ifade).slice(0, 300)}"
-They want: ${mod === "supplier" ? "SUPPLIERS (manufacturers, distributors, wholesalers) of this" : "CUSTOMERS or partners: companies working in this field"}.
-Country: ${ulkeAd} (${ulkeKod}).
-Return JSON only:
-{"konu": short Turkish label of the business type (2-4 words),
- "terimler": 3 to 6 short lowercase words or 2-word phrases that typically appear INSIDE company names of this type, mixing Turkish, English and the country's main language (e.g. for logistics in Turkey: ["lojistik","logistics","nakliyat","taşımacılık","kargo"]). No generic words like "company", "şirket", "ltd", "group", "ticaret", "sanayi", "holding", "trade", "industry".
- If the input describes who would BUY or USE a product (e.g. "companies that would buy cables"), describe those buyer industries instead (e.g. electrical contractors, construction companies).
- "sektor": 2 to 4 lowercase English industry names as used in Wikidata industry labels (e.g. "logistics", "freight transport").
- "web": one web search query in the country's main language that would find lists or websites of such companies in that country (e.g. "İstanbul Ankara İzmir lojistik firmaları listesi").}`;
+// Kullanıcı arama kutusuna serbestçe ne yazarsa (ör. "veri merkezi tedarikçileri", "C&I ESS için yüksek elektrik tüketen
+// fabrikalar", "İzmir'deki lojistik firmaları") yapay zekâ niyeti çözer: kim aranıyor (müşteri / tedarikçi / iş ortağı),
+// hangi ülke ve şehir (yazıldıysa), ve 1-4 farklı arama açısı (her biri: firma adı kelimeleri + web arama cümlesi).
+// Bizim ne sattığımız da verilir; "müşteri" böylece doğru yorumlanır.
+export async function aramaPlani(env, {ifade, ulkeAd = "", ulkeKod = "", sehir = "", sirket = {}}) {
+  const istem = `You are the search planner of a B2B prospecting tool. The user typed a free-text request (any language). Work out what they really want and plan the search.
+OUR COMPANY: ${sirket.ad || "-"}; sector: ${sirket.sektor || "-"}; we sell: ${sirket.urunler || "-"}${sirket.alim ? `; we want to buy: ${sirket.alim}` : ""}.
+REQUEST: "${String(ifade).slice(0, 400)}"
+${ulkeKod ? `Country chosen by the user: ${ulkeAd} (${ulkeKod}).` : "No country chosen by the user."}${sehir ? ` City chosen: ${sehir}.` : ""}
+
+Decide:
+- "rol": "customer" if they look for buyers/users of something (e.g. "veri merkezi müşterisi" = companies that OPERATE or BUILD data centres and buy for them; "yüksek elektrik tüketen fabrikalar" = factories that would buy our product), "supplier" if they look for companies that SELL/MANUFACTURE something to them (e.g. "veri merkezi tedarikçisi" = companies selling equipment/services TO data centres), "partner" for installers/EPC/distributors/resellers to work with. When unclear and the request is just a sector name, use "customer".
+- "ulke": ISO 3166-1 alpha-2 code if the request names a country or a city in a country (e.g. "İzmir" → "TR", "Almanya" → "DE"); "" if none. If the user chose a country, use that.
+- "sehir": city/region named in the request (in its local spelling), else "".
+- "acilar": 1 to 4 different search angles that together find the best prospects. For broad intents give several concrete angles (e.g. high-electricity-consuming factories → steel/metal, cement, textile, cold storage/food, plastics; plus companies that already invest in solar). For a narrow request one or two angles are enough. Each angle:
+   {"baslik": short Turkish title, "terimler": 2-4 short lowercase words that appear INSIDE company names of that type, mixing Turkish, English and the target country's language (no generic words like company, şirket, ltd, group, ticaret, sanayi, holding, trade, industry), "web": one web search query in the target country's main language (English if no country) that finds lists or websites of such companies}
+- "sektor": 2-4 lowercase English industry names as used in Wikidata industry labels.
+- "konu": short Turkish label of what is searched (2-5 words).
+- "anlasilan": one short Turkish sentence explaining how you understood the request (who is searched and why they fit our company).
+Return JSON only: {"rol","ulke","sehir","konu","anlasilan","acilar","sektor"}`;
   let p;
   try { p = JSON.parse(await gemini(env, istem, {sicaklik: 0.2})); } catch (e) { if (e instanceof ServisHatasi) throw e; throw new ServisHatasi("Arama planı okunamadı."); }
-  const temiz = (x, n) => [...new Set((Array.isArray(x) ? x : []).map(t => String(t).toLocaleLowerCase("tr").replace(/[^\p{L}\p{N} &.-]/gu, "").trim()).filter(t => t.length >= 2 && t.length <= 40))].slice(0, n);
-  return {konu: String(p.konu || ifade).slice(0, 60), terimler: temiz(p.terimler, 6), sektor: temiz(p.sektor, 4), web: String(p.web || "").slice(0, 300)};
+  // Türkçe harf içeren kelimeler Türkçe kurala göre, diğerleri İngilizce kurala göre küçültülür ("IT" → "it", "İZMİR" → "izmir")
+  const kucuk = t => /[ğüşöçıİĞÜŞÖÇ]/.test(t) ? t.toLocaleLowerCase("tr") : t.toLowerCase();
+  const temiz = (x, n) => [...new Set((Array.isArray(x) ? x : []).map(t => kucuk(String(t)).replace(/[^\p{L}\p{N} &.-]/gu, "").trim()).filter(t => t.length >= 2 && t.length <= 40))].slice(0, n);
+  const acilar = (Array.isArray(p.acilar) ? p.acilar : []).map(a => ({baslik: String(a?.baslik || "").slice(0, 60), terimler: temiz(a?.terimler, 4), web: String(a?.web || "").slice(0, 300)})).filter(a => a.terimler.length || a.web).slice(0, 4);
+  const ulke = /^[A-Z]{2}$/.test(String(p.ulke || "").toUpperCase()) ? String(p.ulke).toUpperCase() : "";
+  return {
+    rol: ["customer", "supplier", "partner"].includes(p.rol) ? p.rol : "customer", ulke: ulkeKod || ulke, sehir: String(sehir || p.sehir || "").slice(0, 60),
+    konu: String(p.konu || ifade).slice(0, 60), anlasilan: String(p.anlasilan || "").slice(0, 300), acilar, sektor: temiz(p.sektor, 4),
+    // Eski biçimle uyum: tüm açıların kelimeleri ve ilk açının web cümlesi
+    terimler: [...new Set(acilar.flatMap(a => a.terimler))].slice(0, 8), web: acilar[0]?.web || "",
+  };
 }
 
 // --- Detaylı e-posta sorgusu (ücretsiz) ---
