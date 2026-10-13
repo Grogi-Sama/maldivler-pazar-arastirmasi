@@ -3,7 +3,8 @@
 // Kural: e-posta adresi yapay zekâdan alınmaz; yalnızca firmanın kendi sitesinde yayımlanmışsa alınır.
 
 // Kendiliğinden güncellenen ücretsiz model adları; ilki bulunamazsa (404) sıradakine geçilir.
-const GEMINI_MODELLER = ["gemini-flash-lite-latest", "gemini-flash-latest"];
+// Ücretsiz pakette her modelin kapasitesi ayrıdır; biri yoğunsa (503) ya da kotası dolduysa (429) sıradaki denenir.
+const GEMINI_MODELLER = ["gemini-flash-lite-latest", "gemini-flash-latest", "gemini-3.5-flash", "gemini-3-flash-preview", "gemini-3.1-flash-lite", "gemini-3.5-flash-lite"];
 // Google arama aracı (Ekim 2026): bu hesabın ücretsiz paketinde hiçbir modelde açık değil (429, kota 0).
 // Google hesabına ödeme yöntemi eklenirse Cloudflare'de GOOGLE_ARAMA = "acik" yapılarak devreye alınır.
 const ARAMA_MODELLER = ["gemini-flash-lite-latest", "gemini-flash-latest"];
@@ -13,13 +14,16 @@ export class ServisHatasi extends Error { constructor(mesaj, durum = 502) { supe
 export async function gemini(env, istem, {json = true, sicaklik = 0.3} = {}) {
   if (!env.GEMINI_API_KEY) throw new ServisHatasi("Yapay zekâ anahtarı tanımlı değil.", 503);
   let r;
-  for (const model of env.GEMINI_MODEL ? [env.GEMINI_MODEL] : GEMINI_MODELLER) {
+  const modeller = env.GEMINI_MODEL ? [env.GEMINI_MODEL] : GEMINI_MODELLER;
+  // Tüm modeller yoğunsa kısa bir beklemeden sonra ilk ikisi bir kez daha denenir
+  for (const model of [...modeller, "__bekle", ...modeller.slice(0, 2)]) {
+    if (model === "__bekle") { if (r && [429, 503].includes(r.status)) { await new Promise(x => setTimeout(x, 2000)); continue; } break; }
     r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
       method: "POST",
       headers: {"Content-Type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY},
       body: JSON.stringify({contents: [{role: "user", parts: [{text: istem}]}], generationConfig: {temperature: sicaklik, ...(json ? {responseMimeType: "application/json"} : {})}}),
-    });
-    if (![404, 503].includes(r.status)) break; // model yoksa ya da anlık yoğunsa (503) sıradaki model
+    }).catch(() => ({status: 503, ok: false, text: async () => "ağ hatası"}));
+    if (![404, 429, 503].includes(r.status)) break;
   }
   if (r.status === 429) throw new ServisHatasi("Yapay zekâ kotası doldu; biraz sonra tekrar deneyin.", 429);
   if (!r.ok) {
@@ -169,8 +173,13 @@ Return a JSON array (max ${adet}) of {"name","kind","segment","region","website"
 
 SEARCH RESULTS:
 ${tekil.map((s, i) => `[${i}] ${s.baslik}\nURL: ${s.site ? "https://" + s.site : s.url}\n${s.ozet}`).join("\n\n")}`;
-  let liste;
-  try { liste = JSON.parse(await gemini(env, istem, {sicaklik: 0.2})); } catch (e) { if (e instanceof ServisHatasi) throw e; throw new ServisHatasi("Yapay zekâ yanıtı okunamadı; tekrar deneyin."); }
+  let liste, yzYok = false;
+  try { liste = JSON.parse(await gemini(env, istem, {sicaklik: 0.2})); }
+  catch (e) {
+    // Yapay zekâ kullanılamıyorsa sonuçlar atılmaz: firma adı ve sitesi web sonucunun başlığından ve adresinden çıkarılır
+    console.warn("Web araması yapay zekâsız devam ediyor:", e.message);
+    yzYok = true; liste = yapayZekasizAdaylar(tekil, adet);
+  }
   if (!Array.isArray(liste)) liste = [];
   const haricSet = new Set(haric.map(x => String(x).toLowerCase()));
   const kaynakUrl = new Set(tekil.map(s => s.url));
@@ -203,7 +212,24 @@ ${tekil.map((s, i) => `[${i}] ${s.baslik}\nURL: ${s.site ? "https://" + s.site :
     }
   }));
   adaylar.sort((x, y) => (!!y.email - !!x.email) || y.score - x.score);
-  return {adaylar, kaynak: kaynakAdi, not: `${tekil.length} web sonucundan ${adaylar.length} kuruluş; ${adaylar.filter(a => a.email).length} tanesinin kurumsal adresi kendi sitesinde bulundu.`};
+  return {adaylar, kaynak: kaynakAdi, yzYok, not: `${yzYok ? "Yapay zekâ şu an yoğun olduğu için firmalar sınıflandırılmadan listelendi. " : ""}${tekil.length} web sonucundan ${adaylar.length} kuruluş; ${adaylar.filter(a => a.email).length} tanesinin kurumsal adresi kendi sitesinde bulundu.`};
+}
+
+// Yapay zekâ yoksa: rehber, haber ve sosyal medya sayfaları elenir; başlıktaki ad sitenin adıyla uyuşan sonuçlar firma sayılır
+const REHBER = /(linkedin|facebook|instagram|twitter|x\.com|youtube|wikipedia|tiktok|pinterest|medium|reddit|quora|kompass|europages|yellowpages|bulurum|firmasec|tobb|tmb\.org|haber|news|gazete|hurriyet|milliyet|sabah|sozcu|ntv|cnn|bloomberg|reuters|forbes|crunchbase|zoominfo|rocketreach|glassdoor|indeed|kariyer|sahibinden|trendyol|hepsiburada|amazon|alibaba)/i;
+function yapayZekasizAdaylar(tekil, adet) {
+  const goruldu = new Set(), liste = [];
+  tekil.forEach((s, i) => {
+    const alan = alanAdi(s.site ? s.site : s.url);
+    if (!alan || REHBER.test(alan) || goruldu.has(alan)) return;
+    const ad = String(s.baslik || "").split(/\s[|–—-]\s|\s[|:]\s?/)[0].replace(/^(home|ana ?sayfa|anasayfa|welcome)\s*[:|-]?\s*/i, "").trim().slice(0, 80);
+    if (!ad || !siteUyumlu(ad, alan)) return;
+    goruldu.add(alan);
+    // Başlık bir sayfa cümlesiyse (5 kelimeden uzun) firma adı alan adından alınır: kurumsal.turktelekom.com.tr → Turktelekom
+    const marka = markaAdi(alan), ad2 = ad.split(/\s+/).length > 5 ? marka.charAt(0).toUpperCase() + marka.slice(1) : ad;
+    liste.push({name: ad2, kind: "", segment: "Sınıflandırılmadı", region: "", website: alan, source: i, priority: "B", score: 45, why: String(s.ozet || "").replace(/\s+/g, " ").slice(0, 160), hook: "", lang: ""});
+  });
+  return liste.slice(0, adet);
 }
 
 // --- Arama planı ---
@@ -221,6 +247,7 @@ ${ulkeKod ? `Country chosen by the user: ${ulkeAd} (${ulkeKod}).` : "No country 
 
 Decide:
 - "rol": "customer" if they look for buyers/users of something (e.g. "veri merkezi müşterisi" = companies that OPERATE or BUILD data centres and buy for them; "yüksek elektrik tüketen fabrikalar" = factories that would buy our product), "supplier" if they look for companies that SELL/MANUFACTURE something to them (e.g. "veri merkezi tedarikçisi" = companies selling equipment/services TO data centres), "partner" for installers/EPC/distributors/resellers to work with. When unclear and the request is just a sector name, use "customer".
+  IMPORTANT: words like "satıcı", "satan", "tedarikçi", "üretici", "bayi", "distribütör", "supplier", "vendor", "seller", "manufacturer" always mean companies that SELL the named thing (e.g. "data center satıcısı firmalar" = companies selling data-centre equipment, solutions or capacity → "supplier"). Never turn them into buyers just because buyers would fit our products. Use our company only to resolve requests that are genuinely ambiguous.
 - "ulke": ISO 3166-1 alpha-2 code if the request names a country or a city in a country (e.g. "İzmir" → "TR", "Almanya" → "DE"); "" if none. If the user chose a country, use that.
 - "sehir": city/region named in the request (in its local spelling), else "".
 - "acilar": 1 to 4 different search angles that together find the best prospects. For broad intents give several concrete angles (e.g. high-electricity-consuming factories → steel/metal, cement, textile, cold storage/food, plastics; plus companies that already invest in solar). For a narrow request one or two angles are enough. Each angle:

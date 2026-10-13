@@ -1743,7 +1743,7 @@ async function planAl(ifade, hedef, sehir) {
   // Yapay zekâ yanıt vermezse yerleşik sözlük
   const {terimler} = anahtarTerimler(ifade);
   const t = terimler.length ? terimler : [ifade.toLocaleLowerCase("tr")];
-  return {rol: /tedarik|supplier|üretici|satan/i.test(ifade) ? "supplier" : "customer", ulke: "", sehir, konu: ifade.slice(0, 60), anlasilan: "", acilar: [{baslik: ifade.slice(0, 60), terimler: t, web: ""}], sektor: [], terimler: t, web: ""};
+  return {rol: /tedarik|supplier|vendor|seller|üretic|satıcı|satici|satan|bayi|distribüt|toptancı|manufactur/i.test(ifade) ? "supplier" : /iş ortağı|partner|kurulumcu|installer|epc/i.test(ifade) ? "partner" : "customer", ulke: "", sehir, konu: ifade.slice(0, 60), anlasilan: "", acilar: [{baslik: ifade.slice(0, 60), terimler: t, web: ""}], sektor: [], terimler: t, web: ""};
 }
 // Nominatim (OpenStreetMap'in arama servisi): ülke çapında, firma adında geçen kelimeyle hızlı arama.
 // Kullanım kuralı gereği saniyede en fazla 1 istek gönderilir.
