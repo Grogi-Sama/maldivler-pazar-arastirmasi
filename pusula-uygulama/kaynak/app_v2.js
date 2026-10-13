@@ -317,62 +317,42 @@ function vPanel() {
   if (!state.demo && !state.leads.length) return vGuide();
   const c = counts(), t = todayISO();
   const due = state.leads.filter(l => l.status === "sent" && l.nextAt && l.nextAt <= addDays(t, 7)).sort((a, b) => a.nextAt.localeCompare(b.nextAt)).slice(0, 5);
-  const stages = [["new","Yeni","var(--muted)"],["draft","Taslak","var(--blue)"],["scheduled","Planlandı","var(--blue)"],["sent","Dizide","var(--accent)"],["reply","Yanıt","var(--amber)"],["meet","Görüşme","var(--accent)"],["no","İlgilenmiyor","var(--red)"],["optout","Listeden çıktı","var(--red)"]];
-  const max = Math.max(1, ...stages.map(s => state.leads.filter(l => l.status === s[0]).length));
-  const top = state.leads.filter(l => l.status === "new" && !isSuppressed(l)).sort((a, b) => b.score - a.score).slice(0, 4);
-  const segs = [...new Set(state.leads.map(l => l.segment))].map(s => { const ls = state.leads.filter(l => l.segment === s); const sent = ls.filter(l => CONTACTED.includes(l.status)).length; const rep = ls.filter(l => ["reply", "meet"].includes(l.status)).length; return {s, sent, rep, rate: sent ? rep / sent : 0}; }).filter(x => x.sent);
   const h = state.profile.health, hs = HL().filter(([k]) => h[k]).length;
   const dueNow = state.leads.filter(l => l.status === "sent" && l.nextAt && l.nextAt <= t && !hasNextDraft(l));
   const replyDrafts = state.drafts.filter(d => d.type === "reply");
   const readyDrafts = state.drafts.filter(d => !d.scheduledFor && d.type !== "reply");
   const schedDue = state.drafts.filter(d => d.scheduledFor && d.scheduledFor <= t);
-  const unverified = state.leads.filter(l => l.status === "new" && l.email && !l.verified);
-  const newA = state.leads.filter(l => l.status === "new" && l.priority === "A" && !isSuppressed(l));
+  const newA = state.leads.filter(l => l.status === "new" && l.priority === "A" && l.email && !isSuppressed(l));
+  const epostasiz = state.leads.filter(l => !l.email && !isSuppressed(l) && !["no", "optout"].includes(l.status)).length;
+  const yanit = state.leads.filter(l => ["reply", "meet"].includes(l.status)).length;
+  const kalan = Math.max(0, state.profile.sending.dailyLimit - sentToday());
+  // Bugünkü işler: önem sırasına göre, her biri tek düğmeyle yapılır
   const tasks = [
-    replyDrafts.length && [`${replyDrafts.length} yanıta cevap taslağı hazır`, "Sıcak fırsatlar; en önce bunları yanıtlayın.", `<button class="btn sm primary" data-nav="mailler">Cevapları aç</button>`],
-    dueNow.length && [`${dueNow.length} firmanın takip zamanı geldi`, "Takip mailleri yanıtların üçte birini getirir.", `<button class="btn sm primary" id="prepDue">Takipleri hazırla</button>`],
-    schedDue.length && [`${schedDue.length} planlı mailin zamanı geldi`, "Günlük limit nedeniyle ertelenmişti.", `<button class="btn sm" data-nav="mailler">Gönder</button>`],
-    readyDrafts.length && [`${readyDrafts.length} taslak gönderilmeyi bekliyor`, state.auto.on ? "Otonom gönderim kurallara uyanları kendisi gönderiyor." : "Teslim puanına bakıp gönderin ya da otonom gönderimi açın.", state.auto.on ? `<button class="btn sm" data-nav="mailler">Taslaklara git</button>` : `<button class="btn sm" data-nav="profil" data-anchor="otonom">Otonom gönderim</button>`],
-    newA.length && [`${newA.length} A öncelikli firmaya henüz yazılmadı`, newA.slice(0, 3).map(l => l.name).join(", "), `<button class="btn sm" data-bulkintro="${newA.map(l => l.id).join(",")}">Tanışma hazırla</button>`],
-    unverified.length && [`${unverified.length} adresin doğrulanması gerekiyor`, "Yapay zekânın önerdiği adresleri web sitesinden kontrol edin.", `<button class="btn sm" data-f="status" data-v="new" data-nav="adaylar">Adaylara git</button>`],
+    replyDrafts.length && [`${replyDrafts.length} yanıta cevap taslağı hazır`, "Sıcak fırsatlar; önce bunları yanıtlayın.", `<button class="btn sm primary" data-nav="mailler">Cevapları aç</button>`],
+    dueNow.length && [`${dueNow.length} firmanın takip zamanı geldi`, "Yanıtların çoğu takip maillerinden gelir.", `<button class="btn sm primary" id="prepDue">Takipleri hazırla</button>`],
+    schedDue.length && [`${schedDue.length} planlı mailin zamanı geldi`, "Günlük sınır nedeniyle ertelenmişti.", `<button class="btn sm" data-nav="mailler">Gönder</button>`],
+    readyDrafts.length && [`${readyDrafts.length} taslak gönderilmeyi bekliyor`, state.auto.on ? "Otonom gönderim kurallara uyanları kendisi gönderiyor." : "Kontrol edip gönderin ya da otonom gönderimi açın.", `<button class="btn sm" data-nav="mailler">Taslaklara git</button>`],
+    newA.length && [`${newA.length} A öncelikli firmaya henüz yazılmadı`, newA.slice(0, 3).map(l => l.name).join(", ") + (newA.length > 3 ? "…" : ""), `<button class="btn sm" data-bulkintro="${newA.map(l => l.id).join(",")}">Tanışma hazırla</button>`],
+    SERVER && epostasiz && [`${epostasiz} firmanın e-posta adresi yok`, "Detaylı e-posta sorgusu sitelerinde yayımlanmış adresleri arar.", `<button class="btn sm" data-nav="adaylar">Adaylara git</button>`],
+    hs < HL().length && [`Gönderim sağlığı: ${hs}/${HL().length}`, `Eksik: ${HL().filter(([k]) => !h[k]).map(x => x[1]).join(", ")}. Eksikler maillerin spama düşmesine yol açabilir.`, `<button class="btn sm" data-nav="profil" data-anchor="saglik">Kontrol et</button>`],
   ].filter(Boolean);
-  const havuz = `<div class="havuz">${Object.entries(ROLES).map(([k, t]) => { const ls = state.leads.filter(l => rolOf(l) === k); return `<button class="hv" data-nav="adaylar" data-f="rol" data-v="${k}"><span>${t}</span><b>${ls.length}</b><small>${ls.filter(l => CONTACTED.includes(l.status)).length} yazıldı · ${ls.filter(l => ["reply", "meet"].includes(l.status)).length} yanıt</small></button>`; }).join("")}</div>`;
-  return head("Bugün ne yapalım?", "Araştırma, mail ve takip işlerinizin özeti.", `<button class="btn primary" data-nav="arastir">Yeni araştırma</button>`) + autoBanner() + havuz + `
-  <div class="card grid" style="margin-bottom:14px">
-    <h2>Bugünkü işler</h2>
-    ${tasks.length ? tasks.map(([a, b, c]) => `<div class="tl-item"><span style="flex:1;min-width:0"><b>${a}</b><br><span class="small muted">${esc(b)}</span></span>${c}</div>`).join("") : `<p class="small muted" style="margin:0">Bugün için bekleyen iş yok. Yeni aday bulmak için araştırma başlatabilirsiniz.</p>`}
-  </div>
-  <div class="kpis">
-    <div class="kpi"><span>Aday</span><b>${c.total}</b></div>
-    <div class="kpi"><span>Hazır taslak</span><b>${c.drafts}</b></div>
-    <div class="kpi"><span>Mail gönderilen</span><b>${c.sent}</b></div>
-    <div class="kpi"><span>Yanıt oranı</span><b>${c.sent ? Math.round(c.reply / c.sent * 100) : 0}<small style="font-size:15px">%</small></b></div>
-    <div class="kpi"><span>Bugün gönderilebilir</span><b>${Math.max(0, state.profile.sending.dailyLimit - sentToday())}<small style="font-size:13px;color:var(--muted)"> / ${state.profile.sending.dailyLimit}</small></b></div>
+  const kutu = (etiket, deger, ek, nav, f, v) => `<button class="kpi tik" data-nav="${nav}"${f ? ` data-f="${f}" data-v="${v}"` : ""}><span>${etiket}</span><b>${deger}${ek ? `<small> ${ek}</small>` : ""}</b></button>`;
+  return head("Bugün ne yapalım?", "Yapılacak işleriniz ve takipleriniz.", `<button class="btn primary" data-nav="arastir">Yeni araştırma</button>`) + autoBanner() + `
+  <div class="kpis kpi4">
+    ${kutu("Aday", c.total, "", "adaylar", "status", "Tümü")}
+    ${kutu("Yanıt bekleniyor", state.leads.filter(l => l.status === "sent").length, "", "adaylar", "status", "takipte")}
+    ${kutu("Yanıt verdi", yanit, "", "adaylar", "status", "yanit")}
+    ${kutu("Bugün gönderilebilir", kalan, "/ " + state.profile.sending.dailyLimit, "mailler")}
   </div>
   <div class="two">
     <div class="card grid">
+      <h2>Bugünkü işler</h2>
+      ${tasks.length ? tasks.map(([a, b, c]) => `<div class="tl-item"><span style="flex:1;min-width:0"><b>${a}</b><br><span class="small muted">${esc(b)}</span></span>${c}</div>`).join("") : `<p class="small muted" style="margin:0">Bugün bekleyen iş yok. Yeni firma bulmak için araştırma başlatabilirsiniz.</p>`}
+    </div>
+    <div class="card grid">
       <div class="row"><h2>Yaklaşan takipler</h2><span class="spacer"></span><button class="btn ghost sm" data-nav="takip">Tümü</button></div>
-      ${due.length ? due.map(l => { const nx = seq()[l.step + 1]; return `<div class="tl-item ${l.nextAt < t ? "over" : ""}"><span class="d">${fmtDate(l.nextAt)}</span><span style="flex:1;min-width:0"><b>${esc(l.name)}</b><br><span class="small muted">${esc(nx?.label || "")} · ilk mail ${fmtDate(l.sentAt)}</span></span>${nextBtn(l)}</div>`; }).join("") : `<p class="muted small">Önümüzdeki 7 günde takip yok.</p>`}
+      ${due.length ? due.map(l => { const nx = seq()[l.step + 1]; return `<div class="tl-item ${l.nextAt < t ? "over" : ""}"><span class="d">${fmtDate(l.nextAt)}</span><span style="flex:1;min-width:0"><b>${esc(l.name)}</b><br><span class="small muted">${esc(nx?.label || "")}</span></span>${nextBtn(l)}</div>`; }).join("") : `<p class="muted small" style="margin:0">Önümüzdeki 7 günde takip yok.</p>`}
     </div>
-    <div class="card grid">
-      <h2>Satış hunisi</h2>
-      <div class="funnel">${stages.map(s => { const n = state.leads.filter(l => l.status === s[0]).length; return `<div class="fr"><span>${s[1]}</span><span class="fb"><i style="width:${n / max * 100}%;background:${s[2]}"></i></span><span class="mono">${n}</span></div>`; }).join("")}</div>
-    </div>
-  </div>
-  <div class="two" style="margin-top:14px">
-    <div class="card grid">
-      <h2>Segmente göre yanıt oranı</h2>
-      ${segs.length ? `<div class="segbars">${segs.map(x => `<div class="r"><span>${esc(x.s)}</span><span class="fb" style="height:10px;background:var(--surface-2);border-radius:9px;overflow:hidden"><i style="display:block;height:100%;width:${Math.round(x.rate * 100)}%;background:var(--amber);border-radius:9px"></i></span><span class="mono">${x.rep}/${x.sent} · %${Math.round(x.rate * 100)}</span></div>`).join("")}</div><p class="small muted" style="margin:0">B2B soğuk mailde %3–6 normal, %8–12 iyi sayılır.</p>` : `<p class="small muted">Mail gönderdikçe burada hangi segmentin daha iyi yanıt verdiğini göreceksiniz.</p>`}
-    </div>
-    <div class="card grid">
-      <div class="row"><h2>Gönderim sağlığı</h2><span class="spacer"></span><button class="btn ghost sm" data-nav="profil" data-anchor="saglik">Kontrol et</button></div>
-      <div class="meter"><i style="width:${hs / HL().length * 100}%"></i></div>
-      <p class="small" style="margin:0">${hs}/${HL().length} madde tamam. ${hs < HL().length ? `Eksik: ${HL().filter(([k]) => !h[k]).map(x => x[1]).join(", ")}.` : "Mailleriniz gelen kutusuna ulaşmaya hazır."}</p>
-    </div>
-  </div>
-  <div class="card grid" style="margin-top:14px">
-    <div class="row"><h2>Sıradaki en iyi adaylar</h2><span class="spacer"></span><button class="btn sm" data-bulkintro="${top.map(l => l.id).join(",")}" ${top.length ? "" : "disabled"}>Bunlara tanışma maili hazırla</button></div>
-    ${top.length ? top.map(l => `<div class="row"><span class="prio p-${l.priority}">${l.priority}</span><button class="nmbtn" data-open="${l.id}" style="background:none;border:0;padding:0;font-weight:600;cursor:pointer;color:var(--fg)">${esc(l.name)}</button><span class="muted small">${esc(l.segment)} · ${esc(l.region)}</span></div>`).join("") : `<p class="muted small">Tüm adaylara mail hazırlanmış. Yeni aday bulmak için araştırma başlatın.</p>`}
   </div>`;
 }
 function vGuide() {
@@ -1778,7 +1758,7 @@ function go(v, anchor) { view = v; if (v === "arastir" || v === "adaylar") kotaY
 document.addEventListener("click", e => {
   const t = e.target.closest("button, input[type=checkbox]"); if (!t) return;
   const ds = t.dataset;
-  if (ds.nav) { if (ds.f) { filters[ds.f] = ds.v; if (ds.f === "rol") filters.kategori = "Tümü"; } go(ds.nav, ds.anchor); return; }
+  if (ds.nav) { if (ds.f) { if (ds.f === "status") Object.assign(filters, {rol: "all", kategori: "Tümü", prio: "Tümü", campaign: "Tümü", q: ""}); filters[ds.f] = ds.v; if (ds.f === "rol") filters.kategori = "Tümü"; } go(ds.nav, ds.anchor); return; }
   if (ds.mode) { commit(() => state.profile.mode = ds.mode); return; }
   if (ds.f === "takiprol") { takipRol = ds.v; render(); return; }
   if (ds.f) { filters[ds.f] = ds.v; if (ds.f === "rol") filters.kategori = "Tümü"; render(); return; }
